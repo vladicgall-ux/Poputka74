@@ -145,6 +145,10 @@
     }[c]));
   }
 
+  // По умолчанию поиск сразу отфильтрован на сегодня — самый частый случай.
+  state.searchDate = toDateStr(new Date());
+  document.getElementById('searchDate').value = state.searchDate;
+
   document.getElementById('searchDate').addEventListener('change', (e) => {
     state.searchDate = e.target.value || null;
     loadRides();

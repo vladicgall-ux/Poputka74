@@ -110,10 +110,20 @@ export function listAllRides(): RideWithDriver[] {
     .all() as RideWithDriver[];
 }
 
-export function listRidesByDriver(driverId: number): RideRecord[] {
+export function listRidesByDriver(
+  driverId: number,
+  range?: { from: string; to: string }
+): RideRecord[] {
+  const clauses = ['driver_id = @driverId'];
+  const params: Record<string, unknown> = { driverId };
+  if (range) {
+    clauses.push('date(departure_at) BETWEEN @from AND @to');
+    params.from = range.from;
+    params.to = range.to;
+  }
   return db
-    .prepare(`SELECT * FROM rides WHERE driver_id = ? ORDER BY departure_at DESC`)
-    .all(driverId) as RideRecord[];
+    .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
+    .all(params) as RideRecord[];
 }
 
 export function cancelRide(id: number, driverId: number): boolean {

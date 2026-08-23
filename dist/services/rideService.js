@@ -71,10 +71,17 @@ function listAllRides() {
         .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.created_at DESC`)
         .all();
 }
-function listRidesByDriver(driverId) {
+function listRidesByDriver(driverId, range) {
+    const clauses = ['driver_id = @driverId'];
+    const params = { driverId };
+    if (range) {
+        clauses.push('date(departure_at) BETWEEN @from AND @to');
+        params.from = range.from;
+        params.to = range.to;
+    }
     return db_1.db
-        .prepare(`SELECT * FROM rides WHERE driver_id = ? ORDER BY departure_at DESC`)
-        .all(driverId);
+        .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
+        .all(params);
 }
 function cancelRide(id, driverId) {
     const info = db_1.db

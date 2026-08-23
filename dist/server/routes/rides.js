@@ -5,6 +5,8 @@ const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const userService_1 = require("../../services/userService");
 const rideService_1 = require("../../services/rideService");
+const bookingService_1 = require("../../services/bookingService");
+const statsService_1 = require("../../services/statsService");
 const config_1 = require("../../config");
 exports.ridesRouter = (0, express_1.Router)();
 exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
@@ -12,6 +14,15 @@ function isCity(value) {
     return typeof value === 'string' && config_1.config.cities.includes(value);
 }
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** Читает и валидирует ?from=&to= (YYYY-MM-DD) — используется для фильтров по дате. */
+function parseRange(req) {
+    const from = req.query.from;
+    const to = req.query.to;
+    if (typeof from === 'string' && typeof to === 'string' && DATE_RE.test(from) && DATE_RE.test(to)) {
+        return { from, to };
+    }
+    return undefined;
+}
 /** Поиск активных поездок, опционально по направлению и дате отправления. */
 exports.ridesRouter.get('/', (req, res) => {
     const fromCity = isCity(req.query.from) ? req.query.from : undefined;
@@ -20,10 +31,20 @@ exports.ridesRouter.get('/', (req, res) => {
     const rides = (0, rideService_1.searchRides)({ fromCity, toCity, date, onlyAvailable: req.query.onlyAvailable === '1' });
     res.json({ rides });
 });
-/** Поездки текущего водителя. */
+/** Поездки текущего водителя, опционально в диапазоне дат. */
 exports.ridesRouter.get('/mine', (req, res) => {
     const { user } = req;
-    res.json({ rides: (0, rideService_1.listRidesByDriver)(user.telegram_id) });
+    res.json({ rides: (0, rideService_1.listRidesByDriver)(user.telegram_id, parseRange(req)) });
+});
+/** Статистика водителя (число поездок, пассажиров, заработок) за диапазон дат. */
+exports.ridesRouter.get('/mine/stats', (req, res) => {
+    const { user } = req;
+    const range = parseRange(req);
+    if (!range) {
+        res.status(400).json({ error: 'Укажите диапазон дат (from, to)' });
+        return;
+    }
+    res.json({ stats: (0, statsService_1.getDriverStats)(user.telegram_id, range.from, range.to) });
 });
 /** Публикация новой поездки. Требует зарегистрированного и верифицированного водителя. */
 exports.ridesRouter.post('/', (req, res) => {
@@ -74,6 +95,21 @@ exports.ridesRouter.post('/:id/cancel', (req, res) => {
         return;
     }
     res.json({ ok: true });
+});
+/** Пассажиры поездки + заработок — видно только водителю этой поездки. */
+exports.ridesRouter.get('/:id/passengers', (req, res) => {
+    const { user } = req;
+    try {
+        const result = (0, bookingService_1.getRidePassengers)(Number(req.params.id), user.telegram_id);
+        res.json(result);
+    }
+    catch (err) {
+        if (err instanceof bookingService_1.BookingError) {
+            res.status(403).json({ error: err.message });
+            return;
+        }
+        throw err;
+    }
 });
 exports.ridesRouter.get('/:id', (req, res) => {
     const ride = (0, rideService_1.getRideWithDriver)(Number(req.params.id));

@@ -334,6 +334,55 @@ textarea { resize: vertical; min-height: 60px; }
   flex: 1;
 }
 
+/* Фильтр диапазона (день/неделя/месяц/дата) в "Мои поездки" */
+.range-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--secondary-bg);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  flex-wrap: wrap;
+}
+.range-filter .dir-btn {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+}
+.range-filter input[type="date"] {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  background: var(--bg);
+  border-radius: 9px;
+  padding: 8px;
+  font-size: 13px;
+}
+
+/* Раскрывающийся список пассажиров у поездки водителя */
+.passenger-toggle-btn {
+  margin-top: 4px;
+}
+.passengers-panel {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.passengers-panel .passenger-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+}
+.passengers-panel .earnings-total {
+  font-weight: 700;
+  color: var(--success);
+  margin-top: 4px;
+}
+
 /* Выбор количества мест при бронировании */
 .seat-picker {
   display: flex;

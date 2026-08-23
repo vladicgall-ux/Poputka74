@@ -8,9 +8,14 @@ const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 exports.bookingsRouter.get('/mine', (req, res) => {
     const { user } = req;
-    res.json({ bookings: (0, bookingService_1.listBookingsByPassenger)(user.telegram_id) });
+    const { from, to } = req.query;
+    const range = typeof from === 'string' && typeof to === 'string' && DATE_RE.test(from) && DATE_RE.test(to)
+        ? { from, to }
+        : undefined;
+    res.json({ bookings: (0, bookingService_1.listBookingsByPassenger)(user.telegram_id, range) });
 });
 /**
  * Бронирование места. Требует подтверждённый телефон пассажира — защита от

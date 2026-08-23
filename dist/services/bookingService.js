@@ -9,6 +9,7 @@ exports.getBookingWithPeople = getBookingWithPeople;
 exports.listAllBookings = listAllBookings;
 exports.listBookingsByPassenger = listBookingsByPassenger;
 exports.listBookingsForRide = listBookingsForRide;
+exports.getRidePassengers = getRidePassengers;
 const db_1 = require("../db/db");
 const rideService_1 = require("./rideService");
 class BookingError extends Error {
@@ -107,17 +108,41 @@ function listAllBookings() {
        ORDER BY b.created_at DESC`)
         .all();
 }
-function listBookingsByPassenger(passengerId) {
+function listBookingsByPassenger(passengerId, range) {
+    const clauses = ['b.passenger_id = @passengerId'];
+    const params = { passengerId };
+    if (range) {
+        clauses.push('date(r.departure_at) BETWEEN @from AND @to');
+        params.from = range.from;
+        params.to = range.to;
+    }
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
-       WHERE b.passenger_id = ?
+       WHERE ${clauses.join(' AND ')}
        ORDER BY r.departure_at DESC`)
-        .all(passengerId);
+        .all(params);
 }
 function listBookingsForRide(rideId) {
     return db_1.db
         .prepare(`SELECT * FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
         .all(rideId);
+}
+/** Список пассажиров поездки + заработок — доступно только водителю этой поездки. */
+function getRidePassengers(rideId, driverId) {
+    const ride = (0, rideService_1.getRide)(rideId);
+    if (!ride || ride.driver_id !== driverId) {
+        throw new BookingError('Это не ваша поездка');
+    }
+    const passengers = db_1.db
+        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.phone
+       FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
+       WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
+       ORDER BY b.created_at ASC`)
+        .all(rideId);
+    const earnings = passengers
+        .filter((p) => p.status === 'confirmed')
+        .reduce((sum, p) => sum + p.seats_booked * ride.price_per_seat, 0);
+    return { passengers, earnings };
 }

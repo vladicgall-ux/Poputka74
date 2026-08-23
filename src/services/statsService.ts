@@ -40,3 +40,25 @@ export function getAdminStats(): AdminStats {
 
   return { totalUsers, onlineUsers, verifiedUsers, drivers, bannedUsers, activeRides, totalBookings };
 }
+
+export interface DriverStats {
+  ridesCount: number;
+  passengersCount: number;
+  earnings: number;
+}
+
+/** Статистика водителя (число поездок, пассажиров, заработок) за диапазон дат по departure_at. */
+export function getDriverStats(driverId: number, from: string, to: string): DriverStats {
+  const row = db
+    .prepare(
+      `SELECT
+         COUNT(DISTINCT r.id) AS ridesCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked ELSE 0 END), 0) AS passengersCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS earnings
+       FROM rides r
+       LEFT JOIN bookings b ON b.ride_id = r.id
+       WHERE r.driver_id = ? AND date(r.departure_at) BETWEEN ? AND ?`
+    )
+    .get(driverId, from, to) as DriverStats;
+  return row;
+}

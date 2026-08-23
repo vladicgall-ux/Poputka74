@@ -8,9 +8,16 @@ export const bookingsRouter = Router();
 
 bookingsRouter.use(requireTelegramAuth, requireActiveUser);
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 bookingsRouter.get('/mine', (req, res) => {
   const { user } = req as AuthedRequest;
-  res.json({ bookings: listBookingsByPassenger(user.telegram_id) });
+  const { from, to } = req.query;
+  const range =
+    typeof from === 'string' && typeof to === 'string' && DATE_RE.test(from) && DATE_RE.test(to)
+      ? { from, to }
+      : undefined;
+  res.json({ bookings: listBookingsByPassenger(user.telegram_id, range) });
 });
 
 /**

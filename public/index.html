@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -98,12 +98,25 @@
     <!-- МОИ ПОЕЗДКИ -->
     <section id="tab-mine" class="tab" hidden>
       <h3 class="section-title">Как водитель</h3>
+      <div class="range-filter" id="driverRangeFilter">
+        <button type="button" class="dir-btn active" data-range="day">День</button>
+        <button type="button" class="dir-btn" data-range="week">Неделя</button>
+        <button type="button" class="dir-btn" data-range="month">Месяц</button>
+        <input type="date" id="driverRangeDate" />
+      </div>
+      <div class="stats-row" id="driverStats"></div>
       <div id="myRidesList" class="cards"></div>
-      <p id="myRidesEmpty" class="empty" hidden>Вы ещё не публиковали поездок.</p>
+      <p id="myRidesEmpty" class="empty" hidden>Поездок за этот период нет.</p>
 
       <h3 class="section-title">Как пассажир</h3>
+      <div class="range-filter" id="passengerRangeFilter">
+        <button type="button" class="dir-btn active" data-range="all">Все</button>
+        <button type="button" class="dir-btn" data-range="day">День</button>
+        <button type="button" class="dir-btn" data-range="week">Неделя</button>
+        <input type="date" id="passengerRangeDate" />
+      </div>
       <div id="myBookingsList" class="cards"></div>
-      <p id="myBookingsEmpty" class="empty" hidden>У вас нет активных бронирований.</p>
+      <p id="myBookingsEmpty" class="empty" hidden>Бронирований за этот период нет.</p>
     </section>
 
     <!-- ПРОФИЛЬ -->
@@ -149,6 +162,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>

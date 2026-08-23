@@ -145,20 +145,63 @@ export function listAllBookings(): BookingWithPeople[] {
     .all() as BookingWithPeople[];
 }
 
-export function listBookingsByPassenger(passengerId: number): BookingWithRide[] {
+export function listBookingsByPassenger(
+  passengerId: number,
+  range?: { from: string; to: string }
+): BookingWithRide[] {
+  const clauses = ['b.passenger_id = @passengerId'];
+  const params: Record<string, unknown> = { passengerId };
+  if (range) {
+    clauses.push('date(r.departure_at) BETWEEN @from AND @to');
+    params.from = range.from;
+    params.to = range.to;
+  }
   return db
     .prepare(
       `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
-       WHERE b.passenger_id = ?
+       WHERE ${clauses.join(' AND ')}
        ORDER BY r.departure_at DESC`
     )
-    .all(passengerId) as BookingWithRide[];
+    .all(params) as BookingWithRide[];
 }
 
 export function listBookingsForRide(rideId: number): BookingRecord[] {
   return db
     .prepare(`SELECT * FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
     .all(rideId) as BookingRecord[];
+}
+
+export interface RidePassenger {
+  id: number;
+  passenger_id: number;
+  seats_booked: number;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  first_name: string;
+  username: string | null;
+  phone: string | null;
+}
+
+/** Список пассажиров поездки + заработок — доступно только водителю этой поездки. */
+export function getRidePassengers(
+  rideId: number,
+  driverId: number
+): { passengers: RidePassenger[]; earnings: number } {
+  const ride = getRide(rideId);
+  if (!ride || ride.driver_id !== driverId) {
+    throw new BookingError('Это не ваша поездка');
+  }
+  const passengers = db
+    .prepare(
+      `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.phone
+       FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
+       WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
+       ORDER BY b.created_at ASC`
+    )
+    .all(rideId) as RidePassenger[];
+  const earnings = passengers
+    .filter((p) => p.status === 'confirmed')
+    .reduce((sum, p) => sum + p.seats_booked * ride.price_per_seat, 0);
+  return { passengers, earnings };
 }

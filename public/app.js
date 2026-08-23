@@ -11,7 +11,26 @@
     me: null,
     driverProfile: null,
     searchDate: null,
+    driverRange: 'day',
+    passengerRange: 'all',
   };
+
+  function toDateStr(d) { return d.toISOString().slice(0, 10); }
+
+  /** Вычисляет {from, to} (YYYY-MM-DD) по пресету, либо null для 'all'. */
+  function rangeToDates(preset) {
+    if (preset === 'all') return null;
+    if (preset.startsWith('date:')) {
+      const date = preset.slice(5);
+      return { from: date, to: date };
+    }
+    const today = new Date();
+    const to = toDateStr(today);
+    const days = preset === 'week' ? 6 : preset === 'month' ? 29 : 0;
+    const fromDate = new Date(today);
+    fromDate.setDate(fromDate.getDate() - days);
+    return { from: toDateStr(fromDate), to };
+  }
 
   // ---------- API helper ----------
   async function api(path, options = {}) {
@@ -300,26 +319,77 @@
   });
 
   // ---------- Mine tab ----------
+  document.getElementById('driverRangeFilter').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dir-btn');
+    if (!btn) return;
+    document.querySelectorAll('#driverRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('driverRangeDate').value = '';
+    state.driverRange = btn.dataset.range;
+    loadMineTab();
+  });
+  document.getElementById('driverRangeDate').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    document.querySelectorAll('#driverRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
+    state.driverRange = `date:${e.target.value}`;
+    loadMineTab();
+  });
+
+  document.getElementById('passengerRangeFilter').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dir-btn');
+    if (!btn) return;
+    document.querySelectorAll('#passengerRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('passengerRangeDate').value = '';
+    state.passengerRange = btn.dataset.range;
+    loadMineTab();
+  });
+  document.getElementById('passengerRangeDate').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    document.querySelectorAll('#passengerRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
+    state.passengerRange = `date:${e.target.value}`;
+    loadMineTab();
+  });
+
   async function loadMineTab() {
     const ridesList = document.getElementById('myRidesList');
     const ridesEmpty = document.getElementById('myRidesEmpty');
     const bookingsList = document.getElementById('myBookingsList');
     const bookingsEmpty = document.getElementById('myBookingsEmpty');
 
+    const driverRange = rangeToDates(state.driverRange);
+    const driverQuery = driverRange ? `?from=${driverRange.from}&to=${driverRange.to}` : '';
+
     try {
-      const { rides } = await api('/rides/mine');
-      ridesEmpty.hidden = rides.length > 0;
-      ridesList.innerHTML = rides.map((r) => rideCardHtml(r, {
-        action: r.status === 'active'
-          ? `<button class="btn secondary small cancel-ride-btn" data-ride-id="${r.id}">Отменить поездку</button>`
-          : '',
-      })).join('');
+      const { stats } = await api(`/rides/mine/stats${driverQuery}`);
+      document.getElementById('driverStats').innerHTML = `
+        <div class="stat-tile"><div class="value">${stats.ridesCount}</div><div class="label">Поездок</div></div>
+        <div class="stat-tile"><div class="value">${stats.passengersCount}</div><div class="label">Пассажиров</div></div>
+        <div class="stat-tile"><div class="value">${stats.earnings} ₽</div><div class="label">Заработано</div></div>
+      `;
     } catch (err) {
       toast(err.message);
     }
 
     try {
-      const { bookings } = await api('/bookings/mine');
+      const { rides } = await api(`/rides/mine${driverQuery}`);
+      ridesEmpty.hidden = rides.length > 0;
+      ridesList.innerHTML = rides.map((r) => rideCardHtml(r, {
+        action: `
+          ${r.status === 'active' ? `<button class="btn secondary small cancel-ride-btn" data-ride-id="${r.id}">Отменить поездку</button>` : ''}
+          <button type="button" class="btn small passenger-toggle-btn" data-ride-id="${r.id}">👥 Пассажиры</button>
+          <div class="passengers-panel" id="passengers-${r.id}" hidden></div>
+        `,
+      })).join('');
+    } catch (err) {
+      toast(err.message);
+    }
+
+    const passengerRange = rangeToDates(state.passengerRange);
+    const passengerQuery = passengerRange ? `?from=${passengerRange.from}&to=${passengerRange.to}` : '';
+
+    try {
+      const { bookings } = await api(`/bookings/mine${passengerQuery}`);
       const active = bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed');
       bookingsEmpty.hidden = active.length > 0;
       bookingsList.innerHTML = active.map((b) => {
@@ -383,15 +453,44 @@
   });
 
   document.getElementById('myRidesList').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.cancel-ride-btn');
-    if (!btn) return;
-    if (!confirm('Отменить поездку?')) return;
-    try {
-      await api(`/rides/${btn.dataset.rideId}/cancel`, { method: 'POST' });
-      toast('Поездка отменена');
-      loadMineTab();
-    } catch (err) {
-      toast(err.message);
+    const cancelBtn = e.target.closest('.cancel-ride-btn');
+    if (cancelBtn) {
+      if (!confirm('Отменить поездку?')) return;
+      try {
+        await api(`/rides/${cancelBtn.dataset.rideId}/cancel`, { method: 'POST' });
+        toast('Поездка отменена');
+        loadMineTab();
+      } catch (err) {
+        toast(err.message);
+      }
+      return;
+    }
+
+    const toggleBtn = e.target.closest('.passenger-toggle-btn');
+    if (toggleBtn) {
+      const rideId = toggleBtn.dataset.rideId;
+      const panel = document.getElementById(`passengers-${rideId}`);
+      if (!panel.hidden) {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      panel.innerHTML = '<p class="empty">Загрузка...</p>';
+      try {
+        const { passengers, earnings } = await api(`/rides/${rideId}/passengers`);
+        if (!passengers.length) {
+          panel.innerHTML = '<p class="empty">Пока никто не забронировал место.</p>';
+          return;
+        }
+        panel.innerHTML = passengers.map((p) => `
+          <div class="passenger-row">
+            <span>${escapeHtml(p.first_name)}${p.username ? ' · @' + escapeHtml(p.username) : ''}${p.phone ? ' · ' + escapeHtml(p.phone) : ''}</span>
+            <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
+          </div>
+        `).join('') + `<div class="earnings-total">Заработок с поездки: ${earnings} ₽</div>`;
+      } catch (err) {
+        panel.innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`;
+      }
     }
   });
 

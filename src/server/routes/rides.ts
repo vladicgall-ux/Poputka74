@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { getDriverProfile } from '../../services/userService';
 import {
@@ -8,6 +8,8 @@ import {
   cancelRide,
   getRideWithDriver,
 } from '../../services/rideService';
+import { getRidePassengers, BookingError } from '../../services/bookingService';
+import { getDriverStats } from '../../services/statsService';
 import { config, type City } from '../../config';
 
 export const ridesRouter = Router();
@@ -20,6 +22,16 @@ function isCity(value: unknown): value is City {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Читает и валидирует ?from=&to= (YYYY-MM-DD) — используется для фильтров по дате. */
+function parseRange(req: Request): { from: string; to: string } | undefined {
+  const from = req.query.from;
+  const to = req.query.to;
+  if (typeof from === 'string' && typeof to === 'string' && DATE_RE.test(from) && DATE_RE.test(to)) {
+    return { from, to };
+  }
+  return undefined;
+}
+
 /** Поиск активных поездок, опционально по направлению и дате отправления. */
 ridesRouter.get('/', (req, res) => {
   const fromCity = isCity(req.query.from) ? req.query.from : undefined;
@@ -29,10 +41,21 @@ ridesRouter.get('/', (req, res) => {
   res.json({ rides });
 });
 
-/** Поездки текущего водителя. */
+/** Поездки текущего водителя, опционально в диапазоне дат. */
 ridesRouter.get('/mine', (req, res) => {
   const { user } = req as AuthedRequest;
-  res.json({ rides: listRidesByDriver(user.telegram_id) });
+  res.json({ rides: listRidesByDriver(user.telegram_id, parseRange(req)) });
+});
+
+/** Статистика водителя (число поездок, пассажиров, заработок) за диапазон дат. */
+ridesRouter.get('/mine/stats', (req, res) => {
+  const { user } = req as AuthedRequest;
+  const range = parseRange(req);
+  if (!range) {
+    res.status(400).json({ error: 'Укажите диапазон дат (from, to)' });
+    return;
+  }
+  res.json({ stats: getDriverStats(user.telegram_id, range.from, range.to) });
 });
 
 /** Публикация новой поездки. Требует зарегистрированного и верифицированного водителя. */
@@ -87,6 +110,21 @@ ridesRouter.post('/:id/cancel', (req, res) => {
     return;
   }
   res.json({ ok: true });
+});
+
+/** Пассажиры поездки + заработок — видно только водителю этой поездки. */
+ridesRouter.get('/:id/passengers', (req, res) => {
+  const { user } = req as unknown as AuthedRequest;
+  try {
+    const result = getRidePassengers(Number(req.params.id), user.telegram_id);
+    res.json(result);
+  } catch (err) {
+    if (err instanceof BookingError) {
+      res.status(403).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
 });
 
 ridesRouter.get('/:id', (req, res) => {

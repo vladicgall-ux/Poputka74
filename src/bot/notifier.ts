@@ -1,5 +1,6 @@
 import type { Telegraf } from 'telegraf';
 import { Markup } from 'telegraf';
+import { config } from '../config';
 
 let botInstance: Telegraf | null = null;
 
@@ -24,4 +25,9 @@ export async function notify(
   } catch {
     // пользователь мог заблокировать бота — это не критично
   }
+}
+
+/** Рассылает сообщение всем администраторам из ADMIN_IDS (например, обращение в поддержку). */
+export async function notifyAdmins(text: string, buttonRows?: NotifyButton[][]): Promise<void> {
+  await Promise.all(config.adminIds.map((id) => notify(id, text, buttonRows)));
 }

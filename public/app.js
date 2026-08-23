@@ -349,6 +349,22 @@
     }
   }
 
+  document.getElementById('supportSendBtn').addEventListener('click', async () => {
+    const textarea = document.getElementById('supportMessage');
+    const message = textarea.value.trim();
+    if (!message) {
+      toast('Введите текст сообщения');
+      return;
+    }
+    try {
+      await api('/support', { method: 'POST', body: JSON.stringify({ message }) });
+      textarea.value = '';
+      toast('Сообщение отправлено в поддержку');
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
   // ---------- Admin tab ----------
   document.getElementById('adminSubSwitch').addEventListener('click', (e) => {
     const btn = e.target.closest('.dir-btn');
@@ -359,6 +375,7 @@
     document.getElementById('adminUsersList').hidden = target !== 'users';
     document.getElementById('adminRidesList').hidden = target !== 'rides';
     document.getElementById('adminBookingsList').hidden = target !== 'bookings';
+    document.getElementById('adminSupportList').hidden = target !== 'support';
   });
 
   async function loadAdminTab() {
@@ -408,6 +425,25 @@
           <div class="driver">Водитель: ${escapeHtml(b.driver_first_name)}</div>
         </div>
       `).join('') || '<p class="empty">Бронирований пока нет.</p>';
+    } catch (err) {
+      toast(err.message);
+    }
+
+    try {
+      const { messages } = await api('/admin/support');
+      document.getElementById('adminSupportList').innerHTML = messages.map((m) => `
+        <div class="card ride-card">
+          <div class="row">
+            <div class="route">${escapeHtml(m.first_name)}${m.username ? ' · @' + escapeHtml(m.username) : ''}</div>
+            <span class="badge ok">${formatDate(m.created_at)}</span>
+          </div>
+          <div class="meta">
+            <span>ID: ${m.user_id}</span>
+            <span>${m.phone ? escapeHtml(m.phone) : 'номер не указан'}</span>
+          </div>
+          <div class="comment">${escapeHtml(m.message)}</div>
+        </div>
+      `).join('') || '<p class="empty">Обращений пока нет.</p>';
     } catch (err) {
       toast(err.message);
     }

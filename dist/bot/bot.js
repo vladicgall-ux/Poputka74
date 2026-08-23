@@ -10,6 +10,7 @@ const config_1 = require("../config");
 const userService_1 = require("../services/userService");
 const notifier_1 = require("./notifier");
 const bookingService_1 = require("../services/bookingService");
+const supportService_1 = require("../services/supportService");
 const bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
 function dialogRows(text, username) {
@@ -132,6 +133,29 @@ function createBot() {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось отклонить бронирование';
             await ctx.answerCbQuery(message, { show_alert: true });
         }
+    });
+    // Ловим любой обычный текст, не обработанный выше (команды и контакт
+    // перехватываются раньше и сюда не попадают) — это и есть «Поддержка»:
+    // всё, что пишут боту, долетает администратору и сохраняется в БД.
+    bot.on('text', async (ctx) => {
+        if (config_1.config.adminIds.includes(ctx.from.id))
+            return; // не шлём админу его же сообщения
+        const text = ctx.message.text.trim();
+        if (!text)
+            return;
+        (0, userService_1.upsertUser)({
+            id: ctx.from.id,
+            first_name: ctx.from.first_name,
+            last_name: ctx.from.last_name,
+            username: ctx.from.username,
+        });
+        (0, supportService_1.createSupportMessage)(ctx.from.id, text.slice(0, 1000));
+        const user = (0, userService_1.getUser)(ctx.from.id);
+        const senderName = [ctx.from.first_name, ctx.from.username ? `@${ctx.from.username}` : null]
+            .filter(Boolean)
+            .join(' ');
+        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null));
+        ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
     });
     bot.catch((err) => {
         console.error('Ошибка в обработчике бота:', err);

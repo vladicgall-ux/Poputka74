@@ -55,3 +55,13 @@ CREATE TABLE IF NOT EXISTS bookings (
 
 CREATE INDEX IF NOT EXISTS idx_bookings_ride ON bookings (ride_id, status);
 CREATE INDEX IF NOT EXISTS idx_bookings_passenger ON bookings (passenger_id, status);
+
+-- Обращения в поддержку: и из Mini App, и из обычного текстового сообщения боту.
+CREATE TABLE IF NOT EXISTS support_messages (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL REFERENCES users(telegram_id),
+  message     TEXT NOT NULL,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_support_user ON support_messages (user_id);

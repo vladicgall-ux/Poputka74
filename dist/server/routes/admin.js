@@ -7,6 +7,7 @@ const config_1 = require("../../config");
 const userService_1 = require("../../services/userService");
 const rideService_1 = require("../../services/rideService");
 const bookingService_1 = require("../../services/bookingService");
+const supportService_1 = require("../../services/supportService");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
 exports.adminRouter.use((req, res, next) => {
@@ -25,6 +26,9 @@ exports.adminRouter.get('/rides', (_req, res) => {
 });
 exports.adminRouter.get('/bookings', (_req, res) => {
     res.json({ bookings: (0, bookingService_1.listAllBookings)() });
+});
+exports.adminRouter.get('/support', (_req, res) => {
+    res.json({ messages: (0, supportService_1.listAllSupportMessages)() });
 });
 function setBan(banned) {
     return (req, res) => {

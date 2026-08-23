@@ -289,3 +289,37 @@ textarea { resize: vertical; min-height: 60px; }
   text-align: center;
   box-shadow: 0 4px 14px rgba(0,0,0,0.25);
 }
+
+/* Страницы оферты / политики конфиденциальности */
+.legal .card {
+  line-height: 1.55;
+  font-size: 14px;
+}
+.legal h1 {
+  font-size: 20px;
+  margin: 0 0 4px;
+}
+.legal .legal-meta {
+  color: var(--hint);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+.legal h2 {
+  font-size: 16px;
+  margin: 22px 0 8px;
+}
+.legal p, .legal ul {
+  margin: 0 0 10px;
+}
+.legal ul {
+  padding-left: 20px;
+}
+.legal li {
+  margin-bottom: 4px;
+}
+.legal a {
+  color: var(--link);
+}
+.legal strong {
+  color: var(--text);
+}

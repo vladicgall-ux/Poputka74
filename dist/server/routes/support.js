@@ -1,0 +1,25 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.supportRouter = void 0;
+const express_1 = require("express");
+const auth_1 = require("../middleware/auth");
+const supportService_1 = require("../../services/supportService");
+const notifier_1 = require("../../bot/notifier");
+exports.supportRouter = (0, express_1.Router)();
+// Специально без requireActiveUser: даже забаненный или неверифицированный
+// пользователь должен иметь возможность написать в поддержку и разобраться в ситуации.
+exports.supportRouter.use(auth_1.requireTelegramAuth);
+exports.supportRouter.post('/', async (req, res) => {
+    const { user } = req;
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
+    if (!message) {
+        res.status(400).json({ error: 'Введите текст сообщения' });
+        return;
+    }
+    const record = (0, supportService_1.createSupportMessage)(user.telegram_id, message);
+    const senderName = [user.first_name, user.username ? `@${user.username}` : null]
+        .filter(Boolean)
+        .join(' ');
+    await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${user.telegram_id})${user.phone ? `, ${user.phone}` : ''}\n\n${message}`);
+    res.status(201).json({ message: record });
+});

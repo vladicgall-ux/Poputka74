@@ -2,8 +2,9 @@ import { Telegraf, Markup, Input } from 'telegraf';
 import path from 'path';
 import { config } from '../config';
 import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
-import { setBotInstance, notify, type NotifyButton } from './notifier';
+import { setBotInstance, notify, notifyAdmins, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
+import { createSupportMessage } from '../services/supportService';
 
 const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
@@ -164,6 +165,34 @@ export function createBot(): Telegraf {
       const message = err instanceof BookingError ? err.message : 'Не удалось отклонить бронирование';
       await ctx.answerCbQuery(message, { show_alert: true });
     }
+  });
+
+  // Ловим любой обычный текст, не обработанный выше (команды и контакт
+  // перехватываются раньше и сюда не попадают) — это и есть «Поддержка»:
+  // всё, что пишут боту, долетает администратору и сохраняется в БД.
+  bot.on('text', async (ctx) => {
+    if (config.adminIds.includes(ctx.from.id)) return; // не шлём админу его же сообщения
+    const text = ctx.message.text.trim();
+    if (!text) return;
+
+    upsertUser({
+      id: ctx.from.id,
+      first_name: ctx.from.first_name,
+      last_name: ctx.from.last_name,
+      username: ctx.from.username,
+    });
+    createSupportMessage(ctx.from.id, text.slice(0, 1000));
+
+    const user = getUser(ctx.from.id);
+    const senderName = [ctx.from.first_name, ctx.from.username ? `@${ctx.from.username}` : null]
+      .filter(Boolean)
+      .join(' ');
+    await notifyAdmins(
+      `🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`,
+      dialogRows('💬 Написать в ответ', ctx.from.username ?? null)
+    );
+
+    ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
   });
 
   bot.catch((err) => {

@@ -4,6 +4,7 @@ import { config } from '../../config';
 import { listAllUsers, setUserBanned, getUser } from '../../services/userService';
 import { listAllRides } from '../../services/rideService';
 import { listAllBookings } from '../../services/bookingService';
+import { listAllSupportMessages } from '../../services/supportService';
 
 export const adminRouter = Router();
 
@@ -28,6 +29,10 @@ adminRouter.get('/rides', (_req, res) => {
 
 adminRouter.get('/bookings', (_req, res) => {
   res.json({ bookings: listAllBookings() });
+});
+
+adminRouter.get('/support', (_req, res) => {
+  res.json({ messages: listAllSupportMessages() });
 });
 
 function setBan(banned: boolean) {

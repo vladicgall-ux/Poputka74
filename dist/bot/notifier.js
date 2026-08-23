@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setBotInstance = setBotInstance;
 exports.notify = notify;
+exports.notifyAdmins = notifyAdmins;
 const telegraf_1 = require("telegraf");
+const config_1 = require("../config");
 let botInstance = null;
 function setBotInstance(bot) {
     botInstance = bot;
@@ -20,4 +22,8 @@ async function notify(telegramId, text, buttonRows) {
     catch {
         // пользователь мог заблокировать бота — это не критично
     }
+}
+/** Рассылает сообщение всем администраторам из ADMIN_IDS (например, обращение в поддержку). */
+async function notifyAdmins(text, buttonRows) {
+    await Promise.all(config_1.config.adminIds.map((id) => notify(id, text, buttonRows)));
 }

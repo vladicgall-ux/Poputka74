@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { createBooking, cancelBooking, listBookingsByPassenger, BookingError } from '../../services/bookingService';
 import { getRideWithDriver } from '../../services/rideService';
 import { notify, type NotifyButton } from '../../bot/notifier';
@@ -25,7 +26,7 @@ bookingsRouter.get('/mine', (req, res) => {
  * фейковых броней. Место резервируется сразу, но бронь остаётся 'pending',
  * пока водитель не подтвердит её кнопкой в чате с ботом.
  */
-bookingsRouter.post('/', async (req, res) => {
+bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
   const { user } = req as AuthedRequest;
   const rideId = Number(req.body?.rideId);
   const seats = Number(req.body?.seats ?? 1);

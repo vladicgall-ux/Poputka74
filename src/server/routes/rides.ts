@@ -1,5 +1,6 @@
 import { Router, type Request } from 'express';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { getDriverProfile } from '../../services/userService';
 import {
   createRide,
@@ -59,7 +60,7 @@ ridesRouter.get('/mine/stats', (req, res) => {
 });
 
 /** Публикация новой поездки. Требует зарегистрированного и верифицированного водителя. */
-ridesRouter.post('/', (req, res) => {
+ridesRouter.post('/', writeLimiter(15, 10 * 60_000), (req, res) => {
   const { user } = req as AuthedRequest;
   const driverProfile = getDriverProfile(user.telegram_id);
   if (!driverProfile) {

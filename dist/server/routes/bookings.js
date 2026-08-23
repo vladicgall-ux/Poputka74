@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.bookingsRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
+const rateLimit_1 = require("../middleware/rateLimit");
 const bookingService_1 = require("../../services/bookingService");
 const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
@@ -22,7 +23,7 @@ exports.bookingsRouter.get('/mine', (req, res) => {
  * фейковых броней. Место резервируется сразу, но бронь остаётся 'pending',
  * пока водитель не подтвердит её кнопкой в чате с ботом.
  */
-exports.bookingsRouter.post('/', async (req, res) => {
+exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), async (req, res) => {
     const { user } = req;
     const rideId = Number(req.body?.rideId);
     const seats = Number(req.body?.seats ?? 1);

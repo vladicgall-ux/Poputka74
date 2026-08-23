@@ -8,6 +8,24 @@ import { createSupportMessage } from '../services/supportService';
 
 const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
+/**
+ * Простой лимит на сообщения в поддержку через бота: без него любой
+ * пользователь может слать текст бесконечно, заваливая БД и Telegram
+ * администраторов. Храним в памяти процесса — этого достаточно для
+ * одного инстанса бота (long polling, без масштабирования по репликам).
+ */
+const SUPPORT_LIMIT = 5;
+const SUPPORT_WINDOW_MS = 60_000;
+const supportHits = new Map<number, number[]>();
+
+function isSupportRateLimited(userId: number): boolean {
+  const now = Date.now();
+  const hits = (supportHits.get(userId) ?? []).filter((t) => now - t < SUPPORT_WINDOW_MS);
+  hits.push(now);
+  supportHits.set(userId, hits);
+  return hits.length > SUPPORT_LIMIT;
+}
+
 /** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
 function dialogRows(text: string, username: string | null): NotifyButton[][] | undefined {
   if (!username) return undefined;
@@ -197,6 +215,11 @@ export function createBot(): Telegraf {
     if (config.adminIds.includes(ctx.from.id)) return; // не шлём админу его же сообщения
     const text = ctx.message.text.trim();
     if (!text) return;
+
+    if (isSupportRateLimited(ctx.from.id)) {
+      ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.');
+      return;
+    }
 
     upsertUser({
       id: ctx.from.id,

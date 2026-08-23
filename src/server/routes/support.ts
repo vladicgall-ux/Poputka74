@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { createSupportMessage } from '../../services/supportService';
 import { notifyAdmins } from '../../bot/notifier';
 
@@ -9,7 +10,9 @@ export const supportRouter = Router();
 // пользователь должен иметь возможность написать в поддержку и разобраться в ситуации.
 supportRouter.use(requireTelegramAuth);
 
-supportRouter.post('/', async (req, res) => {
+// Отдельный, более жёсткий лимит — иначе пользователь может засыпать
+// администратора сообщениями и раздуть таблицу support_messages.
+supportRouter.post('/', writeLimiter(8, 5 * 60_000), async (req, res) => {
   const { user } = req as AuthedRequest;
   const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
   if (!message) {

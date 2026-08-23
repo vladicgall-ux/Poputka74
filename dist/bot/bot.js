@@ -12,6 +12,22 @@ const notifier_1 = require("./notifier");
 const bookingService_1 = require("../services/bookingService");
 const supportService_1 = require("../services/supportService");
 const bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
+/**
+ * Простой лимит на сообщения в поддержку через бота: без него любой
+ * пользователь может слать текст бесконечно, заваливая БД и Telegram
+ * администраторов. Храним в памяти процесса — этого достаточно для
+ * одного инстанса бота (long polling, без масштабирования по репликам).
+ */
+const SUPPORT_LIMIT = 5;
+const SUPPORT_WINDOW_MS = 60000;
+const supportHits = new Map();
+function isSupportRateLimited(userId) {
+    const now = Date.now();
+    const hits = (supportHits.get(userId) ?? []).filter((t) => now - t < SUPPORT_WINDOW_MS);
+    hits.push(now);
+    supportHits.set(userId, hits);
+    return hits.length > SUPPORT_LIMIT;
+}
 /** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
 function dialogRows(text, username) {
     if (!username)
@@ -165,6 +181,10 @@ function createBot() {
         const text = ctx.message.text.trim();
         if (!text)
             return;
+        if (isSupportRateLimited(ctx.from.id)) {
+            ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.');
+            return;
+        }
         (0, userService_1.upsertUser)({
             id: ctx.from.id,
             first_name: ctx.from.first_name,

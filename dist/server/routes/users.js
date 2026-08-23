@@ -8,6 +8,7 @@ const express_1 = require("express");
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const auth_1 = require("../middleware/auth");
+const rateLimit_1 = require("../middleware/rateLimit");
 const userService_1 = require("../../services/userService");
 const ratingService_1 = require("../../services/ratingService");
 const config_1 = require("../../config");
@@ -23,7 +24,7 @@ exports.usersRouter.get('/me', (req, res) => {
     res.json({ user, driverProfile, isAdmin, rating });
 });
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
-exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (req, res) => {
+exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (req, res) => {
     const { user } = req;
     const { car_model, car_color, car_plate, experience } = req.body ?? {};
     if (!car_model || typeof car_model !== 'string' || !car_plate || typeof car_plate !== 'string') {
@@ -39,7 +40,7 @@ exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (req, r
     res.json({ driverProfile: profile });
 });
 /** Загрузка фото водителя или машины — отдельно от JSON-анкеты, т.к. это multipart-запрос. */
-exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (req, res, next) => {
+exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.writeLimiter)(10, 10 * 60000), (req, res, next) => {
     upload_1.uploadDriverPhoto.single('photo')(req, res, (err) => {
         if (err) {
             res.status(400).json({ error: err instanceof Error ? err.message : 'Не удалось загрузить фото' });

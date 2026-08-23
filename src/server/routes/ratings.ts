@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { createRating, RatingError } from '../../services/ratingService';
 
 export const ratingsRouter = Router();
 
 ratingsRouter.use(requireTelegramAuth, requireActiveUser);
 
-ratingsRouter.post('/', (req, res) => {
+ratingsRouter.post('/', writeLimiter(20, 10 * 60_000), (req, res) => {
   const { user } = req as AuthedRequest;
   const rideId = Number(req.body?.rideId);
   const rating = Number(req.body?.rating);

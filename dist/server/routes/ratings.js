@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ratingsRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
+const rateLimit_1 = require("../middleware/rateLimit");
 const ratingService_1 = require("../../services/ratingService");
 exports.ratingsRouter = (0, express_1.Router)();
 exports.ratingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
-exports.ratingsRouter.post('/', (req, res) => {
+exports.ratingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (req, res) => {
     const { user } = req;
     const rideId = Number(req.body?.rideId);
     const rating = Number(req.body?.rating);

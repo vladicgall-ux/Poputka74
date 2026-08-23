@@ -2,6 +2,7 @@ import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto } from '../../services/userService';
 import { getDriverRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
@@ -21,7 +22,7 @@ usersRouter.get('/me', (req, res) => {
 });
 
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
-usersRouter.post('/me/driver-profile', requireActiveUser, (req, res) => {
+usersRouter.post('/me/driver-profile', requireActiveUser, writeLimiter(20, 10 * 60_000), (req, res) => {
   const { user } = req as AuthedRequest;
   const { car_model, car_color, car_plate, experience } = req.body ?? {};
   if (!car_model || typeof car_model !== 'string' || !car_plate || typeof car_plate !== 'string') {
@@ -41,6 +42,7 @@ usersRouter.post('/me/driver-profile', requireActiveUser, (req, res) => {
 usersRouter.post(
   '/me/photo',
   requireActiveUser,
+  writeLimiter(10, 10 * 60_000),
   (req, res, next) => {
     uploadDriverPhoto.single('photo')(req, res, (err: unknown) => {
       if (err) {

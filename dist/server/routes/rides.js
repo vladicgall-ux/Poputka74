@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ridesRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
+const rateLimit_1 = require("../middleware/rateLimit");
 const userService_1 = require("../../services/userService");
 const rideService_1 = require("../../services/rideService");
 const bookingService_1 = require("../../services/bookingService");
@@ -47,7 +48,7 @@ exports.ridesRouter.get('/mine/stats', (req, res) => {
     res.json({ stats: (0, statsService_1.getDriverStats)(user.telegram_id, range.from, range.to) });
 });
 /** Публикация новой поездки. Требует зарегистрированного и верифицированного водителя. */
-exports.ridesRouter.post('/', (req, res) => {
+exports.ridesRouter.post('/', (0, rateLimit_1.writeLimiter)(15, 10 * 60000), (req, res) => {
     const { user } = req;
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id);
     if (!driverProfile) {

@@ -13,6 +13,12 @@
 
 * { box-sizing: border-box; }
 
+/* Некоторые наши классы (.gate-screen, .cards и т.д.) задают display
+   с той же специфичностью, что и встроенное правило [hidden]{display:none} —
+   без !important они могут его перебить, и "скрытый" элемент всё равно
+   займёт место на экране. Эта строка гарантирует, что hidden всегда побеждает. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   padding: 0;

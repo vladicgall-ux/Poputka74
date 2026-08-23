@@ -21,12 +21,8 @@ exports.usersRouter.get('/me', (req, res) => {
     res.json({ user, driverProfile, isAdmin });
 });
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
-exports.usersRouter.post('/me/driver-profile', (req, res) => {
+exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (req, res) => {
     const { user } = req;
-    if (!user.phone_verified) {
-        res.status(403).json({ error: 'Сначала подтвердите номер телефона через бота' });
-        return;
-    }
     const { car_model, car_color, car_plate, experience } = req.body ?? {};
     if (!car_model || typeof car_model !== 'string' || !car_plate || typeof car_plate !== 'string') {
         res.status(400).json({ error: 'Укажите модель и госномер автомобиля' });
@@ -41,7 +37,7 @@ exports.usersRouter.post('/me/driver-profile', (req, res) => {
     res.json({ driverProfile: profile });
 });
 /** Загрузка фото водителя или машины — отдельно от JSON-анкеты, т.к. это multipart-запрос. */
-exports.usersRouter.post('/me/photo', (req, res, next) => {
+exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (req, res, next) => {
     upload_1.uploadDriverPhoto.single('photo')(req, res, (err) => {
         if (err) {
             res.status(400).json({ error: err instanceof Error ? err.message : 'Не удалось загрузить фото' });

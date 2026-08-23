@@ -7,7 +7,7 @@ const bookingService_1 = require("../../services/bookingService");
 const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
 exports.bookingsRouter = (0, express_1.Router)();
-exports.bookingsRouter.use(auth_1.requireTelegramAuth);
+exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 exports.bookingsRouter.get('/mine', (req, res) => {
     const { user } = req;
     res.json({ bookings: (0, bookingService_1.listBookingsByPassenger)(user.telegram_id) });
@@ -19,10 +19,6 @@ exports.bookingsRouter.get('/mine', (req, res) => {
  */
 exports.bookingsRouter.post('/', async (req, res) => {
     const { user } = req;
-    if (!user.phone_verified) {
-        res.status(403).json({ error: 'Сначала подтвердите номер телефона через бота' });
-        return;
-    }
     const rideId = Number(req.body?.rideId);
     const seats = Number(req.body?.seats ?? 1);
     if (!Number.isInteger(rideId) || !Number.isInteger(seats) || seats < 1 || seats > 8) {

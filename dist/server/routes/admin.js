@@ -26,3 +26,21 @@ exports.adminRouter.get('/rides', (_req, res) => {
 exports.adminRouter.get('/bookings', (_req, res) => {
     res.json({ bookings: (0, bookingService_1.listAllBookings)() });
 });
+function setBan(banned) {
+    return (req, res) => {
+        const telegramId = Number(req.params.id);
+        if (config_1.config.adminIds.includes(telegramId)) {
+            res.status(400).json({ error: 'Нельзя заблокировать администратора' });
+            return;
+        }
+        const target = (0, userService_1.getUser)(telegramId);
+        if (!target) {
+            res.status(404).json({ error: 'Пользователь не найден' });
+            return;
+        }
+        (0, userService_1.setUserBanned)(telegramId, banned);
+        res.json({ user: (0, userService_1.getUser)(telegramId) });
+    };
+}
+exports.adminRouter.post('/users/:id/ban', setBan(true));
+exports.adminRouter.post('/users/:id/unban', setBan(false));

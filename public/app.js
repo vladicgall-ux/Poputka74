@@ -350,6 +350,17 @@
   }
 
   // ---------- Admin tab ----------
+  document.getElementById('adminSubSwitch').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dir-btn');
+    if (!btn) return;
+    document.querySelectorAll('#adminSubSwitch .dir-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.adminTab;
+    document.getElementById('adminUsersList').hidden = target !== 'users';
+    document.getElementById('adminRidesList').hidden = target !== 'rides';
+    document.getElementById('adminBookingsList').hidden = target !== 'bookings';
+  });
+
   async function loadAdminTab() {
     try {
       const { users } = await api('/admin/users');
@@ -357,13 +368,16 @@
         <div class="card ride-card">
           <div class="row">
             <div class="route">${escapeHtml(u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
-            <span class="badge ${u.phone_verified ? 'ok' : 'cancelled'}">${u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
+            <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
           </div>
           <div class="meta">
             <span>ID: ${u.telegram_id}</span>
             <span>${u.phone ? escapeHtml(u.phone) : 'номер не указан'}</span>
           </div>
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
+          <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
+            ${u.banned ? 'Разблокировать' : 'Заблокировать'}
+          </button>
         </div>
       `).join('') || '<p class="empty">Пока никто не зарегистрирован.</p>';
     } catch (err) {
@@ -399,9 +413,71 @@
     }
   }
 
+  document.getElementById('adminUsersList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ban-toggle-btn');
+    if (!btn) return;
+    const telegramId = btn.dataset.telegramId;
+    const action = btn.dataset.action;
+    if (action === 'ban' && !confirm('Заблокировать этого пользователя? Он потеряет доступ к приложению.')) return;
+    btn.disabled = true;
+    try {
+      await api(`/admin/users/${telegramId}/${action}`, { method: 'POST' });
+      toast(action === 'ban' ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
+      loadAdminTab();
+    } catch (err) {
+      toast(err.message);
+      btn.disabled = false;
+    }
+  });
+
+  // ---------- App gate: banned / unverified users can't enter at all ----------
+  function showGate(title, text, showBotButton) {
+    document.getElementById('gateTitle').textContent = title;
+    document.getElementById('gateText').textContent = text;
+    document.getElementById('gateActionBtn').hidden = !showBotButton;
+    document.getElementById('app').hidden = true;
+    document.querySelector('.tabbar').hidden = true;
+    document.getElementById('appGate').hidden = false;
+  }
+
+  document.getElementById('gateActionBtn').addEventListener('click', () => {
+    tg?.close();
+  });
+
+  async function initApp() {
+    try {
+      const { user, isAdmin } = await api('/users/me');
+      state.me = user;
+
+      if (isAdmin) {
+        document.getElementById('adminTabBtn').hidden = false;
+        showTab('search');
+        return;
+      }
+      if (user.banned) {
+        showGate(
+          'Аккаунт заблокирован',
+          'Администратор ограничил вам доступ к приложению. Если считаете это ошибкой — напишите в чат с ботом.',
+          true
+        );
+        return;
+      }
+      if (!user.phone_verified) {
+        showGate(
+          'Подтвердите телефон',
+          'Чтобы пользоваться приложением, подтвердите номер телефона в чате с ботом кнопкой «Поделиться номером» — это защищает всех от фейковых анкет.',
+          true
+        );
+        return;
+      }
+
+      document.getElementById('adminTabBtn').hidden = !isAdmin;
+      showTab('search');
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
   // init
-  showTab('search');
-  api('/users/me').then(({ isAdmin }) => {
-    document.getElementById('adminTabBtn').hidden = !isAdmin;
-  }).catch(() => {});
+  initApp();
 })();

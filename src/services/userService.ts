@@ -7,6 +7,7 @@ export interface UserRecord {
   username: string | null;
   phone: string | null;
   phone_verified: number;
+  banned: number;
   created_at: string;
 }
 
@@ -54,6 +55,10 @@ export function setPhoneVerified(telegramId: number, phone: string): void {
   db.prepare(
     'UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?'
   ).run(phone, telegramId);
+}
+
+export function setUserBanned(telegramId: number, banned: boolean): void {
+  db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
 }
 
 export interface UserWithDriverInfo extends UserRecord {

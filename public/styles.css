@@ -35,6 +35,18 @@ body {
   display: block;
 }
 
+.gate-screen {
+  min-height: calc(100vh - 140px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 14px;
+}
+.gate-screen .gate {
+  max-width: 420px;
+  width: 100%;
+}
+
 .app {
   padding: 14px 14px 24px;
   max-width: 560px;

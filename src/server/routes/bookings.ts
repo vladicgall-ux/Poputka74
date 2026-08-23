@@ -1,12 +1,12 @@
 import { Router } from 'express';
-import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
+import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { createBooking, cancelBooking, listBookingsByPassenger, BookingError } from '../../services/bookingService';
 import { getRideWithDriver } from '../../services/rideService';
 import { notify, type NotifyButton } from '../../bot/notifier';
 
 export const bookingsRouter = Router();
 
-bookingsRouter.use(requireTelegramAuth);
+bookingsRouter.use(requireTelegramAuth, requireActiveUser);
 
 bookingsRouter.get('/mine', (req, res) => {
   const { user } = req as AuthedRequest;
@@ -20,10 +20,6 @@ bookingsRouter.get('/mine', (req, res) => {
  */
 bookingsRouter.post('/', async (req, res) => {
   const { user } = req as AuthedRequest;
-  if (!user.phone_verified) {
-    res.status(403).json({ error: 'Сначала подтвердите номер телефона через бота' });
-    return;
-  }
   const rideId = Number(req.body?.rideId);
   const seats = Number(req.body?.seats ?? 1);
   if (!Number.isInteger(rideId) || !Number.isInteger(seats) || seats < 1 || seats > 8) {

@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
   username        TEXT,
   phone           TEXT,
   phone_verified  INTEGER NOT NULL DEFAULT 0, -- 1, если номер подтверждён через Telegram-контакт
+  banned          INTEGER NOT NULL DEFAULT 0, -- 1, если администратор заблокировал доступ
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

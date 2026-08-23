@@ -30,6 +30,9 @@ function columnExists(table, column) {
 if (!columnExists('driver_profiles', 'photo_path')) {
     exports.db.exec(`ALTER TABLE driver_profiles ADD COLUMN photo_path TEXT`);
 }
+if (!columnExists('users', 'banned')) {
+    exports.db.exec(`ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0`);
+}
 const bookingsTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get()?.sql;
 if (bookingsTableSql && !bookingsTableSql.includes("'pending'")) {
     exports.db.exec(`

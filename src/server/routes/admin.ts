@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Request, type Response } from 'express';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { config } from '../../config';
-import { listAllUsers } from '../../services/userService';
+import { listAllUsers, setUserBanned, getUser } from '../../services/userService';
 import { listAllRides } from '../../services/rideService';
 import { listAllBookings } from '../../services/bookingService';
 
@@ -29,3 +29,23 @@ adminRouter.get('/rides', (_req, res) => {
 adminRouter.get('/bookings', (_req, res) => {
   res.json({ bookings: listAllBookings() });
 });
+
+function setBan(banned: boolean) {
+  return (req: Request, res: Response) => {
+    const telegramId = Number(req.params.id);
+    if (config.adminIds.includes(telegramId)) {
+      res.status(400).json({ error: 'Нельзя заблокировать администратора' });
+      return;
+    }
+    const target = getUser(telegramId);
+    if (!target) {
+      res.status(404).json({ error: 'Пользователь не найден' });
+      return;
+    }
+    setUserBanned(telegramId, banned);
+    res.json({ user: getUser(telegramId) });
+  };
+}
+
+adminRouter.post('/users/:id/ban', setBan(true));
+adminRouter.post('/users/:id/unban', setBan(false));

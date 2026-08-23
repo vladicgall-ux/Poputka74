@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsertUser = upsertUser;
 exports.getUser = getUser;
 exports.setPhoneVerified = setPhoneVerified;
+exports.setUserBanned = setUserBanned;
 exports.listAllUsers = listAllUsers;
 exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
@@ -27,6 +28,9 @@ function getUser(telegramId) {
 }
 function setPhoneVerified(telegramId, phone) {
     db_1.db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);
+}
+function setUserBanned(telegramId, banned) {
+    db_1.db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
 }
 function listAllUsers() {
     return db_1.db

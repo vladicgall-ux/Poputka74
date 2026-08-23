@@ -69,7 +69,7 @@ export function searchRides(filter: {
   toCity?: City;
   onlyAvailable?: boolean;
 }): RideWithDriver[] {
-  const clauses = [`r.status = 'active'`, `r.departure_at >= datetime('now', '-1 hour')`];
+  const clauses = [`r.status = 'active'`, `r.departure_at >= datetime('now', '-1 hour')`, `u.banned = 0`];
   const params: Record<string, unknown> = {};
   if (filter.fromCity) {
     clauses.push('r.from_city = @fromCity');

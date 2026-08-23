@@ -14,6 +14,14 @@
     <img src="assets/banner.svg" alt="Поехали 74 — Челябинск и Кунашак" />
   </header>
 
+  <div id="appGate" class="gate-screen" hidden>
+    <div class="card gate">
+      <h3 id="gateTitle"></h3>
+      <p id="gateText"></p>
+      <button class="btn" id="gateActionBtn" hidden>Открыть чат с ботом</button>
+    </div>
+  </div>
+
   <main id="app" class="app">
 
     <!-- ПОИСК -->
@@ -101,14 +109,15 @@
 
     <!-- АДМИН -->
     <section id="tab-admin" class="tab" hidden>
-      <h3 class="section-title">Все пользователи</h3>
+      <div class="direction-switch" id="adminSubSwitch">
+        <button class="dir-btn active" data-admin-tab="users">Пользователи</button>
+        <button class="dir-btn" data-admin-tab="rides">Поездки</button>
+        <button class="dir-btn" data-admin-tab="bookings">Бронирования</button>
+      </div>
+
       <div id="adminUsersList" class="cards"></div>
-
-      <h3 class="section-title">Все поездки</h3>
-      <div id="adminRidesList" class="cards"></div>
-
-      <h3 class="section-title">Все бронирования</h3>
-      <div id="adminBookingsList" class="cards"></div>
+      <div id="adminRidesList" class="cards" hidden></div>
+      <div id="adminBookingsList" class="cards" hidden></div>
     </section>
   </main>
 

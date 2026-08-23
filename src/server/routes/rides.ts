@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
+import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { getDriverProfile } from '../../services/userService';
 import {
   createRide,
@@ -12,7 +12,7 @@ import { config, type City } from '../../config';
 
 export const ridesRouter = Router();
 
-ridesRouter.use(requireTelegramAuth);
+ridesRouter.use(requireTelegramAuth, requireActiveUser);
 
 function isCity(value: unknown): value is City {
   return typeof value === 'string' && (config.cities as readonly string[]).includes(value);
@@ -36,8 +36,8 @@ ridesRouter.get('/mine', (req, res) => {
 ridesRouter.post('/', (req, res) => {
   const { user } = req as AuthedRequest;
   const driverProfile = getDriverProfile(user.telegram_id);
-  if (!user.phone_verified || !driverProfile) {
-    res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель и подтвердите телефон' });
+  if (!driverProfile) {
+    res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель' });
     return;
   }
 

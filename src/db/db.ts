@@ -30,6 +30,10 @@ if (!columnExists('driver_profiles', 'photo_path')) {
   db.exec(`ALTER TABLE driver_profiles ADD COLUMN photo_path TEXT`);
 }
 
+if (!columnExists('users', 'banned')) {
+  db.exec(`ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0`);
+}
+
 const bookingsTableSql = (
   db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get() as
     | { sql: string }

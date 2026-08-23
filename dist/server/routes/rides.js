@@ -7,7 +7,7 @@ const userService_1 = require("../../services/userService");
 const rideService_1 = require("../../services/rideService");
 const config_1 = require("../../config");
 exports.ridesRouter = (0, express_1.Router)();
-exports.ridesRouter.use(auth_1.requireTelegramAuth);
+exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 function isCity(value) {
     return typeof value === 'string' && config_1.config.cities.includes(value);
 }
@@ -27,8 +27,8 @@ exports.ridesRouter.get('/mine', (req, res) => {
 exports.ridesRouter.post('/', (req, res) => {
     const { user } = req;
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id);
-    if (!user.phone_verified || !driverProfile) {
-        res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель и подтвердите телефон' });
+    if (!driverProfile) {
+        res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель' });
         return;
     }
     const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment } = req.body ?? {};

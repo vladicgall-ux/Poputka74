@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
+import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto } from '../../services/userService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
@@ -19,12 +19,8 @@ usersRouter.get('/me', (req, res) => {
 });
 
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
-usersRouter.post('/me/driver-profile', (req, res) => {
+usersRouter.post('/me/driver-profile', requireActiveUser, (req, res) => {
   const { user } = req as AuthedRequest;
-  if (!user.phone_verified) {
-    res.status(403).json({ error: 'Сначала подтвердите номер телефона через бота' });
-    return;
-  }
   const { car_model, car_color, car_plate, experience } = req.body ?? {};
   if (!car_model || typeof car_model !== 'string' || !car_plate || typeof car_plate !== 'string') {
     res.status(400).json({ error: 'Укажите модель и госномер автомобиля' });
@@ -42,6 +38,7 @@ usersRouter.post('/me/driver-profile', (req, res) => {
 /** Загрузка фото водителя или машины — отдельно от JSON-анкеты, т.к. это multipart-запрос. */
 usersRouter.post(
   '/me/photo',
+  requireActiveUser,
   (req, res, next) => {
     uploadDriverPhoto.single('photo')(req, res, (err: unknown) => {
       if (err) {

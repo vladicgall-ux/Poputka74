@@ -16,6 +16,7 @@ export interface DriverProfileRecord {
   car_color: string | null;
   car_plate: string;
   experience: string | null;
+  photo_path: string | null;
   created_at: string;
 }
 
@@ -97,4 +98,11 @@ export function upsertDriverProfile(
     experience: data.experience ?? null,
   });
   return getDriverProfile(telegramId)!;
+}
+
+export function setDriverPhoto(telegramId: number, photoPath: string): void {
+  db.prepare('UPDATE driver_profiles SET photo_path = ? WHERE telegram_id = ?').run(
+    photoPath,
+    telegramId
+  );
 }

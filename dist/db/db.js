@@ -17,3 +17,36 @@ exports.db.pragma('journal_mode = WAL');
 exports.db.pragma('foreign_keys = ON');
 const schema = fs_1.default.readFileSync(path_1.default.join(__dirname, 'schema.sql'), 'utf-8');
 exports.db.exec(schema);
+/**
+ * Лёгкие миграции для баз, созданных до появления фото водителя и
+ * подтверждения брони. SQLite не умеет ALTER TABLE на CHECK-ограничения,
+ * поэтому для bookings делаем пересборку таблицы; для driver_profiles
+ * достаточно ADD COLUMN.
+ */
+function columnExists(table, column) {
+    const columns = exports.db.prepare(`PRAGMA table_info(${table})`).all();
+    return columns.some((c) => c.name === column);
+}
+if (!columnExists('driver_profiles', 'photo_path')) {
+    exports.db.exec(`ALTER TABLE driver_profiles ADD COLUMN photo_path TEXT`);
+}
+const bookingsTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get()?.sql;
+if (bookingsTableSql && !bookingsTableSql.includes("'pending'")) {
+    exports.db.exec(`
+    BEGIN TRANSACTION;
+    ALTER TABLE bookings RENAME TO bookings_old;
+    CREATE TABLE bookings (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      ride_id       INTEGER NOT NULL REFERENCES rides(id),
+      passenger_id  INTEGER NOT NULL REFERENCES users(telegram_id),
+      seats_booked  INTEGER NOT NULL CHECK (seats_booked BETWEEN 1 AND 8),
+      status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','cancelled')),
+      created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO bookings SELECT * FROM bookings_old;
+    DROP TABLE bookings_old;
+    CREATE INDEX IF NOT EXISTS idx_bookings_ride ON bookings (ride_id, status);
+    CREATE INDEX IF NOT EXISTS idx_bookings_passenger ON bookings (passenger_id, status);
+    COMMIT;
+  `);
+}

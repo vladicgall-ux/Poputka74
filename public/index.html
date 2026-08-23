@@ -51,6 +51,14 @@
         <button type="submit" class="btn">Сохранить анкету водителя</button>
       </form>
 
+      <div id="driverPhotoCard" class="card" hidden>
+        <h3>Фото (вы или машина)</h3>
+        <p style="margin:0 0 4px;color:var(--hint);font-size:13px;">Пассажирам спокойнее садиться в машину, когда видно, кто за рулём или на чём поедут.</p>
+        <img id="driverPhotoPreview" alt="Фото водителя" style="display:none;width:100%;max-height:220px;object-fit:cover;border-radius:12px;margin-bottom:10px;" />
+        <input type="file" id="driverPhotoInput" accept="image/jpeg,image/png,image/webp" />
+        <button type="button" class="btn" id="driverPhotoUploadBtn" style="margin-top:10px;">Загрузить фото</button>
+      </div>
+
       <form id="rideForm" class="card" hidden>
         <h3>Новая поездка</h3>
         <label>Направление

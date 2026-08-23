@@ -6,6 +6,7 @@ exports.setPhoneVerified = setPhoneVerified;
 exports.listAllUsers = listAllUsers;
 exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
+exports.setDriverPhoto = setDriverPhoto;
 const db_1 = require("../db/db");
 function upsertUser(profile) {
     db_1.db.prepare(`INSERT INTO users (telegram_id, first_name, last_name, username)
@@ -55,4 +56,7 @@ function upsertDriverProfile(telegramId, data) {
         experience: data.experience ?? null,
     });
     return getDriverProfile(telegramId);
+}
+function setDriverPhoto(telegramId, photoPath) {
+    db_1.db.prepare('UPDATE driver_profiles SET photo_path = ? WHERE telegram_id = ?').run(photoPath, telegramId);
 }

@@ -4,6 +4,7 @@ import { usersRouter } from './routes/users';
 import { ridesRouter } from './routes/rides';
 import { bookingsRouter } from './routes/bookings';
 import { adminRouter } from './routes/admin';
+import { uploadsDir } from './middleware/upload';
 
 export function createApp() {
   const app = express();
@@ -14,6 +15,7 @@ export function createApp() {
   app.use('/api/bookings', bookingsRouter);
   app.use('/api/admin', adminRouter);
 
+  app.use('/uploads', express.static(uploadsDir));
   app.use(express.static(path.join(__dirname, '..', '..', 'public')));
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -32,7 +32,7 @@ const RIDE_WITH_DRIVER_SELECT = `
   SELECT r.*,
          u.first_name AS driver_first_name,
          u.username   AS driver_username,
-         d.car_model, d.car_color, d.car_plate
+         d.car_model, d.car_color, d.car_plate, d.photo_path
   FROM rides r
   JOIN users u ON u.telegram_id = r.driver_id
   JOIN driver_profiles d ON d.telegram_id = r.driver_id

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { createBooking, cancelBooking, listBookingsByPassenger, BookingError } from '../../services/bookingService';
 import { getRideWithDriver } from '../../services/rideService';
-import { notify } from '../../bot/notifier';
+import { notify, type NotifyButton } from '../../bot/notifier';
 
 export const bookingsRouter = Router();
 
@@ -13,7 +13,11 @@ bookingsRouter.get('/mine', (req, res) => {
   res.json({ bookings: listBookingsByPassenger(user.telegram_id) });
 });
 
-/** Бронирование мест. Требует подтверждённый телефон пассажира — защита от фейковых броней. */
+/**
+ * Бронирование места. Требует подтверждённый телефон пассажира — защита от
+ * фейковых броней. Место резервируется сразу, но бронь остаётся 'pending',
+ * пока водитель не подтвердит её кнопкой в чате с ботом.
+ */
 bookingsRouter.post('/', async (req, res) => {
   const { user } = req as AuthedRequest;
   if (!user.phone_verified) {
@@ -34,13 +38,21 @@ bookingsRouter.post('/', async (req, res) => {
     const passengerName = [user.first_name, user.username ? `@${user.username}` : null]
       .filter(Boolean)
       .join(' ');
+
+    const driverButtons: NotifyButton[][] = [
+      [
+        { text: '✅ Подтверждаю бронирование', callback_data: `confirm_booking:${booking.id}` },
+        { text: '❌ Отклонить', callback_data: `decline_booking:${booking.id}` },
+      ],
+    ];
     await notify(
       ride.driver_id,
-      `🚗 Новое бронирование!\n${passengerName} забронировал(а) ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nСвяжитесь для подтверждения: ${user.phone ?? 'номер скрыт'}`
+      `🚗 Новая заявка на бронирование!\n${passengerName} хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`,
+      driverButtons
     );
     await notify(
       user.telegram_id,
-      `✅ Бронирование подтверждено!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}, ${ride.car_model} (${ride.car_plate})\nСумма: ${ride.price_per_seat * seats} ₽`
+      `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`
     );
 
     res.status(201).json({ booking });

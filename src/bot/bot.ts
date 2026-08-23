@@ -1,7 +1,23 @@
 import { Telegraf, Markup } from 'telegraf';
 import { config } from '../config';
 import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
-import { setBotInstance } from './notifier';
+import { setBotInstance, notify, type NotifyButton } from './notifier';
+import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
+
+/** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
+function dialogRows(text: string, username: string | null): NotifyButton[][] | undefined {
+  if (!username) return undefined;
+  return [[{ text, url: `https://t.me/${username}` }]];
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 /** Кнопка открытия Mini App — только если известен публичный HTTPS-адрес. */
 function appKeyboard() {
@@ -94,6 +110,58 @@ export function createBot(): Telegraf {
         user.phone_verified ? 'да' : 'нет'
       }`
     );
+  });
+
+  bot.action(/^confirm_booking:(\d+)$/, async (ctx) => {
+    const bookingId = Number(ctx.match[1]);
+    try {
+      confirmBooking(bookingId, ctx.from.id);
+      const info = getBookingWithPeople(bookingId)!;
+
+      const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username);
+      await ctx.answerCbQuery('Бронирование подтверждено!');
+      await ctx.editMessageText(
+        `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+          `Пассажир: ${info.passenger_first_name}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+          `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+          `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
+        {
+          parse_mode: 'HTML',
+          ...(passengerButtons ? Markup.inlineKeyboard(passengerButtons) : {}),
+        }
+      );
+
+      await notify(
+        info.passenger_id,
+        `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+          `Водитель: ${info.driver_first_name}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
+        dialogRows('💬 Написать водителю', info.driver_username)
+      );
+    } catch (err) {
+      const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';
+      await ctx.answerCbQuery(message, { show_alert: true });
+    }
+  });
+
+  bot.action(/^decline_booking:(\d+)$/, async (ctx) => {
+    const bookingId = Number(ctx.match[1]);
+    try {
+      const info = getBookingWithPeople(bookingId)!;
+      declineBooking(bookingId, ctx.from.id);
+
+      await ctx.answerCbQuery('Бронирование отклонено');
+      await ctx.editMessageText(
+        `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`
+      );
+
+      await notify(
+        info.passenger_id,
+        `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`
+      );
+    } catch (err) {
+      const message = err instanceof BookingError ? err.message : 'Не удалось отклонить бронирование';
+      await ctx.answerCbQuery(message, { show_alert: true });
+    }
   });
 
   bot.catch((err) => {

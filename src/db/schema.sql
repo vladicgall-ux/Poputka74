@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS driver_profiles (
   car_color     TEXT,
   car_plate     TEXT NOT NULL,
   experience    TEXT,          -- короткое описание / стаж, по желанию
+  photo_path    TEXT,          -- файл фото водителя или машины (см. /uploads)
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -39,13 +40,15 @@ CREATE TABLE IF NOT EXISTS rides (
 CREATE INDEX IF NOT EXISTS idx_rides_search
   ON rides (status, from_city, to_city, departure_at);
 
--- Бронирования мест пассажирами
+-- Бронирования мест пассажирами. Место резервируется сразу при бронировании
+-- (status='pending'), но становится окончательным только после того, как
+-- водитель подтвердит его кнопкой в чате с ботом (status='confirmed').
 CREATE TABLE IF NOT EXISTS bookings (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   ride_id       INTEGER NOT NULL REFERENCES rides(id),
   passenger_id  INTEGER NOT NULL REFERENCES users(telegram_id),
   seats_booked  INTEGER NOT NULL CHECK (seats_booked BETWEEN 1 AND 8),
-  status        TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed','cancelled')),
+  status        TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','confirmed','cancelled')),
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

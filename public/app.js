@@ -80,7 +80,10 @@
         ? '<span class="badge full">Мест нет</span>'
         : `<span class="badge ok">${ride.seats_available} мест свободно</span>`;
     const driverLine = ride.driver_first_name
-      ? `<div class="driver">${escapeHtml(ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>`
+      ? `<div class="driver-row">
+          ${ride.photo_path ? `<img class="driver-avatar" src="/uploads/${ride.photo_path}" alt="" />` : ''}
+          <div class="driver">${escapeHtml(ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>
+        </div>`
       : '';
     const actionHtml = opts.action || '';
     return `
@@ -129,7 +132,7 @@
     btn.disabled = true;
     try {
       await api('/bookings', { method: 'POST', body: JSON.stringify({ rideId, seats: 1 }) });
-      toast('Место забронировано! Водитель получил уведомление.');
+      toast('Заявка отправлена водителю! Ждите подтверждения в чате с ботом.');
       loadRides();
     } catch (err) {
       toast(err.message);
@@ -163,8 +166,18 @@
         document.getElementById('carPlate').value = driverProfile.car_plate;
         document.getElementById('carExperience').value = driverProfile.experience || '';
         rideForm.hidden = false;
+
+        document.getElementById('driverPhotoCard').hidden = false;
+        const preview = document.getElementById('driverPhotoPreview');
+        if (driverProfile.photo_path) {
+          preview.src = `/uploads/${driverProfile.photo_path}`;
+          preview.style.display = 'block';
+        } else {
+          preview.style.display = 'none';
+        }
       } else {
         rideForm.hidden = true;
+        document.getElementById('driverPhotoCard').hidden = true;
       }
     } catch (err) {
       toast(err.message);
@@ -190,6 +203,33 @@
       state.driverProfile = driverProfile;
       document.getElementById('rideForm').hidden = false;
       toast('Анкета водителя сохранена');
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
+  document.getElementById('driverPhotoUploadBtn').addEventListener('click', async () => {
+    const input = document.getElementById('driverPhotoInput');
+    const file = input.files?.[0];
+    if (!file) {
+      toast('Выберите файл фото');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('photo', file);
+    try {
+      const res = await fetch('/api/users/me/photo', {
+        method: 'POST',
+        headers: { 'X-Telegram-Init-Data': initData },
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Ошибка загрузки');
+      const preview = document.getElementById('driverPhotoPreview');
+      preview.src = data.photoUrl + '?t=' + Date.now();
+      preview.style.display = 'block';
+      input.value = '';
+      toast('Фото загружено');
     } catch (err) {
       toast(err.message);
     }
@@ -245,13 +285,13 @@
 
     try {
       const { bookings } = await api('/bookings/mine');
-      const active = bookings.filter((b) => b.status === 'confirmed');
+      const active = bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed');
       bookingsEmpty.hidden = active.length > 0;
       bookingsList.innerHTML = active.map((b) => `
         <div class="card ride-card">
           <div class="row">
             <div class="route">${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)}</div>
-            <span class="badge ok">${b.seats_booked} мест</span>
+            <span class="badge ${b.status === 'confirmed' ? 'ok' : 'pending'}">${b.status === 'confirmed' ? 'подтверждена' : 'ждём водителя'} · ${b.seats_booked} мест</span>
           </div>
           <div class="meta">
             <span>🗓 ${formatDate(b.departure_at)}</span>
@@ -344,7 +384,7 @@
         <div class="card ride-card">
           <div class="row">
             <div class="route">${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)}</div>
-            <span class="badge ${b.status === 'confirmed' ? 'ok' : 'cancelled'}">${b.status === 'confirmed' ? 'активна' : 'отменена'}</span>
+            <span class="badge ${b.status === 'confirmed' ? 'ok' : b.status === 'pending' ? 'pending' : 'cancelled'}">${b.status === 'confirmed' ? 'подтверждена' : b.status === 'pending' ? 'ждёт водителя' : 'отменена'}</span>
           </div>
           <div class="meta">
             <span>🗓 ${formatDate(b.departure_at)}</span>

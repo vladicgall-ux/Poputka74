@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
-import { getDriverProfile, upsertDriverProfile } from '../../services/userService';
+import { getDriverProfile, upsertDriverProfile, setDriverPhoto } from '../../services/userService';
 import { config } from '../../config';
+import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
 
 export const usersRouter = Router();
 
@@ -35,3 +38,36 @@ usersRouter.post('/me/driver-profile', (req, res) => {
   });
   res.json({ driverProfile: profile });
 });
+
+/** Загрузка фото водителя или машины — отдельно от JSON-анкеты, т.к. это multipart-запрос. */
+usersRouter.post(
+  '/me/photo',
+  (req, res, next) => {
+    uploadDriverPhoto.single('photo')(req, res, (err: unknown) => {
+      if (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : 'Не удалось загрузить фото' });
+        return;
+      }
+      next();
+    });
+  },
+  (req, res) => {
+    const { user } = req as AuthedRequest;
+    const file = (req as unknown as { file?: Express.Multer.File }).file;
+    if (!file) {
+      res.status(400).json({ error: 'Файл не получен' });
+      return;
+    }
+    const driverProfile = getDriverProfile(user.telegram_id);
+    if (!driverProfile) {
+      fs.unlink(file.path, () => {});
+      res.status(403).json({ error: 'Сначала сохраните анкету водителя' });
+      return;
+    }
+    if (driverProfile.photo_path) {
+      fs.unlink(path.join(uploadsDir, driverProfile.photo_path), () => {});
+    }
+    setDriverPhoto(user.telegram_id, file.filename);
+    res.json({ photoUrl: `/uploads/${file.filename}` });
+  }
+);

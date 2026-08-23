@@ -16,7 +16,17 @@ export function createApp() {
   app.use('/api/admin', adminRouter);
 
   app.use('/uploads', express.static(uploadsDir));
-  app.use(express.static(path.join(__dirname, '..', '..', 'public')));
+  app.use(
+    express.static(path.join(__dirname, '..', '..', 'public'), {
+      setHeaders: (res, filePath) => {
+        // index.html не кэшируем вовсе — иначе Telegram-клиент годами
+        // показывает старую версию Mini App внутри своего WebView.
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
+      },
+    })
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

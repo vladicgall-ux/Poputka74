@@ -388,7 +388,13 @@ input[type="date"], input[type="datetime-local"] {
 .passengers-panel .passenger-row {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 13px;
+  padding: 6px 0;
+}
+.passengers-panel .passenger-row a {
+  color: inherit;
 }
 .passengers-panel .earnings-total {
   font-weight: 700;

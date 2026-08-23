@@ -178,7 +178,7 @@ export function createBot(): Telegraf {
       await notify(
         info.passenger_id,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель: ${info.driver_first_name}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
+          `Водитель: ${info.driver_first_name}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
         dialogRows('💬 Написать водителю', info.driver_username)
       );
     } catch (err) {

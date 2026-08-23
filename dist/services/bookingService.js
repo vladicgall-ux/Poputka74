@@ -91,7 +91,7 @@ function getBookingWithPeople(bookingId) {
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.phone AS driver_phone
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id

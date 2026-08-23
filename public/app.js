@@ -507,7 +507,10 @@
         }
         panel.innerHTML = passengers.map((p) => `
           <div class="passenger-row">
-            <span>${escapeHtml(p.first_name)}${p.username ? ' · @' + escapeHtml(p.username) : ''}${p.phone ? ' · ' + escapeHtml(p.phone) : ''}</span>
+            <span>
+              ${escapeHtml(p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
+              ${p.phone ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>` : 'телефон не указан'} · ID ${p.passenger_id}
+            </span>
             <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
           </div>
         `).join('') + `<div class="earnings-total">Заработок с поездки: ${earnings} ₽</div>`;

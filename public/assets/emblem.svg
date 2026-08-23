@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Поехали 74">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2b86ff"/>
+      <stop offset="100%" stop-color="#1c5fd6"/>
+    </linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#16305e"/>
+      <stop offset="100%" stop-color="#0e2247"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- дорога снизу, полностью в безопасной зоне круглого аватара -->
+  <path d="M0 420 Q256 370 512 420 L512 512 L0 512 Z" fill="url(#road)"/>
+  <g fill="#f4f6fb" opacity="0.9">
+    <rect x="130" y="432" width="52" height="10" rx="5"/>
+    <rect x="230" y="428" width="52" height="10" rx="5"/>
+    <rect x="330" y="432" width="52" height="10" rx="5"/>
+  </g>
+
+  <!-- машина, крупно по центру -->
+  <g transform="translate(96,168)">
+    <rect x="0" y="66" width="320" height="72" rx="26" fill="#ffffff"/>
+    <path d="M30 66 C48 18 86 0 146 0 H214 C252 0 274 18 290 66 Z" fill="#ffffff"/>
+    <path d="M60 58 C72 26 94 18 140 18 H196 C226 18 240 26 252 58 Z" fill="#8fc4ff"/>
+    <circle cx="78" cy="142" r="34" fill="#0e2247"/>
+    <circle cx="78" cy="142" r="13" fill="#c9d3e0"/>
+    <circle cx="252" cy="142" r="34" fill="#0e2247"/>
+    <circle cx="252" cy="142" r="13" fill="#c9d3e0"/>
+    <rect x="-12" y="88" width="22" height="17" rx="6" fill="#ffd23f"/>
+    <rect x="310" y="88" width="22" height="17" rx="6" fill="#ff5a5a"/>
+  </g>
+
+  <text x="256" y="404" font-family="Verdana, Arial, sans-serif" font-size="46" font-weight="bold"
+        fill="#ffffff" text-anchor="middle">74</text>
+</svg>

@@ -1,8 +1,11 @@
-import { Telegraf, Markup } from 'telegraf';
+import { Telegraf, Markup, Input } from 'telegraf';
+import path from 'path';
 import { config } from '../config';
 import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
 import { setBotInstance, notify, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
+
+const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
 /** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
 function dialogRows(text: string, username: string | null): NotifyButton[][] | undefined {
@@ -56,18 +59,17 @@ export function createBot(): Telegraf {
       username: ctx.from.username,
     });
 
-    ctx.reply(
-      '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак\n\n' +
+    ctx.replyWithPhoto(Input.fromLocalFile(bannerPath), {
+      caption:
+        '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак\n\n' +
         'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
         'Чтобы бронировать поездки или публиковать свои — сначала подтвердите номер телефона кнопкой ниже. ' +
         'Это нужно, чтобы в приложении не было фейковых анкет.',
-      {
-        parse_mode: 'HTML',
-        ...Markup.keyboard([Markup.button.contactRequest('📱 Подтвердить номер телефона')])
-          .resize()
-          .oneTime(),
-      }
-    );
+      parse_mode: 'HTML',
+      ...Markup.keyboard([Markup.button.contactRequest('📱 Подтвердить номер телефона')])
+        .resize()
+        .oneTime(),
+    });
 
     replyOpenApp(ctx);
   });

@@ -1,11 +1,16 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createBot = createBot;
 const telegraf_1 = require("telegraf");
+const path_1 = __importDefault(require("path"));
 const config_1 = require("../config");
 const userService_1 = require("../services/userService");
 const notifier_1 = require("./notifier");
 const bookingService_1 = require("../services/bookingService");
+const bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
 function dialogRows(text, username) {
     if (!username)
@@ -50,10 +55,11 @@ function createBot() {
             last_name: ctx.from.last_name,
             username: ctx.from.username,
         });
-        ctx.reply('🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак\n\n' +
-            'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
-            'Чтобы бронировать поездки или публиковать свои — сначала подтвердите номер телефона кнопкой ниже. ' +
-            'Это нужно, чтобы в приложении не было фейковых анкет.', {
+        ctx.replyWithPhoto(telegraf_1.Input.fromLocalFile(bannerPath), {
+            caption: '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак\n\n' +
+                'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
+                'Чтобы бронировать поездки или публиковать свои — сначала подтвердите номер телефона кнопкой ниже. ' +
+                'Это нужно, чтобы в приложении не было фейковых анкет.',
             parse_mode: 'HTML',
             ...telegraf_1.Markup.keyboard([telegraf_1.Markup.button.contactRequest('📱 Подтвердить номер телефона')])
                 .resize()

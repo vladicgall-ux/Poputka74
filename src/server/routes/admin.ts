@@ -4,7 +4,9 @@ import { config } from '../../config';
 import { listAllUsers, setUserBanned, getUser } from '../../services/userService';
 import { listAllRides } from '../../services/rideService';
 import { listAllBookings } from '../../services/bookingService';
-import { listAllSupportMessages } from '../../services/supportService';
+import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
+import { getAdminStats } from '../../services/statsService';
+import { notify } from '../../bot/notifier';
 
 export const adminRouter = Router();
 
@@ -17,6 +19,10 @@ adminRouter.use((req, res, next) => {
     return;
   }
   next();
+});
+
+adminRouter.get('/stats', (_req, res) => {
+  res.json({ stats: getAdminStats() });
 });
 
 adminRouter.get('/users', (_req, res) => {
@@ -33,6 +39,24 @@ adminRouter.get('/bookings', (_req, res) => {
 
 adminRouter.get('/support', (_req, res) => {
   res.json({ messages: listAllSupportMessages() });
+});
+
+/** Ответ администратора пользователю — уходит ему сообщением от бота. */
+adminRouter.post('/support/:userId/reply', async (req, res) => {
+  const userId = Number(req.params.userId);
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
+  if (!message) {
+    res.status(400).json({ error: 'Введите текст ответа' });
+    return;
+  }
+  const target = getUser(userId);
+  if (!target) {
+    res.status(404).json({ error: 'Пользователь не найден' });
+    return;
+  }
+  const record = createAdminReply(userId, message);
+  await notify(userId, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
+  res.status(201).json({ message: record });
 });
 
 function setBan(banned: boolean) {

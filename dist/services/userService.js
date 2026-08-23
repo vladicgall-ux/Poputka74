@@ -10,12 +10,15 @@ exports.upsertDriverProfile = upsertDriverProfile;
 exports.setDriverPhoto = setDriverPhoto;
 const db_1 = require("../db/db");
 function upsertUser(profile) {
-    db_1.db.prepare(`INSERT INTO users (telegram_id, first_name, last_name, username)
-     VALUES (@id, @first_name, @last_name, @username)
+    // last_seen_at обновляется на каждый вызов — upsertUser выполняется
+    // из requireTelegramAuth на любом запросе к API, это и есть метка "онлайн".
+    db_1.db.prepare(`INSERT INTO users (telegram_id, first_name, last_name, username, last_seen_at)
+     VALUES (@id, @first_name, @last_name, @username, datetime('now'))
      ON CONFLICT(telegram_id) DO UPDATE SET
        first_name = excluded.first_name,
        last_name = excluded.last_name,
-       username = excluded.username`).run({
+       username = excluded.username,
+       last_seen_at = datetime('now')`).run({
         id: profile.id,
         first_name: profile.first_name,
         last_name: profile.last_name ?? null,
@@ -34,9 +37,14 @@ function setUserBanned(telegramId, banned) {
 }
 function listAllUsers() {
     return db_1.db
-        .prepare(`SELECT u.*, d.car_model, d.car_plate
+        .prepare(`SELECT u.*, d.car_model, d.car_plate,
+              ROUND(r.avg_rating, 1) AS avg_rating, COALESCE(r.rating_count, 0) AS rating_count
        FROM users u
        LEFT JOIN driver_profiles d ON d.telegram_id = u.telegram_id
+       LEFT JOIN (
+         SELECT driver_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
+         FROM ratings GROUP BY driver_id
+       ) r ON r.driver_id = u.telegram_id
        ORDER BY u.created_at DESC`)
         .all();
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -29,6 +29,10 @@
       <div class="direction-switch" id="directionSwitch">
         <button class="dir-btn active" data-from="Челябинск" data-to="Кунашак">Челябинск → Кунашак</button>
         <button class="dir-btn" data-from="Кунашак" data-to="Челябинск">Кунашак → Челябинск</button>
+      </div>
+      <div class="date-filter">
+        <input type="date" id="searchDate" />
+        <button type="button" class="btn secondary small" id="clearDateBtn">Все даты</button>
       </div>
       <div id="ridesList" class="cards"></div>
       <p id="ridesEmpty" class="empty" hidden>Пока нет поездок в этом направлении. Загляните позже или предложите свою 🚗</p>
@@ -121,6 +125,8 @@
 
     <!-- АДМИН -->
     <section id="tab-admin" class="tab" hidden>
+      <div class="stats-row" id="adminStats"></div>
+
       <div class="direction-switch" id="adminSubSwitch">
         <button class="dir-btn active" data-admin-tab="users">Пользователи</button>
         <button class="dir-btn" data-admin-tab="rides">Поездки</button>
@@ -143,6 +149,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

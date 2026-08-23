@@ -10,6 +10,7 @@
     direction: { from: 'Челябинск', to: 'Кунашак' },
     me: null,
     driverProfile: null,
+    searchDate: null,
   };
 
   // ---------- API helper ----------
@@ -72,6 +73,14 @@
     loadRides();
   });
 
+  function starsHtml(avg, count) {
+    if (!count) return '<span class="rating-line">Пока нет оценок</span>';
+    const rounded = Math.round(avg);
+    let stars = '';
+    for (let i = 1; i <= 5; i++) stars += `<span class="${i <= rounded ? 'filled' : ''}">★</span>`;
+    return `<span class="rating-line"><span class="stars">${stars}</span> ${avg} (${count})</span>`;
+  }
+
   function rideCardHtml(ride, opts = {}) {
     const full = ride.seats_available <= 0;
     const badge = ride.status === 'cancelled'
@@ -85,6 +94,7 @@
           <div class="driver">${escapeHtml(ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>
         </div>`
       : '';
+    const ratingLine = ride.driver_first_name ? starsHtml(ride.avg_rating, ride.rating_count) : '';
     const actionHtml = opts.action || '';
     return `
       <div class="card ride-card" data-ride-id="${ride.id}">
@@ -97,6 +107,7 @@
           <span class="price">${ride.price_per_seat} ₽/место</span>
         </div>
         ${driverLine}
+        ${ratingLine}
         ${ride.comment ? `<div class="comment">${escapeHtml(ride.comment)}</div>` : ''}
         ${actionHtml}
       </div>`;
@@ -108,16 +119,38 @@
     }[c]));
   }
 
+  document.getElementById('searchDate').addEventListener('change', (e) => {
+    state.searchDate = e.target.value || null;
+    loadRides();
+  });
+  document.getElementById('clearDateBtn').addEventListener('click', () => {
+    document.getElementById('searchDate').value = '';
+    state.searchDate = null;
+    loadRides();
+  });
+
+  function seatOptions(max) {
+    let opts = '';
+    for (let i = 1; i <= max; i++) opts += `<option value="${i}">${i}</option>`;
+    return opts;
+  }
+
   async function loadRides() {
     const list = document.getElementById('ridesList');
     const empty = document.getElementById('ridesEmpty');
     list.innerHTML = '';
     try {
-      const { rides } = await api(`/rides?from=${encodeURIComponent(state.direction.from)}&to=${encodeURIComponent(state.direction.to)}`);
+      const params = new URLSearchParams({ from: state.direction.from, to: state.direction.to });
+      if (state.searchDate) params.set('date', state.searchDate);
+      const { rides } = await api(`/rides?${params.toString()}`);
       empty.hidden = rides.length > 0;
       list.innerHTML = rides.map((r) => rideCardHtml(r, {
         action: r.seats_available > 0
-          ? `<button class="btn small book-btn" data-ride-id="${r.id}">Забронировать место</button>`
+          ? `<div class="seat-picker">
+              <label>Мест:</label>
+              <select class="seat-select" data-ride-id="${r.id}">${seatOptions(Math.min(r.seats_available, 8))}</select>
+              <button class="btn small book-btn" data-ride-id="${r.id}">Забронировать</button>
+            </div>`
           : '',
       })).join('');
     } catch (err) {
@@ -129,9 +162,11 @@
     const btn = e.target.closest('.book-btn');
     if (!btn) return;
     const rideId = Number(btn.dataset.rideId);
+    const seatSelect = btn.closest('.seat-picker').querySelector('.seat-select');
+    const seats = Number(seatSelect.value);
     btn.disabled = true;
     try {
-      await api('/bookings', { method: 'POST', body: JSON.stringify({ rideId, seats: 1 }) });
+      await api('/bookings', { method: 'POST', body: JSON.stringify({ rideId, seats }) });
       toast('Заявка отправлена водителю! Ждите подтверждения в чате с ботом.');
       loadRides();
     } catch (err) {
@@ -287,7 +322,21 @@
       const { bookings } = await api('/bookings/mine');
       const active = bookings.filter((b) => b.status === 'pending' || b.status === 'confirmed');
       bookingsEmpty.hidden = active.length > 0;
-      bookingsList.innerHTML = active.map((b) => `
+      bookingsList.innerHTML = active.map((b) => {
+        const departed = new Date(b.departure_at).getTime() < Date.now();
+        let footer = '';
+        if (!departed) {
+          footer = `<button class="btn secondary small cancel-booking-btn" data-booking-id="${b.id}">Отменить бронь</button>`;
+        } else if (b.status === 'confirmed' && !b.rated) {
+          footer = `
+            <div class="rate-widget" data-ride-id="${b.ride_id}">
+              ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="star-btn" data-star="${n}">★</button>`).join('')}
+              <button type="button" class="btn small rate-submit-btn" data-ride-id="${b.ride_id}" disabled>Оценить</button>
+            </div>`;
+        } else if (b.status === 'confirmed' && b.rated) {
+          footer = `<div class="rating-line">Вы уже оценили эту поездку ✅</div>`;
+        }
+        return `
         <div class="card ride-card">
           <div class="row">
             <div class="route">${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)}</div>
@@ -297,13 +346,41 @@
             <span>🗓 ${formatDate(b.departure_at)}</span>
             <span class="price">${b.price_per_seat * b.seats_booked} ₽</span>
           </div>
-          <button class="btn secondary small cancel-booking-btn" data-booking-id="${b.id}">Отменить бронь</button>
-        </div>
-      `).join('');
+          ${footer}
+        </div>`;
+      }).join('');
     } catch (err) {
       toast(err.message);
     }
   }
+
+  document.getElementById('myBookingsList').addEventListener('click', async (e) => {
+    const starBtn = e.target.closest('.star-btn');
+    if (starBtn) {
+      const widget = starBtn.closest('.rate-widget');
+      const value = Number(starBtn.dataset.star);
+      widget.dataset.selected = value;
+      widget.querySelectorAll('.star-btn').forEach((b) => {
+        b.classList.toggle('filled', Number(b.dataset.star) <= value);
+      });
+      widget.querySelector('.rate-submit-btn').disabled = false;
+      return;
+    }
+    const submitBtn = e.target.closest('.rate-submit-btn');
+    if (submitBtn) {
+      const widget = submitBtn.closest('.rate-widget');
+      const rating = Number(widget.dataset.selected);
+      submitBtn.disabled = true;
+      try {
+        await api('/ratings', { method: 'POST', body: JSON.stringify({ rideId: Number(widget.dataset.rideId), rating }) });
+        toast('Спасибо за оценку!');
+        loadMineTab();
+      } catch (err) {
+        toast(err.message);
+        submitBtn.disabled = false;
+      }
+    }
+  });
 
   document.getElementById('myRidesList').addEventListener('click', async (e) => {
     const btn = e.target.closest('.cancel-ride-btn');
@@ -334,7 +411,7 @@
   // ---------- Profile tab ----------
   async function loadProfileTab() {
     try {
-      const { user, driverProfile, isAdmin } = await api('/users/me');
+      const { user, driverProfile, isAdmin, rating } = await api('/users/me');
       state.me = user;
       document.getElementById('adminTabBtn').hidden = !isAdmin;
       const card = document.getElementById('profileCard');
@@ -343,6 +420,7 @@
         <div class="profile-row"><span class="label">Username</span><span>${user.username ? '@' + escapeHtml(user.username) : '—'}</span></div>
         <div class="profile-row"><span class="label">Телефон</span><span>${user.phone_verified ? '✅ подтверждён' : '❌ не подтверждён'}</span></div>
         <div class="profile-row"><span class="label">Водитель</span><span>${driverProfile ? `✅ ${escapeHtml(driverProfile.car_model)}` : '—'}</span></div>
+        ${driverProfile ? `<div class="profile-row"><span class="label">Ваш рейтинг</span><span>${starsHtml(rating?.avg, rating?.count)}</span></div>` : ''}
       `;
     } catch (err) {
       toast(err.message);
@@ -380,6 +458,18 @@
 
   async function loadAdminTab() {
     try {
+      const { stats } = await api('/admin/stats');
+      document.getElementById('adminStats').innerHTML = `
+        <div class="stat-tile"><div class="value">${stats.totalUsers}</div><div class="label">Всего пользователей</div></div>
+        <div class="stat-tile"><div class="value">${stats.onlineUsers}</div><div class="label">Онлайн (5 мин)</div></div>
+        <div class="stat-tile"><div class="value">${stats.drivers}</div><div class="label">Водителей</div></div>
+        <div class="stat-tile"><div class="value">${stats.activeRides}</div><div class="label">Активных поездок</div></div>
+      `;
+    } catch (err) {
+      toast(err.message);
+    }
+
+    try {
       const { users } = await api('/admin/users');
       document.getElementById('adminUsersList').innerHTML = users.map((u) => `
         <div class="card ride-card">
@@ -392,6 +482,7 @@
             <span>${u.phone ? escapeHtml(u.phone) : 'номер не указан'}</span>
           </div>
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
+          ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
           <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
             ${u.banned ? 'Разблокировать' : 'Заблокировать'}
           </button>
@@ -432,9 +523,9 @@
     try {
       const { messages } = await api('/admin/support');
       document.getElementById('adminSupportList').innerHTML = messages.map((m) => `
-        <div class="card ride-card">
+        <div class="card ride-card ${m.from_admin ? 'support-from-admin' : ''}">
           <div class="row">
-            <div class="route">${escapeHtml(m.first_name)}${m.username ? ' · @' + escapeHtml(m.username) : ''}</div>
+            <div class="route">${m.from_admin ? 'Вы →' : ''} ${escapeHtml(m.first_name)}${m.username ? ' · @' + escapeHtml(m.username) : ''}</div>
             <span class="badge ok">${formatDate(m.created_at)}</span>
           </div>
           <div class="meta">
@@ -442,6 +533,11 @@
             <span>${m.phone ? escapeHtml(m.phone) : 'номер не указан'}</span>
           </div>
           <div class="comment">${escapeHtml(m.message)}</div>
+          ${!m.from_admin ? `
+            <div class="support-reply">
+              <input type="text" class="support-reply-input" placeholder="Ответить..." maxlength="1000" />
+              <button type="button" class="btn small support-reply-btn" data-user-id="${m.user_id}">Отправить</button>
+            </div>` : ''}
         </div>
       `).join('') || '<p class="empty">Обращений пока нет.</p>';
     } catch (err) {
@@ -459,6 +555,27 @@
     try {
       await api(`/admin/users/${telegramId}/${action}`, { method: 'POST' });
       toast(action === 'ban' ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
+      loadAdminTab();
+    } catch (err) {
+      toast(err.message);
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('adminSupportList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.support-reply-btn');
+    if (!btn) return;
+    const card = btn.closest('.card');
+    const input = card.querySelector('.support-reply-input');
+    const message = input.value.trim();
+    if (!message) {
+      toast('Введите текст ответа');
+      return;
+    }
+    btn.disabled = true;
+    try {
+      await api(`/admin/support/${btn.dataset.userId}/reply`, { method: 'POST', body: JSON.stringify({ message }) });
+      toast('Ответ отправлен');
       loadAdminTab();
     } catch (err) {
       toast(err.message);

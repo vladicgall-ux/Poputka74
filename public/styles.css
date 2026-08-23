@@ -323,3 +323,110 @@ textarea { resize: vertical; min-height: 60px; }
 .legal strong {
   color: var(--text);
 }
+
+/* Фильтр по дате в поиске */
+.date-filter {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.date-filter input[type="date"] {
+  flex: 1;
+}
+
+/* Выбор количества мест при бронировании */
+.seat-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+.seat-picker label {
+  font-size: 13px;
+  color: var(--hint);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.seat-picker select {
+  flex: 0 0 auto;
+  width: 64px;
+}
+.seat-picker .book-btn {
+  flex: 1;
+}
+
+/* Рейтинг звёздами */
+.stars {
+  color: var(--hint);
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+.stars .filled {
+  color: #f5a623;
+}
+.rating-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--hint);
+}
+
+.rate-widget {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.rate-widget button {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--hint);
+}
+.rate-widget button.filled {
+  color: #f5a623;
+}
+
+/* Статистика в админке */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.stat-tile {
+  background: var(--secondary-bg);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.stat-tile .value {
+  font-size: 20px;
+  font-weight: 700;
+}
+.stat-tile .label {
+  font-size: 12px;
+  color: var(--hint);
+}
+
+/* Ответ администратора в поддержке */
+.support-reply {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.support-reply input {
+  flex: 1;
+}
+.support-reply button {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 8px 14px;
+}
+.support-from-admin {
+  border-left: 3px solid var(--link);
+}

@@ -33,6 +33,12 @@ if (!columnExists('driver_profiles', 'photo_path')) {
 if (!columnExists('users', 'banned')) {
     exports.db.exec(`ALTER TABLE users ADD COLUMN banned INTEGER NOT NULL DEFAULT 0`);
 }
+if (!columnExists('users', 'last_seen_at')) {
+    exports.db.exec(`ALTER TABLE users ADD COLUMN last_seen_at TEXT`);
+}
+if (!columnExists('support_messages', 'from_admin')) {
+    exports.db.exec(`ALTER TABLE support_messages ADD COLUMN from_admin INTEGER NOT NULL DEFAULT 0`);
+}
 const bookingsTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get()?.sql;
 if (bookingsTableSql && !bookingsTableSql.includes("'pending'")) {
     exports.db.exec(`

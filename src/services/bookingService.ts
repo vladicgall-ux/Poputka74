@@ -16,6 +16,7 @@ export interface BookingWithRide extends BookingRecord {
   departure_at: string;
   price_per_seat: number;
   driver_id: number;
+  rated: number;
 }
 
 export class BookingError extends Error {}
@@ -147,7 +148,8 @@ export function listAllBookings(): BookingWithPeople[] {
 export function listBookingsByPassenger(passengerId: number): BookingWithRide[] {
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+              EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE b.passenger_id = ?
        ORDER BY r.departure_at DESC`

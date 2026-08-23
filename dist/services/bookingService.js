@@ -109,7 +109,8 @@ function listAllBookings() {
 }
 function listBookingsByPassenger(passengerId) {
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+              EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE b.passenger_id = ?
        ORDER BY r.departure_at DESC`)

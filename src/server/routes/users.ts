@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto } from '../../services/userService';
+import { getDriverRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
 
@@ -15,7 +16,8 @@ usersRouter.get('/me', (req, res) => {
   const { user } = req as AuthedRequest;
   const driverProfile = getDriverProfile(user.telegram_id) ?? null;
   const isAdmin = config.adminIds.includes(user.telegram_id);
-  res.json({ user, driverProfile, isAdmin });
+  const rating = driverProfile ? getDriverRatingSummary(user.telegram_id) : null;
+  res.json({ user, driverProfile, isAdmin, rating });
 });
 
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */

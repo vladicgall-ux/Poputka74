@@ -22,6 +22,8 @@ export interface RideWithDriver extends RideRecord {
   car_color: string | null;
   car_plate: string;
   photo_path: string | null;
+  avg_rating: number | null;
+  rating_count: number;
 }
 
 export function createRide(input: {
@@ -58,16 +60,22 @@ const RIDE_WITH_DRIVER_SELECT = `
   SELECT r.*,
          u.first_name AS driver_first_name,
          u.username   AS driver_username,
-         d.car_model, d.car_color, d.car_plate, d.photo_path
+         d.car_model, d.car_color, d.car_plate, d.photo_path,
+         ROUND(rt.avg_rating, 1) AS avg_rating, COALESCE(rt.rating_count, 0) AS rating_count
   FROM rides r
   JOIN users u ON u.telegram_id = r.driver_id
   JOIN driver_profiles d ON d.telegram_id = r.driver_id
+  LEFT JOIN (
+    SELECT driver_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
+    FROM ratings GROUP BY driver_id
+  ) rt ON rt.driver_id = r.driver_id
 `;
 
 export function searchRides(filter: {
   fromCity?: City;
   toCity?: City;
   onlyAvailable?: boolean;
+  date?: string; // 'YYYY-MM-DD'
 }): RideWithDriver[] {
   const clauses = [`r.status = 'active'`, `r.departure_at >= datetime('now', '-1 hour')`, `u.banned = 0`];
   const params: Record<string, unknown> = {};
@@ -81,6 +89,10 @@ export function searchRides(filter: {
   }
   if (filter.onlyAvailable) {
     clauses.push('r.seats_available > 0');
+  }
+  if (filter.date) {
+    clauses.push('date(r.departure_at) = @date');
+    params.date = filter.date;
   }
   const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY r.departure_at ASC`;
   return db.prepare(sql).all(params) as RideWithDriver[];

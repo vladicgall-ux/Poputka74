@@ -18,11 +18,14 @@ function isCity(value: unknown): value is City {
   return typeof value === 'string' && (config.cities as readonly string[]).includes(value);
 }
 
-/** Поиск активных поездок, опционально по направлению. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Поиск активных поездок, опционально по направлению и дате отправления. */
 ridesRouter.get('/', (req, res) => {
   const fromCity = isCity(req.query.from) ? req.query.from : undefined;
   const toCity = isCity(req.query.to) ? req.query.to : undefined;
-  const rides = searchRides({ fromCity, toCity, onlyAvailable: req.query.onlyAvailable === '1' });
+  const date = typeof req.query.date === 'string' && DATE_RE.test(req.query.date) ? req.query.date : undefined;
+  const rides = searchRides({ fromCity, toCity, date, onlyAvailable: req.query.onlyAvailable === '1' });
   res.json({ rides });
 });
 

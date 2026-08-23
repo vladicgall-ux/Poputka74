@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   phone           TEXT,
   phone_verified  INTEGER NOT NULL DEFAULT 0, -- 1, если номер подтверждён через Telegram-контакт
   banned          INTEGER NOT NULL DEFAULT 0, -- 1, если администратор заблокировал доступ
+  last_seen_at    TEXT,                       -- обновляется на каждом запросе к API — грубая метка "онлайн"
   created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -57,11 +58,29 @@ CREATE INDEX IF NOT EXISTS idx_bookings_ride ON bookings (ride_id, status);
 CREATE INDEX IF NOT EXISTS idx_bookings_passenger ON bookings (passenger_id, status);
 
 -- Обращения в поддержку: и из Mini App, и из обычного текстового сообщения боту.
+-- from_admin=1 — это ответ администратора конкретному user_id (уходит ему через бота).
 CREATE TABLE IF NOT EXISTS support_messages (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id     INTEGER NOT NULL REFERENCES users(telegram_id),
   message     TEXT NOT NULL,
+  from_admin  INTEGER NOT NULL DEFAULT 0,
   created_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_support_user ON support_messages (user_id);
+
+-- Оценки водителей пассажирами. Одна оценка на пару (поездка, пассажир),
+-- доступна только после того, как поездка фактически состоялась (departure_at в прошлом)
+-- и бронь была подтверждена водителем.
+CREATE TABLE IF NOT EXISTS ratings (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  ride_id       INTEGER NOT NULL REFERENCES rides(id),
+  driver_id     INTEGER NOT NULL REFERENCES users(telegram_id),
+  passenger_id  INTEGER NOT NULL REFERENCES users(telegram_id),
+  rating        INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment       TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (ride_id, passenger_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ratings_driver ON ratings (driver_id);

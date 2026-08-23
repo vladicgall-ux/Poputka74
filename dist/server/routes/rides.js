@@ -11,11 +11,13 @@ exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 function isCity(value) {
     return typeof value === 'string' && config_1.config.cities.includes(value);
 }
-/** Поиск активных поездок, опционально по направлению. */
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** Поиск активных поездок, опционально по направлению и дате отправления. */
 exports.ridesRouter.get('/', (req, res) => {
     const fromCity = isCity(req.query.from) ? req.query.from : undefined;
     const toCity = isCity(req.query.to) ? req.query.to : undefined;
-    const rides = (0, rideService_1.searchRides)({ fromCity, toCity, onlyAvailable: req.query.onlyAvailable === '1' });
+    const date = typeof req.query.date === 'string' && DATE_RE.test(req.query.date) ? req.query.date : undefined;
+    const rides = (0, rideService_1.searchRides)({ fromCity, toCity, date, onlyAvailable: req.query.onlyAvailable === '1' });
     res.json({ rides });
 });
 /** Поездки текущего водителя. */

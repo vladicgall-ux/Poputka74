@@ -5,6 +5,7 @@ import { ridesRouter } from './routes/rides';
 import { bookingsRouter } from './routes/bookings';
 import { adminRouter } from './routes/admin';
 import { supportRouter } from './routes/support';
+import { ratingsRouter } from './routes/ratings';
 import { uploadsDir } from './middleware/upload';
 
 export function createApp() {
@@ -16,6 +17,7 @@ export function createApp() {
   app.use('/api/bookings', bookingsRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/support', supportRouter);
+  app.use('/api/ratings', ratingsRouter);
 
   app.use('/uploads', express.static(uploadsDir));
   app.use(

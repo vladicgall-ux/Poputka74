@@ -9,6 +9,7 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const auth_1 = require("../middleware/auth");
 const userService_1 = require("../../services/userService");
+const ratingService_1 = require("../../services/ratingService");
 const config_1 = require("../../config");
 const upload_1 = require("../middleware/upload");
 exports.usersRouter = (0, express_1.Router)();
@@ -18,7 +19,8 @@ exports.usersRouter.get('/me', (req, res) => {
     const { user } = req;
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id) ?? null;
     const isAdmin = config_1.config.adminIds.includes(user.telegram_id);
-    res.json({ user, driverProfile, isAdmin });
+    const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(user.telegram_id) : null;
+    res.json({ user, driverProfile, isAdmin, rating });
 });
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
 exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (req, res) => {

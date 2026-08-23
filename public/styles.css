@@ -148,7 +148,8 @@ body {
 }
 .badge.ok { background: rgba(26,168,119,0.15); color: var(--success); }
 .badge.full { background: rgba(229,72,77,0.12); color: var(--danger); }
-.badge.cancelled { background: rgba(124,135,151,0.15); color: var(--hint); }
+.badge.cancelled { background: rgba(229,72,77,0.12); color: var(--danger); }
+.badge.completed { background: rgba(26,168,119,0.15); color: var(--success); }
 .badge.pending { background: rgba(255,171,64,0.18); color: #b9700a; }
 
 .driver-row {

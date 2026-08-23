@@ -118,9 +118,11 @@
     const full = ride.seats_available <= 0;
     const badge = ride.status === 'cancelled'
       ? '<span class="badge cancelled">Отменена</span>'
-      : full
-        ? '<span class="badge full">Мест нет</span>'
-        : `<span class="badge ok">${ride.seats_available} мест свободно</span>`;
+      : ride.status === 'completed'
+        ? '<span class="badge completed">Поездка выполнена</span>'
+        : full
+          ? '<span class="badge full">Мест нет</span>'
+          : `<span class="badge ok">${ride.seats_available} мест свободно</span>`;
     const driverLine = ride.driver_first_name
       ? `<div class="driver-row">
           ${ride.photo_path ? `<img class="driver-avatar" src="/uploads/${ride.photo_path}" alt="" />` : ''}

@@ -41,6 +41,15 @@ function replyOpenApp(ctx: { reply: (text: string, extra?: object) => unknown })
   }
 }
 
+/** Кнопки на документы — только если известен публичный HTTPS-адрес (там же лежат сами страницы). */
+function legalKeyboard() {
+  if (!config.webappUrl) return undefined;
+  return Markup.inlineKeyboard([
+    [Markup.button.url('📄 Пользовательское соглашение', `${config.webappUrl}/oferta.html`)],
+    [Markup.button.url('🔒 Политика персональных данных', `${config.webappUrl}/privacy.html`)],
+  ]);
+}
+
 export function createBot(): Telegraf {
   const bot = new Telegraf(config.botToken);
   setBotInstance(bot);
@@ -50,6 +59,14 @@ export function createBot(): Telegraf {
       'WEBAPP_URL не задан (или не начинается с https://) — бот запущен без кнопки Mini App. ' +
         'Узнайте публичный домен у вашего хостинга и пропишите его в WEBAPP_URL.'
     );
+  } else {
+    // Кнопка меню слева от поля ввода — открывает Mini App без команды /start.
+    // Настраивается сама при каждом запуске, синхронизируясь с текущим WEBAPP_URL.
+    bot.telegram
+      .setChatMenuButton({
+        menuButton: { type: 'web_app', text: 'Поехали 74', web_app: { url: config.webappUrl } },
+      })
+      .catch((err) => console.error('Не удалось установить кнопку меню:', err));
   }
 
   bot.start((ctx) => {
@@ -99,6 +116,12 @@ export function createBot(): Telegraf {
       '✅ Номер подтверждён! Теперь вам доступны бронирование и публикация поездок.',
       Markup.removeKeyboard()
     );
+
+    const legal = legalKeyboard();
+    if (legal) {
+      ctx.reply('Продолжая пользоваться сервисом, вы принимаете условия:', legal);
+    }
+
     replyOpenApp(ctx);
   });
 

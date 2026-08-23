@@ -42,12 +42,30 @@ function replyOpenApp(ctx) {
             'Загляните чуть позже, я пришлю кнопку «Открыть Поехали 74».');
     }
 }
+/** Кнопки на документы — только если известен публичный HTTPS-адрес (там же лежат сами страницы). */
+function legalKeyboard() {
+    if (!config_1.config.webappUrl)
+        return undefined;
+    return telegraf_1.Markup.inlineKeyboard([
+        [telegraf_1.Markup.button.url('📄 Пользовательское соглашение', `${config_1.config.webappUrl}/oferta.html`)],
+        [telegraf_1.Markup.button.url('🔒 Политика персональных данных', `${config_1.config.webappUrl}/privacy.html`)],
+    ]);
+}
 function createBot() {
     const bot = new telegraf_1.Telegraf(config_1.config.botToken);
     (0, notifier_1.setBotInstance)(bot);
     if (!config_1.config.webappUrl) {
         console.warn('WEBAPP_URL не задан (или не начинается с https://) — бот запущен без кнопки Mini App. ' +
             'Узнайте публичный домен у вашего хостинга и пропишите его в WEBAPP_URL.');
+    }
+    else {
+        // Кнопка меню слева от поля ввода — открывает Mini App без команды /start.
+        // Настраивается сама при каждом запуске, синхронизируясь с текущим WEBAPP_URL.
+        bot.telegram
+            .setChatMenuButton({
+            menuButton: { type: 'web_app', text: 'Поехали 74', web_app: { url: config_1.config.webappUrl } },
+        })
+            .catch((err) => console.error('Не удалось установить кнопку меню:', err));
     }
     bot.start((ctx) => {
         (0, userService_1.upsertUser)({
@@ -88,6 +106,10 @@ function createBot() {
         });
         (0, userService_1.setPhoneVerified)(ctx.from.id, contact.phone_number);
         ctx.reply('✅ Номер подтверждён! Теперь вам доступны бронирование и публикация поездок.', telegraf_1.Markup.removeKeyboard());
+        const legal = legalKeyboard();
+        if (legal) {
+            ctx.reply('Продолжая пользоваться сервисом, вы принимаете условия:', legal);
+        }
         replyOpenApp(ctx);
     });
     bot.command('whoami', (ctx) => {

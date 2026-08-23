@@ -1,4 +1,8 @@
 :root {
+  /* Без этого нативные виджеты (значок и текст в <input type="date">)
+     всегда рисуются в светлой схеме браузера и становятся невидимыми
+     на тёмном фоне Telegram — переопределяется из JS под тему Telegram. */
+  color-scheme: light dark;
   --bg: var(--tg-theme-bg-color, #f2f5fa);
   --secondary-bg: var(--tg-theme-secondary-bg-color, #ffffff);
   --text: var(--tg-theme-text-color, #14171f);

@@ -3,6 +3,13 @@
   if (tg) {
     tg.ready();
     tg.expand();
+    // Без этого нативные виджеты (например, значок и текст в <input type="date">)
+    // рисуются в светлой схеме браузера и становятся невидимыми на тёмном фоне.
+    const syncColorScheme = () => {
+      document.documentElement.style.colorScheme = tg.colorScheme === 'dark' ? 'dark' : 'light';
+    };
+    syncColorScheme();
+    tg.onEvent('themeChanged', syncColorScheme);
   }
   const initData = tg?.initData ?? '';
 

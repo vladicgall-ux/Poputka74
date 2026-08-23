@@ -36,6 +36,9 @@ export function createBooking(input: {
   if (!ride || ride.status !== 'active') {
     throw new BookingError('Поездка недоступна');
   }
+  if (new Date(ride.departure_at).getTime() < Date.now()) {
+    throw new BookingError('Поездка уже состоялась');
+  }
   if (ride.driver_id === input.passengerId) {
     throw new BookingError('Нельзя забронировать место в собственной поездке');
   }

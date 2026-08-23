@@ -43,7 +43,7 @@ const RIDE_WITH_DRIVER_SELECT = `
   ) rt ON rt.driver_id = r.driver_id
 `;
 function searchRides(filter) {
-    const clauses = [`r.status = 'active'`, `r.departure_at >= datetime('now', '-1 hour')`, `u.banned = 0`];
+    const clauses = [`r.status = 'active'`, `r.departure_at >= datetime('now')`, `u.banned = 0`];
     const params = {};
     if (filter.fromCity) {
         clauses.push('r.from_city = @fromCity');

@@ -9,9 +9,14 @@ function required(name: string, fallback?: string): string {
   return value;
 }
 
+const webappUrlRaw = (process.env.WEBAPP_URL ?? '').trim();
+
 export const config = {
   botToken: required('BOT_TOKEN'),
-  webappUrl: required('WEBAPP_URL', 'http://localhost:3000'),
+  // Не обязателен на старте: пока не известен публичный HTTPS-домен
+  // (например, только разворачиваетесь на bothost и ждёте домен),
+  // бот должен запускаться и работать, просто без кнопки Mini App.
+  webappUrl: webappUrlRaw.startsWith('https://') ? webappUrlRaw : undefined,
   port: Number(process.env.PORT ?? 3000),
   adminIds: (process.env.ADMIN_IDS ?? '')
     .split(',')

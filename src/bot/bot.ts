@@ -3,9 +3,34 @@ import { config } from '../config';
 import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
 import { setBotInstance } from './notifier';
 
+/** Кнопка открытия Mini App — только если известен публичный HTTPS-адрес. */
+function appKeyboard() {
+  if (!config.webappUrl) return undefined;
+  return Markup.inlineKeyboard([Markup.button.webApp('🚗 Открыть Поехали 74', config.webappUrl)]);
+}
+
+function replyOpenApp(ctx: { reply: (text: string, extra?: object) => unknown }) {
+  const keyboard = appKeyboard();
+  if (keyboard) {
+    ctx.reply('Открыть приложение:', keyboard);
+  } else {
+    ctx.reply(
+      'Приложение скоро будет доступно — сейчас настраивается публичный адрес. ' +
+        'Загляните чуть позже, я пришлю кнопку «Открыть Поехали 74».'
+    );
+  }
+}
+
 export function createBot(): Telegraf {
   const bot = new Telegraf(config.botToken);
   setBotInstance(bot);
+
+  if (!config.webappUrl) {
+    console.warn(
+      'WEBAPP_URL не задан (или не начинается с https://) — бот запущен без кнопки Mini App. ' +
+        'Узнайте публичный домен у вашего хостинга и пропишите его в WEBAPP_URL.'
+    );
+  }
 
   bot.start((ctx) => {
     upsertUser({
@@ -28,17 +53,11 @@ export function createBot(): Telegraf {
       }
     );
 
-    ctx.reply(
-      'Открыть приложение:',
-      Markup.inlineKeyboard([Markup.button.webApp('🚗 Открыть Поехали 74', config.webappUrl)])
-    );
+    replyOpenApp(ctx);
   });
 
   bot.command('app', (ctx) => {
-    ctx.reply(
-      'Открыть приложение:',
-      Markup.inlineKeyboard([Markup.button.webApp('🚗 Открыть Поехали 74', config.webappUrl)])
-    );
+    replyOpenApp(ctx);
   });
 
   // Подтверждение номера телефона: Telegram гарантирует, что контакт,
@@ -61,10 +80,7 @@ export function createBot(): Telegraf {
       '✅ Номер подтверждён! Теперь вам доступны бронирование и публикация поездок.',
       Markup.removeKeyboard()
     );
-    ctx.reply(
-      'Открыть приложение:',
-      Markup.inlineKeyboard([Markup.button.webApp('🚗 Открыть Поехали 74', config.webappUrl)])
-    );
+    replyOpenApp(ctx);
   });
 
   bot.command('whoami', (ctx) => {

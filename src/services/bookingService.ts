@@ -162,7 +162,7 @@ export function listBookingsByPassenger(
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE ${clauses.join(' AND ')}
-       ORDER BY r.departure_at DESC`
+       ORDER BY r.departure_at ASC`
     )
     .all(params) as BookingWithRide[];
 }

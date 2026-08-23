@@ -106,7 +106,7 @@ export function getRideWithDriver(id: number): RideWithDriver | undefined {
 
 export function listAllRides(): RideWithDriver[] {
   return db
-    .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.created_at DESC`)
+    .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC`)
     .all() as RideWithDriver[];
 }
 
@@ -122,7 +122,7 @@ export function listRidesByDriver(
     params.to = range.to;
   }
   return db
-    .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
+    .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at ASC`)
     .all(params) as RideRecord[];
 }
 

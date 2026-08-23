@@ -68,7 +68,7 @@ function getRideWithDriver(id) {
 }
 function listAllRides() {
     return db_1.db
-        .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.created_at DESC`)
+        .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC`)
         .all();
 }
 function listRidesByDriver(driverId, range) {
@@ -80,7 +80,7 @@ function listRidesByDriver(driverId, range) {
         params.to = range.to;
     }
     return db_1.db
-        .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
+        .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at ASC`)
         .all(params);
 }
 function cancelRide(id, driverId) {

@@ -215,6 +215,16 @@ input, select, textarea {
 }
 textarea { resize: vertical; min-height: 60px; }
 
+/* На iOS (Telegram WebView) значок/текст нативного <input type="date">
+   не всегда подчиняются color-scheme и остаются чёрными — поэтому
+   для этих полей всегда держим светлый фон, чтобы штатный чёрный
+   текст и значок календаря были видны при любой теме приложения. */
+input[type="date"], input[type="datetime-local"] {
+  background: #ffffff;
+  color: #14171f;
+  color-scheme: light;
+}
+
 .section-title {
   margin: 18px 0 10px;
   font-size: 14px;
@@ -358,7 +368,6 @@ textarea { resize: vertical; min-height: 60px; }
   flex: 1;
   min-width: 120px;
   border: none;
-  background: var(--bg);
   border-radius: 9px;
   padding: 8px;
   font-size: 13px;

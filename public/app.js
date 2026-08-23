@@ -335,7 +335,7 @@
     if (!btn) return;
     document.querySelectorAll('#driverRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('driverRangeDate').value = '';
+    document.getElementById('driverRangeDate').value = toDateStr(new Date());
     state.driverRange = btn.dataset.range;
     loadMineTab();
   });
@@ -351,7 +351,7 @@
     if (!btn) return;
     document.querySelectorAll('#passengerRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
-    document.getElementById('passengerRangeDate').value = '';
+    document.getElementById('passengerRangeDate').value = toDateStr(new Date());
     state.passengerRange = btn.dataset.range;
     loadMineTab();
   });
@@ -361,6 +361,11 @@
     state.passengerRange = `date:${e.target.value}`;
     loadMineTab();
   });
+
+  // Поле даты сразу показывает сегодня, а не пусто — как и в поиске.
+  // Активный пресет (День/Неделя/...) от этого не меняется, пока пользователь сам не тронет поле.
+  document.getElementById('driverRangeDate').value = toDateStr(new Date());
+  document.getElementById('passengerRangeDate').value = toDateStr(new Date());
 
   async function loadMineTab() {
     const ridesList = document.getElementById('myRidesList');

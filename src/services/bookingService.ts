@@ -155,7 +155,7 @@ export function listBookingsByPassenger(
   const clauses = ['b.passenger_id = @passengerId'];
   const params: Record<string, unknown> = { passengerId };
   if (range) {
-    clauses.push('date(r.departure_at) BETWEEN @from AND @to');
+    clauses.push("date(r.departure_at, '+5 hours') BETWEEN @from AND @to");
     params.from = range.from;
     params.to = range.to;
   }

@@ -57,7 +57,7 @@ export function getDriverStats(driverId: number, from: string, to: string): Driv
          COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS earnings
        FROM rides r
        LEFT JOIN bookings b ON b.ride_id = r.id
-       WHERE r.driver_id = ? AND date(r.departure_at) BETWEEN ? AND ?`
+       WHERE r.driver_id = ? AND date(r.departure_at, '+5 hours') BETWEEN ? AND ?`
     )
     .get(driverId, from, to) as DriverStats;
   return row;

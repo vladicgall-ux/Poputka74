@@ -57,7 +57,7 @@ function searchRides(filter) {
         clauses.push('r.seats_available > 0');
     }
     if (filter.date) {
-        clauses.push('date(r.departure_at) = @date');
+        clauses.push("date(r.departure_at, '+5 hours') = @date");
         params.date = filter.date;
     }
     const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY r.departure_at ASC`;
@@ -75,7 +75,7 @@ function listRidesByDriver(driverId, range) {
     const clauses = ['driver_id = @driverId'];
     const params = { driverId };
     if (range) {
-        clauses.push('date(departure_at) BETWEEN @from AND @to');
+        clauses.push("date(departure_at, '+5 hours') BETWEEN @from AND @to");
         params.from = range.from;
         params.to = range.to;
     }

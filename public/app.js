@@ -22,7 +22,14 @@
     passengerRange: 'all',
   };
 
-  function toDateStr(d) { return d.toISOString().slice(0, 10); }
+  // Локальная дата устройства (НЕ toISOString — та берёт UTC и ночью
+  // после полуночи, но до рассвета, ошибочно показывает "вчера").
+  function toDateStr(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
 
   /** Вычисляет {from, to} (YYYY-MM-DD) по пресету, либо null для 'all'. */
   function rangeToDates(preset) {

@@ -44,7 +44,7 @@
   }
 
   // ---------- Tabs ----------
-  const tabs = ['search', 'offer', 'mine', 'profile'];
+  const tabs = ['search', 'offer', 'mine', 'profile', 'admin'];
   function showTab(name) {
     tabs.forEach((t) => {
       document.getElementById(`tab-${t}`).hidden = t !== name;
@@ -56,6 +56,7 @@
     if (name === 'offer') loadOfferTab();
     if (name === 'mine') loadMineTab();
     if (name === 'profile') loadProfileTab();
+    if (name === 'admin') loadAdminTab();
   }
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
@@ -293,8 +294,9 @@
   // ---------- Profile tab ----------
   async function loadProfileTab() {
     try {
-      const { user, driverProfile } = await api('/users/me');
+      const { user, driverProfile, isAdmin } = await api('/users/me');
       state.me = user;
+      document.getElementById('adminTabBtn').hidden = !isAdmin;
       const card = document.getElementById('profileCard');
       card.innerHTML = `
         <div class="profile-row"><span class="label">Имя</span><span>${escapeHtml(user.first_name)}</span></div>
@@ -307,6 +309,59 @@
     }
   }
 
+  // ---------- Admin tab ----------
+  async function loadAdminTab() {
+    try {
+      const { users } = await api('/admin/users');
+      document.getElementById('adminUsersList').innerHTML = users.map((u) => `
+        <div class="card ride-card">
+          <div class="row">
+            <div class="route">${escapeHtml(u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
+            <span class="badge ${u.phone_verified ? 'ok' : 'cancelled'}">${u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
+          </div>
+          <div class="meta">
+            <span>ID: ${u.telegram_id}</span>
+            <span>${u.phone ? escapeHtml(u.phone) : 'номер не указан'}</span>
+          </div>
+          ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
+        </div>
+      `).join('') || '<p class="empty">Пока никто не зарегистрирован.</p>';
+    } catch (err) {
+      toast(err.message);
+    }
+
+    try {
+      const { rides } = await api('/admin/rides');
+      document.getElementById('adminRidesList').innerHTML = rides.map((r) => rideCardHtml(r)).join('')
+        || '<p class="empty">Поездок пока нет.</p>';
+    } catch (err) {
+      toast(err.message);
+    }
+
+    try {
+      const { bookings } = await api('/admin/bookings');
+      document.getElementById('adminBookingsList').innerHTML = bookings.map((b) => `
+        <div class="card ride-card">
+          <div class="row">
+            <div class="route">${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)}</div>
+            <span class="badge ${b.status === 'confirmed' ? 'ok' : 'cancelled'}">${b.status === 'confirmed' ? 'активна' : 'отменена'}</span>
+          </div>
+          <div class="meta">
+            <span>🗓 ${formatDate(b.departure_at)}</span>
+            <span>${b.seats_booked} мест · ${b.price_per_seat * b.seats_booked} ₽</span>
+          </div>
+          <div class="driver">Пассажир: ${escapeHtml(b.passenger_first_name)}${b.passenger_username ? ' · @' + escapeHtml(b.passenger_username) : ''}${b.passenger_phone ? ' · ' + escapeHtml(b.passenger_phone) : ''}</div>
+          <div class="driver">Водитель: ${escapeHtml(b.driver_first_name)}</div>
+        </div>
+      `).join('') || '<p class="empty">Бронирований пока нет.</p>';
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+
   // init
   showTab('search');
+  api('/users/me').then(({ isAdmin }) => {
+    document.getElementById('adminTabBtn').hidden = !isAdmin;
+  }).catch(() => {});
 })();

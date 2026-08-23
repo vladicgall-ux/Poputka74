@@ -90,6 +90,18 @@
     <section id="tab-profile" class="tab" hidden>
       <div class="card" id="profileCard"></div>
     </section>
+
+    <!-- АДМИН -->
+    <section id="tab-admin" class="tab" hidden>
+      <h3 class="section-title">Все пользователи</h3>
+      <div id="adminUsersList" class="cards"></div>
+
+      <h3 class="section-title">Все поездки</h3>
+      <div id="adminRidesList" class="cards"></div>
+
+      <h3 class="section-title">Все бронирования</h3>
+      <div id="adminBookingsList" class="cards"></div>
+    </section>
   </main>
 
   <nav class="tabbar">
@@ -97,6 +109,7 @@
     <button class="tab-btn" data-tab="offer">➕<span>Предложить</span></button>
     <button class="tab-btn" data-tab="mine">🧳<span>Мои поездки</span></button>
     <button class="tab-btn" data-tab="profile">👤<span>Профиль</span></button>
+    <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
   <script src="app.js"></script>

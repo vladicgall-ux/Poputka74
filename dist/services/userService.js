@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsertUser = upsertUser;
 exports.getUser = getUser;
 exports.setPhoneVerified = setPhoneVerified;
+exports.listAllUsers = listAllUsers;
 exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
 const db_1 = require("../db/db");
@@ -25,6 +26,14 @@ function getUser(telegramId) {
 }
 function setPhoneVerified(telegramId, phone) {
     db_1.db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);
+}
+function listAllUsers() {
+    return db_1.db
+        .prepare(`SELECT u.*, d.car_model, d.car_plate
+       FROM users u
+       LEFT JOIN driver_profiles d ON d.telegram_id = u.telegram_id
+       ORDER BY u.created_at DESC`)
+        .all();
 }
 function getDriverProfile(telegramId) {
     return db_1.db

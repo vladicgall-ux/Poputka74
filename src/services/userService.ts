@@ -55,6 +55,22 @@ export function setPhoneVerified(telegramId: number, phone: string): void {
   ).run(phone, telegramId);
 }
 
+export interface UserWithDriverInfo extends UserRecord {
+  car_model: string | null;
+  car_plate: string | null;
+}
+
+export function listAllUsers(): UserWithDriverInfo[] {
+  return db
+    .prepare(
+      `SELECT u.*, d.car_model, d.car_plate
+       FROM users u
+       LEFT JOIN driver_profiles d ON d.telegram_id = u.telegram_id
+       ORDER BY u.created_at DESC`
+    )
+    .all() as UserWithDriverInfo[];
+}
+
 export function getDriverProfile(telegramId: number): DriverProfileRecord | undefined {
   return db
     .prepare('SELECT * FROM driver_profiles WHERE telegram_id = ?')

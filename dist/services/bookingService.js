@@ -4,6 +4,7 @@ exports.BookingError = void 0;
 exports.createBooking = createBooking;
 exports.cancelBooking = cancelBooking;
 exports.listBookingsByPassenger = listBookingsByPassenger;
+exports.listAllBookings = listAllBookings;
 exports.listBookingsForRide = listBookingsForRide;
 const db_1 = require("../db/db");
 const rideService_1 = require("./rideService");
@@ -53,6 +54,18 @@ function listBookingsByPassenger(passengerId) {
        WHERE b.passenger_id = ?
        ORDER BY r.departure_at DESC`)
         .all(passengerId);
+}
+function listAllBookings() {
+    return db_1.db
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name
+       FROM bookings b
+       JOIN rides r ON r.id = b.ride_id
+       JOIN users p ON p.telegram_id = b.passenger_id
+       JOIN users drv ON drv.telegram_id = r.driver_id
+       ORDER BY b.created_at DESC`)
+        .all();
 }
 function listBookingsForRide(rideId) {
     return db_1.db

@@ -80,6 +80,28 @@ export function listBookingsByPassenger(passengerId: number): BookingWithRide[] 
     .all(passengerId) as BookingWithRide[];
 }
 
+export interface BookingWithPeople extends BookingWithRide {
+  passenger_first_name: string;
+  passenger_username: string | null;
+  passenger_phone: string | null;
+  driver_first_name: string;
+}
+
+export function listAllBookings(): BookingWithPeople[] {
+  return db
+    .prepare(
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name
+       FROM bookings b
+       JOIN rides r ON r.id = b.ride_id
+       JOIN users p ON p.telegram_id = b.passenger_id
+       JOIN users drv ON drv.telegram_id = r.driver_id
+       ORDER BY b.created_at DESC`
+    )
+    .all() as BookingWithPeople[];
+}
+
 export function listBookingsForRide(rideId: number): BookingRecord[] {
   return db
     .prepare(`SELECT * FROM bookings WHERE ride_id = ? AND status = 'confirmed'`)

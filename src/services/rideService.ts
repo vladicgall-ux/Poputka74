@@ -91,6 +91,12 @@ export function getRideWithDriver(id: number): RideWithDriver | undefined {
     | undefined;
 }
 
+export function listAllRides(): RideWithDriver[] {
+  return db
+    .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.created_at DESC`)
+    .all() as RideWithDriver[];
+}
+
 export function listRidesByDriver(driverId: number): RideRecord[] {
   return db
     .prepare(`SELECT * FROM rides WHERE driver_id = ? ORDER BY departure_at DESC`)

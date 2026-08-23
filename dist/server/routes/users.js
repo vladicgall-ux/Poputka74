@@ -4,13 +4,15 @@ exports.usersRouter = void 0;
 const express_1 = require("express");
 const auth_1 = require("../middleware/auth");
 const userService_1 = require("../../services/userService");
+const config_1 = require("../../config");
 exports.usersRouter = (0, express_1.Router)();
 exports.usersRouter.use(auth_1.requireTelegramAuth);
 /** Профиль текущего пользователя: данные аккаунта + анкета водителя (если есть). */
 exports.usersRouter.get('/me', (req, res) => {
     const { user } = req;
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id) ?? null;
-    res.json({ user, driverProfile });
+    const isAdmin = config_1.config.adminIds.includes(user.telegram_id);
+    res.json({ user, driverProfile, isAdmin });
 });
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
 exports.usersRouter.post('/me/driver-profile', (req, res) => {

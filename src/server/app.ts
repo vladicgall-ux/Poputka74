@@ -3,6 +3,7 @@ import path from 'path';
 import { usersRouter } from './routes/users';
 import { ridesRouter } from './routes/rides';
 import { bookingsRouter } from './routes/bookings';
+import { adminRouter } from './routes/admin';
 
 export function createApp() {
   const app = express();
@@ -11,6 +12,7 @@ export function createApp() {
   app.use('/api/users', usersRouter);
   app.use('/api/rides', ridesRouter);
   app.use('/api/bookings', bookingsRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(express.static(path.join(__dirname, '..', '..', 'public')));
 

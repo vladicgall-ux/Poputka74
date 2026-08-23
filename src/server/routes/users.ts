@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { getDriverProfile, upsertDriverProfile } from '../../services/userService';
+import { config } from '../../config';
 
 export const usersRouter = Router();
 
@@ -10,7 +11,8 @@ usersRouter.use(requireTelegramAuth);
 usersRouter.get('/me', (req, res) => {
   const { user } = req as AuthedRequest;
   const driverProfile = getDriverProfile(user.telegram_id) ?? null;
-  res.json({ user, driverProfile });
+  const isAdmin = config.adminIds.includes(user.telegram_id);
+  res.json({ user, driverProfile, isAdmin });
 });
 
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */

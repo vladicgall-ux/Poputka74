@@ -4,6 +4,7 @@ exports.createRide = createRide;
 exports.getRide = getRide;
 exports.searchRides = searchRides;
 exports.getRideWithDriver = getRideWithDriver;
+exports.listAllRides = listAllRides;
 exports.listRidesByDriver = listRidesByDriver;
 exports.cancelRide = cancelRide;
 exports.decrementSeats = decrementSeats;
@@ -55,6 +56,11 @@ function searchRides(filter) {
 }
 function getRideWithDriver(id) {
     return db_1.db.prepare(`${RIDE_WITH_DRIVER_SELECT} WHERE r.id = @id`).get({ id });
+}
+function listAllRides() {
+    return db_1.db
+        .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.created_at DESC`)
+        .all();
 }
 function listRidesByDriver(driverId) {
     return db_1.db

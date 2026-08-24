@@ -187,6 +187,38 @@ export interface RidePassenger {
   phone: string | null;
 }
 
+export interface RatingReminder {
+  id: number;
+  passenger_id: number;
+  ride_id: number;
+  from_city: string;
+  to_city: string;
+  driver_first_name: string;
+}
+
+/**
+ * Подтверждённые брони на поездки, которые состоялись более часа назад,
+ * ещё не оценены пассажиром и по которым напоминание ещё не отправлялось.
+ */
+export function listBookingsDueForRatingReminder(): RatingReminder[] {
+  return db
+    .prepare(
+      `SELECT b.id, b.passenger_id, r.id AS ride_id, r.from_city, r.to_city, drv.first_name AS driver_first_name
+       FROM bookings b
+       JOIN rides r ON r.id = b.ride_id
+       JOIN users drv ON drv.telegram_id = r.driver_id
+       WHERE b.status = 'confirmed'
+         AND b.reminder_sent = 0
+         AND datetime(r.departure_at) <= datetime('now', '-1 hour')
+         AND NOT EXISTS (SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id)`
+    )
+    .all() as RatingReminder[];
+}
+
+export function markRatingReminderSent(bookingId: number): void {
+  db.prepare(`UPDATE bookings SET reminder_sent = 1 WHERE id = ?`).run(bookingId);
+}
+
 /** Список пассажиров поездки + заработок — доступно только водителю этой поездки. */
 export function getRidePassengers(
   rideId: number,

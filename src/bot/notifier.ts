@@ -8,7 +8,13 @@ export function setBotInstance(bot: Telegraf): void {
   botInstance = bot;
 }
 
-export type NotifyButton = { text: string; callback_data: string } | { text: string; url: string };
+export type NotifyButton =
+  | { text: string; callback_data: string }
+  | { text: string; url: string }
+  // Обычная url-кнопка открывает страницу в обычном браузере Telegram —
+  // initData там пустой, и наша авторизация не пройдёт. Кнопка с web_app
+  // открывает именно Mini App, с рабочим initData.
+  | { text: string; web_app: { url: string } };
 
 /** Отправляет сообщение пользователю; молча игнорирует ошибки (например, если он ни разу не писал боту). */
 export async function notify(

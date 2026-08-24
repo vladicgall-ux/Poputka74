@@ -41,18 +41,12 @@ export async function notify(
 }
 
 /** Отправляет пользователю фото с подписью; молча игнорирует ошибки (аналогично notify). */
-export async function notifyPhoto(
-  telegramId: number,
-  photoPath: string,
-  caption: string,
-  buttonRows?: NotifyButton[][]
-): Promise<boolean> {
+export async function notifyPhoto(telegramId: number, photoPath: string, caption: string): Promise<boolean> {
   if (!botInstance) return false;
   try {
     await botInstance.telegram.sendPhoto(telegramId, Input.fromLocalFile(photoPath), {
       caption,
       parse_mode: 'HTML',
-      ...(buttonRows ? Markup.inlineKeyboard(buttonRows) : {}),
     });
     return true;
   } catch {

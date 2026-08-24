@@ -7,7 +7,7 @@ import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } fr
 import { createSupportMessage } from '../services/supportService';
 import { displayName } from '../utils/displayName';
 
-export const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
+const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
 /**
  * Простой лимит на сообщения в поддержку через бота: без него любой

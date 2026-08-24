@@ -7,8 +7,6 @@ import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, get
 import { getDriverRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
-import { notifyPhoto, getBotUsername } from '../../bot/notifier';
-import { bannerPath } from '../../bot/bot';
 
 export const usersRouter = Router();
 
@@ -21,30 +19,6 @@ usersRouter.get('/me', (req, res) => {
   const isAdmin = config.adminIds.includes(user.telegram_id);
   const rating = driverProfile ? getDriverRatingSummary(user.telegram_id) : null;
   res.json({ user, driverProfile, isAdmin, rating });
-});
-
-/**
- * Присылает пользователю в чат с ботом карточку-приглашение (баннер + текст +
- * кнопка на бота), которую он может переслать друзьям через штатный «Переслать»
- * в Telegram. Отдельный канал sharing через t.me/share/url не умеет прикладывать
- * фото — поэтому здесь используем реальную отправку сообщения от бота.
- */
-usersRouter.post('/me/invite', writeLimiter(10, 10 * 60_000), async (req, res) => {
-  const { user } = req as AuthedRequest;
-  const botUsername = getBotUsername();
-  const botLink = botUsername ? `https://t.me/${botUsername}` : null;
-  const caption =
-    '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак.\n' +
-    'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.\n\n' +
-    'Перешлите это сообщение друзьям, чтобы пригласить их!' +
-    (botLink ? `\n${botLink}` : '');
-  const buttons = botLink ? [[{ text: '🚗 Открыть бота', url: botLink }]] : undefined;
-  const ok = await notifyPhoto(user.telegram_id, bannerPath, caption, buttons);
-  if (!ok) {
-    res.status(400).json({ error: 'Не удалось отправить приглашение. Откройте чат с ботом и попробуйте снова.' });
-    return;
-  }
-  res.json({ ok: true });
 });
 
 /**

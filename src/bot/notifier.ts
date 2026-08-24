@@ -1,6 +1,8 @@
 import type { Telegraf } from 'telegraf';
 import { Markup, Input } from 'telegraf';
 import { config } from '../config';
+import type { UserRecord } from '../services/userService';
+import { notifyMax } from './maxNotifier';
 
 let botInstance: Telegraf | null = null;
 
@@ -57,4 +59,9 @@ export async function notifyPhoto(telegramId: number, photoPath: string, caption
 /** Рассылает сообщение всем администраторам из ADMIN_IDS (например, обращение в поддержку). */
 export async function notifyAdmins(text: string, buttonRows?: NotifyButton[][]): Promise<void> {
   await Promise.all(config.adminIds.map((id) => notify(id, text, buttonRows)));
+}
+
+/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован. */
+export async function notifyUser(user: UserRecord, text: string): Promise<boolean> {
+  return user.platform === 'max' ? notifyMax(user, text) : notify(user.telegram_id, text);
 }

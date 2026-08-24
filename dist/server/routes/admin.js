@@ -72,7 +72,7 @@ exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
         return;
     }
     const record = (0, supportService_1.createAdminReply)(userId, message);
-    await (0, notifier_1.notify)(userId, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
+    await (0, notifier_1.notifyUser)(target, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
     res.status(201).json({ message: record });
 });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

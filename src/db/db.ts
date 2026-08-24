@@ -50,6 +50,21 @@ if (!columnExists('users', 'full_name')) {
   db.exec(`ALTER TABLE users ADD COLUMN full_name TEXT`);
 }
 
+/**
+ * Поддержка MAX как второй платформы. users.telegram_id остаётся PK без
+ * перестройки таблицы (и без риска для всех FK на неё в driver_profiles/
+ * rides/bookings/ratings) — пользователей MAX храним в том же столбце, но
+ * их реальный numeric user_id записываем со знаком минус. Telegram ID
+ * всегда положительные, поэтому коллизий быть не может, а конвертация
+ * туда-обратно — это просто Math.abs(). platform — только для отображения
+ * и для выбора, через какого бота отправлять уведомление.
+ */
+if (!columnExists('users', 'platform')) {
+  db.exec(
+    `ALTER TABLE users ADD COLUMN platform TEXT NOT NULL DEFAULT 'telegram' CHECK (platform IN ('telegram','max'))`
+  );
+}
+
 const bookingsTableSql = (
   db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get() as
     | { sql: string }

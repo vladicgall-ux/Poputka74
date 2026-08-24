@@ -10,7 +10,7 @@ import { listAllBookings, listBookingsByPassenger } from '../../services/booking
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
 import { getDriverRatingSummary } from '../../services/ratingService';
-import { notify, notifyPhoto } from '../../bot/notifier';
+import { notify, notifyPhoto, notifyUser } from '../../bot/notifier';
 
 export const adminRouter = Router();
 
@@ -76,7 +76,7 @@ adminRouter.post('/support/:userId/reply', async (req, res) => {
     return;
   }
   const record = createAdminReply(userId, message);
-  await notify(userId, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
+  await notifyUser(target, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
   res.status(201).json({ message: record });
 });
 

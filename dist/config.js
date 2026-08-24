@@ -14,12 +14,16 @@ function required(name, fallback) {
     return value;
 }
 const webappUrlRaw = (process.env.WEBAPP_URL ?? '').trim();
+const maxBotTokenRaw = (process.env.MAX_BOT_TOKEN ?? '').trim();
 exports.config = {
     botToken: required('BOT_TOKEN'),
     // Не обязателен на старте: пока не известен публичный HTTPS-домен
     // (например, только разворачиваетесь на bothost и ждёте домен),
     // бот должен запускаться и работать, просто без кнопки Mini App.
     webappUrl: webappUrlRaw.startsWith('https://') ? webappUrlRaw : undefined,
+    // Бот MAX опционален и полностью отключён, пока переменная не задана —
+    // не должен мешать уже работающему боту Telegram, если что-то пойдёт не так.
+    maxBotToken: maxBotTokenRaw || undefined,
     port: Number(process.env.PORT ?? 3000),
     adminIds: (process.env.ADMIN_IDS ?? '')
         .split(',')

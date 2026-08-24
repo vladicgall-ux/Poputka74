@@ -5,8 +5,10 @@ exports.getBotUsername = getBotUsername;
 exports.notify = notify;
 exports.notifyPhoto = notifyPhoto;
 exports.notifyAdmins = notifyAdmins;
+exports.notifyUser = notifyUser;
 const telegraf_1 = require("telegraf");
 const config_1 = require("../config");
+const maxNotifier_1 = require("./maxNotifier");
 let botInstance = null;
 function setBotInstance(bot) {
     botInstance = bot;
@@ -49,4 +51,8 @@ async function notifyPhoto(telegramId, photoPath, caption) {
 /** Рассылает сообщение всем администраторам из ADMIN_IDS (например, обращение в поддержку). */
 async function notifyAdmins(text, buttonRows) {
     await Promise.all(config_1.config.adminIds.map((id) => notify(id, text, buttonRows)));
+}
+/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован. */
+async function notifyUser(user, text) {
+    return user.platform === 'max' ? (0, maxNotifier_1.notifyMax)(user, text) : notify(user.telegram_id, text);
 }

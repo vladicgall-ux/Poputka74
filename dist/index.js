@@ -4,6 +4,7 @@ require("./db/db");
 const config_1 = require("./config");
 const app_1 = require("./server/app");
 const bot_1 = require("./bot/bot");
+const maxBot_1 = require("./bot/maxBot");
 const rideService_1 = require("./services/rideService");
 const reminders_1 = require("./jobs/reminders");
 const SWEEP_INTERVAL_MS = 60000;
@@ -22,6 +23,19 @@ async function main() {
         .launch()
         .then(() => console.log('Telegram-бот запущен (long polling)'))
         .catch((err) => console.error('Не удалось запустить Telegram-бота:', err));
+    // Бот MAX полностью опционален — создаётся, только если задан
+    // MAX_BOT_TOKEN, и не должен мешать боту Telegram, если что-то пойдёт не
+    // так. bot.start() у MAX SDK так же не резолвится, пока бот не
+    // остановлен — запускаем без await, по той же причине, что и Telegram.
+    if (config_1.config.maxBotToken) {
+        const maxBot = (0, maxBot_1.createMaxBot)();
+        maxBot
+            .start()
+            .then(() => console.log('Бот MAX запущен (long polling)'))
+            .catch((err) => console.error('Не удалось запустить бота MAX:', err));
+        process.once('SIGINT', () => maxBot.stop());
+        process.once('SIGTERM', () => maxBot.stop());
+    }
     // Переводит поездки, время которых прошло, в «выполнена»/«отменена» —
     // без этого статус навсегда оставался бы 'active', даже когда поездка
     // давно состоялась или не состоялась.

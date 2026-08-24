@@ -2,6 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsertUser = upsertUser;
 exports.getUser = getUser;
+exports.maxStorageId = maxStorageId;
+exports.realMaxUserId = realMaxUserId;
+exports.upsertMaxUser = upsertMaxUser;
 exports.setPhoneVerified = setPhoneVerified;
 exports.setUserBanned = setUserBanned;
 exports.setFullName = setFullName;
@@ -30,6 +33,30 @@ function upsertUser(profile) {
 }
 function getUser(telegramId) {
     return db_1.db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegramId);
+}
+/**
+ * Регистрирует/обновляет пользователя MAX в той же таблице users, что и
+ * Telegram. Реальный numeric user_id MAX хранится в telegram_id со знаком
+ * минус — Telegram ID всегда положительные, так что коллизий не бывает, и
+ * не пришлось перестраивать таблицу и все внешние ключи на неё
+ * (driver_profiles/rides/bookings/ratings). platform='max' — только для
+ * отображения и выбора бота при отправке уведомлений.
+ */
+function maxStorageId(realMaxUserId) {
+    return -Math.abs(realMaxUserId);
+}
+function realMaxUserId(user) {
+    return Math.abs(user.telegram_id);
+}
+function upsertMaxUser(profile) {
+    const storageId = maxStorageId(profile.id);
+    db_1.db.prepare(`INSERT INTO users (telegram_id, platform, first_name, username, last_seen_at)
+     VALUES (@id, 'max', @first_name, @username, datetime('now'))
+     ON CONFLICT(telegram_id) DO UPDATE SET
+       first_name = excluded.first_name,
+       username = excluded.username,
+       last_seen_at = datetime('now')`).run({ id: storageId, first_name: profile.name, username: profile.username ?? null });
+    return getUser(storageId);
 }
 function setPhoneVerified(telegramId, phone) {
     db_1.db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);

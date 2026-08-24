@@ -8,6 +8,11 @@ export function setBotInstance(bot: Telegraf): void {
   botInstance = bot;
 }
 
+/** Юзернейм бота (для ссылки-приглашения) — становится известен после getMe() при запуске. */
+export function getBotUsername(): string | null {
+  return botInstance?.botInfo?.username ?? null;
+}
+
 export type NotifyButton =
   | { text: string; callback_data: string }
   | { text: string; url: string }

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setBotInstance = setBotInstance;
+exports.getBotUsername = getBotUsername;
 exports.notify = notify;
 exports.notifyPhoto = notifyPhoto;
 exports.notifyAdmins = notifyAdmins;
@@ -9,6 +10,10 @@ const config_1 = require("../config");
 let botInstance = null;
 function setBotInstance(bot) {
     botInstance = bot;
+}
+/** Юзернейм бота (для ссылки-приглашения) — становится известен после getMe() при запуске. */
+function getBotUsername() {
+    return botInstance?.botInfo?.username ?? null;
 }
 /** Отправляет сообщение пользователю; молча игнорирует ошибки (например, если он ни разу не писал боту). */
 async function notify(telegramId, text, buttonRows) {

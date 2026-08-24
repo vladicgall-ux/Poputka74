@@ -15,6 +15,7 @@ const admin_1 = require("./routes/admin");
 const support_1 = require("./routes/support");
 const ratings_1 = require("./routes/ratings");
 const upload_1 = require("./middleware/upload");
+const notifier_1 = require("../bot/notifier");
 function createApp() {
     const app = (0, express_1.default)();
     // bothost и подобные PaaS обычно ставят приложение за обратный прокси —
@@ -48,6 +49,11 @@ function createApp() {
         standardHeaders: true,
         legacyHeaders: false,
     }));
+    // Публичный, без авторизации — нужен фронтенду только чтобы собрать
+    // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.
+    app.get('/api/config', (_req, res) => {
+        res.json({ botUsername: (0, notifier_1.getBotUsername)() });
+    });
     app.use('/api/users', users_1.usersRouter);
     app.use('/api/rides', rides_1.ridesRouter);
     app.use('/api/bookings', bookings_1.bookingsRouter);

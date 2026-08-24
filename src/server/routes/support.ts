@@ -3,6 +3,7 @@ import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { createSupportMessage } from '../../services/supportService';
 import { notifyAdmins } from '../../bot/notifier';
+import { displayName } from '../../utils/displayName';
 
 export const supportRouter = Router();
 
@@ -22,7 +23,7 @@ supportRouter.post('/', writeLimiter(8, 5 * 60_000), async (req, res) => {
 
   const record = createSupportMessage(user.telegram_id, message);
 
-  const senderName = [user.first_name, user.username ? `@${user.username}` : null]
+  const senderName = [displayName(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
     .filter(Boolean)
     .join(' ');
   await notifyAdmins(

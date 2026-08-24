@@ -4,6 +4,7 @@ exports.upsertUser = upsertUser;
 exports.getUser = getUser;
 exports.setPhoneVerified = setPhoneVerified;
 exports.setUserBanned = setUserBanned;
+exports.setFullName = setFullName;
 exports.listAllUsers = listAllUsers;
 exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
@@ -34,6 +35,12 @@ function setPhoneVerified(telegramId, phone) {
 }
 function setUserBanned(telegramId, banned) {
     db_1.db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
+}
+/** Настоящее имя и фамилия, которые пользователь вводит сам — в отличие от
+ *  first_name/username из Telegram, это может быть любой ник. Показывается
+ *  другой стороне (пассажиру/водителю) вместо телеграм-ника. */
+function setFullName(telegramId, fullName) {
+    db_1.db.prepare('UPDATE users SET full_name = ? WHERE telegram_id = ?').run(fullName, telegramId);
 }
 function listAllUsers() {
     return db_1.db

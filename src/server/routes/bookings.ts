@@ -4,6 +4,7 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { createBooking, cancelBooking, listBookingsByPassenger, BookingError } from '../../services/bookingService';
 import { getRideWithDriver } from '../../services/rideService';
 import { notify, type NotifyButton } from '../../bot/notifier';
+import { displayName } from '../../utils/displayName';
 
 export const bookingsRouter = Router();
 
@@ -39,7 +40,7 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
     const booking = createBooking({ rideId, passengerId: user.telegram_id, seats });
     const ride = getRideWithDriver(rideId)!;
 
-    const passengerName = [user.first_name, user.username ? `@${user.username}` : null]
+    const passengerName = [displayName(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
       .filter(Boolean)
       .join(' ');
 

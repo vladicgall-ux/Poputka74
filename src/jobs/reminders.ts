@@ -1,6 +1,7 @@
 import { config } from '../config';
 import { listBookingsDueForRatingReminder, markRatingReminderSent } from '../services/bookingService';
 import { notify, type NotifyButton } from '../bot/notifier';
+import { displayName } from '../utils/displayName';
 
 /**
  * Через час после поездки просит пассажира оценить водителя — если бронь
@@ -15,7 +16,7 @@ export async function sendRatingReminders(): Promise<void> {
       : undefined;
     await notify(
       b.passenger_id,
-      `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${b.driver_first_name}?\nОцените поездку в приложении — это поможет другим пассажирам.`,
+      `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${displayName(b.driver_full_name, b.driver_first_name)}?\nОцените поездку в приложении — это поможет другим пассажирам.`,
       buttons
     );
     markRatingReminderSent(b.id);

@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
-import { getDriverProfile, upsertDriverProfile, setDriverPhoto } from '../../services/userService';
+import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, getUser } from '../../services/userService';
 import { getDriverRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
@@ -19,6 +19,31 @@ usersRouter.get('/me', (req, res) => {
   const isAdmin = config.adminIds.includes(user.telegram_id);
   const rating = driverProfile ? getDriverRatingSummary(user.telegram_id) : null;
   res.json({ user, driverProfile, isAdmin, rating });
+});
+
+/**
+ * Сохраняет настоящее имя и фамилию — не через requireActiveUser, потому что
+ * именно отсутствие full_name и есть та проверка, которую этот запрос должен
+ * снять (иначе получился бы замкнутый круг). Телефон всё равно обязателен —
+ * имя вводят уже после подтверждения номера.
+ */
+usersRouter.post('/me/name', writeLimiter(10, 10 * 60_000), (req, res) => {
+  const { user } = req as AuthedRequest;
+  if (user.banned) {
+    res.status(403).json({ error: 'Аккаунт заблокирован' });
+    return;
+  }
+  if (!user.phone_verified) {
+    res.status(403).json({ error: 'Сначала подтвердите номер телефона в чате с ботом' });
+    return;
+  }
+  const fullName = typeof req.body?.fullName === 'string' ? req.body.fullName.trim().replace(/\s+/g, ' ') : '';
+  if (fullName.length < 3 || fullName.length > 100 || !fullName.includes(' ')) {
+    res.status(400).json({ error: 'Укажите имя и фамилию через пробел' });
+    return;
+  }
+  setFullName(user.telegram_id, fullName);
+  res.json({ user: getUser(user.telegram_id) });
 });
 
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */

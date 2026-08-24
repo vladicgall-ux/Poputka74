@@ -18,6 +18,7 @@ export interface RideRecord {
 export interface RideWithDriver extends RideRecord {
   driver_first_name: string;
   driver_username: string | null;
+  driver_full_name: string | null;
   car_model: string;
   car_color: string | null;
   car_plate: string;
@@ -60,6 +61,7 @@ const RIDE_WITH_DRIVER_SELECT = `
   SELECT r.*,
          u.first_name AS driver_first_name,
          u.username   AS driver_username,
+         u.full_name  AS driver_full_name,
          d.car_model, d.car_color, d.car_plate, d.photo_path,
          ROUND(rt.avg_rating, 1) AS avg_rating, COALESCE(rt.rating_count, 0) AS rating_count
   FROM rides r

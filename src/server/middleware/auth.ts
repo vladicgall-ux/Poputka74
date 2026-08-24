@@ -47,5 +47,9 @@ export function requireActiveUser(req: Request, res: Response, next: NextFunctio
     res.status(403).json({ error: 'Подтвердите номер телефона в чате с ботом', phoneRequired: true });
     return;
   }
+  if (!user.full_name) {
+    res.status(403).json({ error: 'Укажите имя и фамилию', nameRequired: true });
+    return;
+  }
   next();
 }

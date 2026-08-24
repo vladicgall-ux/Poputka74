@@ -42,6 +42,9 @@ if (!columnExists('support_messages', 'from_admin')) {
 if (!columnExists('bookings', 'reminder_sent')) {
     exports.db.exec(`ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER NOT NULL DEFAULT 0`);
 }
+if (!columnExists('users', 'full_name')) {
+    exports.db.exec(`ALTER TABLE users ADD COLUMN full_name TEXT`);
+}
 const bookingsTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get()?.sql;
 if (bookingsTableSql && !bookingsTableSql.includes("'pending'")) {
     exports.db.exec(`

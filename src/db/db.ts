@@ -46,6 +46,10 @@ if (!columnExists('bookings', 'reminder_sent')) {
   db.exec(`ALTER TABLE bookings ADD COLUMN reminder_sent INTEGER NOT NULL DEFAULT 0`);
 }
 
+if (!columnExists('users', 'full_name')) {
+  db.exec(`ALTER TABLE users ADD COLUMN full_name TEXT`);
+}
+
 const bookingsTableSql = (
   db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'bookings'`).get() as
     | { sql: string }

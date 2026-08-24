@@ -11,6 +11,7 @@ const userService_1 = require("../services/userService");
 const notifier_1 = require("./notifier");
 const bookingService_1 = require("../services/bookingService");
 const supportService_1 = require("../services/supportService");
+const displayName_1 = require("../utils/displayName");
 const bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /**
  * Простой лимит на сообщения в поддержку через бота: без него любой
@@ -144,14 +145,14 @@ function createBot() {
             const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username);
             await ctx.answerCbQuery('Бронирование подтверждено!');
             await ctx.editMessageText(`✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-                `Пассажир: ${info.passenger_first_name}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+                `Пассажир: ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
                 `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
                 `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`, {
                 parse_mode: 'HTML',
                 ...(passengerButtons ? telegraf_1.Markup.inlineKeyboard(passengerButtons) : {}),
             });
             await (0, notifier_1.notify)(info.passenger_id, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-                `Водитель: ${info.driver_first_name}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`, dialogRows('💬 Написать водителю', info.driver_username));
+                `Водитель: ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`, dialogRows('💬 Написать водителю', info.driver_username));
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -193,7 +194,10 @@ function createBot() {
         });
         (0, supportService_1.createSupportMessage)(ctx.from.id, text.slice(0, 1000));
         const user = (0, userService_1.getUser)(ctx.from.id);
-        const senderName = [ctx.from.first_name, ctx.from.username ? `@${ctx.from.username}` : null]
+        const senderName = [
+            (0, displayName_1.displayName)(user?.full_name, ctx.from.first_name),
+            ctx.from.username ? `@${ctx.from.username}` : null,
+        ]
             .filter(Boolean)
             .join(' ');
         await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null));

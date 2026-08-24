@@ -7,6 +7,7 @@ const rateLimit_1 = require("../middleware/rateLimit");
 const bookingService_1 = require("../../services/bookingService");
 const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
+const displayName_1 = require("../../utils/displayName");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -34,7 +35,7 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
     try {
         const booking = (0, bookingService_1.createBooking)({ rideId, passengerId: user.telegram_id, seats });
         const ride = (0, rideService_1.getRideWithDriver)(rideId);
-        const passengerName = [user.first_name, user.username ? `@${user.username}` : null]
+        const passengerName = [(0, displayName_1.displayName)(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
             .filter(Boolean)
             .join(' ');
         const driverButtons = [

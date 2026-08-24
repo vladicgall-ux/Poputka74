@@ -5,6 +5,7 @@ import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
 import { setBotInstance, notify, notifyAdmins, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
 import { createSupportMessage } from '../services/supportService';
+import { displayName } from '../utils/displayName';
 
 const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
@@ -166,7 +167,7 @@ export function createBot(): Telegraf {
       await ctx.answerCbQuery('Бронирование подтверждено!');
       await ctx.editMessageText(
         `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Пассажир: ${info.passenger_first_name}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+          `Пассажир: ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
           `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
           `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
         {
@@ -178,7 +179,7 @@ export function createBot(): Telegraf {
       await notify(
         info.passenger_id,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель: ${info.driver_first_name}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
+          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
         dialogRows('💬 Написать водителю', info.driver_username)
       );
     } catch (err) {
@@ -230,7 +231,10 @@ export function createBot(): Telegraf {
     createSupportMessage(ctx.from.id, text.slice(0, 1000));
 
     const user = getUser(ctx.from.id);
-    const senderName = [ctx.from.first_name, ctx.from.username ? `@${ctx.from.username}` : null]
+    const senderName = [
+      displayName(user?.full_name, ctx.from.first_name),
+      ctx.from.username ? `@${ctx.from.username}` : null,
+    ]
       .filter(Boolean)
       .join(' ');
     await notifyAdmins(

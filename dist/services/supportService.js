@@ -19,7 +19,7 @@ function createAdminReply(userId, message) {
 }
 function listAllSupportMessages() {
     return db_1.db
-        .prepare(`SELECT s.*, u.first_name, u.username, u.phone
+        .prepare(`SELECT s.*, u.first_name, u.username, u.full_name, u.phone
        FROM support_messages s JOIN users u ON u.telegram_id = s.user_id
        ORDER BY s.created_at DESC`)
         .all();

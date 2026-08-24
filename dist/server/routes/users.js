@@ -23,6 +23,30 @@ exports.usersRouter.get('/me', (req, res) => {
     const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(user.telegram_id) : null;
     res.json({ user, driverProfile, isAdmin, rating });
 });
+/**
+ * Сохраняет настоящее имя и фамилию — не через requireActiveUser, потому что
+ * именно отсутствие full_name и есть та проверка, которую этот запрос должен
+ * снять (иначе получился бы замкнутый круг). Телефон всё равно обязателен —
+ * имя вводят уже после подтверждения номера.
+ */
+exports.usersRouter.post('/me/name', (0, rateLimit_1.writeLimiter)(10, 10 * 60000), (req, res) => {
+    const { user } = req;
+    if (user.banned) {
+        res.status(403).json({ error: 'Аккаунт заблокирован' });
+        return;
+    }
+    if (!user.phone_verified) {
+        res.status(403).json({ error: 'Сначала подтвердите номер телефона в чате с ботом' });
+        return;
+    }
+    const fullName = typeof req.body?.fullName === 'string' ? req.body.fullName.trim().replace(/\s+/g, ' ') : '';
+    if (fullName.length < 3 || fullName.length > 100 || !fullName.includes(' ')) {
+        res.status(400).json({ error: 'Укажите имя и фамилию через пробел' });
+        return;
+    }
+    (0, userService_1.setFullName)(user.telegram_id, fullName);
+    res.json({ user: (0, userService_1.getUser)(user.telegram_id) });
+});
 /** Регистрация/обновление анкеты водителя. Требует подтверждённый телефон — защита от фейков. */
 exports.usersRouter.post('/me/driver-profile', auth_1.requireActiveUser, (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (req, res) => {
     const { user } = req;

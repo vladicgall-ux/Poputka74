@@ -112,9 +112,11 @@ export function declineBooking(bookingId: number, driverId: number): BookingReco
 export interface BookingWithPeople extends BookingWithRide {
   passenger_first_name: string;
   passenger_username: string | null;
+  passenger_full_name: string | null;
   passenger_phone: string | null;
   driver_first_name: string;
   driver_username: string | null;
+  driver_full_name: string | null;
   driver_phone: string | null;
 }
 
@@ -123,8 +125,8 @@ export function getBookingWithPeople(bookingId: number): BookingWithPeople | und
   return db
     .prepare(
       `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.phone AS driver_phone
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
@@ -138,8 +140,8 @@ export function listAllBookings(): BookingWithPeople[] {
   return db
     .prepare(
       `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
@@ -184,6 +186,7 @@ export interface RidePassenger {
   status: 'pending' | 'confirmed' | 'cancelled';
   first_name: string;
   username: string | null;
+  full_name: string | null;
   phone: string | null;
 }
 
@@ -194,6 +197,7 @@ export interface RatingReminder {
   from_city: string;
   to_city: string;
   driver_first_name: string;
+  driver_full_name: string | null;
 }
 
 /**
@@ -203,7 +207,7 @@ export interface RatingReminder {
 export function listBookingsDueForRatingReminder(): RatingReminder[] {
   return db
     .prepare(
-      `SELECT b.id, b.passenger_id, r.id AS ride_id, r.from_city, r.to_city, drv.first_name AS driver_first_name
+      `SELECT b.id, b.passenger_id, r.id AS ride_id, r.from_city, r.to_city, drv.first_name AS driver_first_name, drv.full_name AS driver_full_name
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users drv ON drv.telegram_id = r.driver_id
@@ -230,7 +234,7 @@ export function getRidePassengers(
   }
   const passengers = db
     .prepare(
-      `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.phone
+      `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone
        FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
        WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
        ORDER BY b.created_at ASC`

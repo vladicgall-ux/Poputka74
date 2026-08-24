@@ -92,8 +92,8 @@ function declineBooking(bookingId, driverId) {
 function getBookingWithPeople(bookingId) {
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.phone AS driver_phone
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
@@ -104,8 +104,8 @@ function getBookingWithPeople(bookingId) {
 function listAllBookings() {
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
@@ -140,7 +140,7 @@ function listBookingsForRide(rideId) {
  */
 function listBookingsDueForRatingReminder() {
     return db_1.db
-        .prepare(`SELECT b.id, b.passenger_id, r.id AS ride_id, r.from_city, r.to_city, drv.first_name AS driver_first_name
+        .prepare(`SELECT b.id, b.passenger_id, r.id AS ride_id, r.from_city, r.to_city, drv.first_name AS driver_first_name, drv.full_name AS driver_full_name
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users drv ON drv.telegram_id = r.driver_id
@@ -160,7 +160,7 @@ function getRidePassengers(rideId, driverId) {
         throw new BookingError('Это не ваша поездка');
     }
     const passengers = db_1.db
-        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.phone
+        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone
        FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
        WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
        ORDER BY b.created_at ASC`)

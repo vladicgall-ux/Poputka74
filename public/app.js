@@ -126,7 +126,7 @@
     const driverLine = ride.driver_first_name
       ? `<div class="driver-row">
           ${ride.photo_path ? `<img class="driver-avatar" src="/uploads/${ride.photo_path}" alt="" />` : ''}
-          <div class="driver">${escapeHtml(ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>
+          <div class="driver">${escapeHtml(ride.driver_full_name || ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>
         </div>`
       : '';
     const ratingLine = ride.driver_first_name ? starsHtml(ride.avg_rating, ride.rating_count) : '';
@@ -191,9 +191,26 @@
     toast(`Номер скопирован: ${phone}`);
   }
 
-  document.body.addEventListener('click', (e) => {
-    const btn = e.target.closest('.phone-link');
-    if (btn) copyPhone(btn.dataset.phone);
+  document.body.addEventListener('click', async (e) => {
+    const phoneBtn = e.target.closest('.phone-link');
+    if (phoneBtn) {
+      copyPhone(phoneBtn.dataset.phone);
+      return;
+    }
+    if (e.target.id === 'profileNameSaveBtn') {
+      const input = document.getElementById('profileNameInput');
+      const fullName = input.value.trim();
+      if (!fullName.includes(' ') || fullName.length < 3) {
+        toast('Укажите имя и фамилию через пробел');
+        return;
+      }
+      try {
+        await api('/users/me/name', { method: 'POST', body: JSON.stringify({ fullName }) });
+        toast('Имя сохранено');
+      } catch (err) {
+        toast(err.message);
+      }
+    }
   });
 
   // По умолчанию поиск сразу отфильтрован на сегодня — самый частый случай.
@@ -552,7 +569,7 @@
         panel.innerHTML = passengers.map((p) => `
           <div class="passenger-row">
             <span>
-              ${escapeHtml(p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
+              ${escapeHtml(p.full_name || p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
               ${phoneLink(p.phone)} · ID ${p.passenger_id}
             </span>
             <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
@@ -585,11 +602,15 @@
       document.getElementById('adminTabBtn').hidden = !isAdmin;
       const card = document.getElementById('profileCard');
       card.innerHTML = `
-        <div class="profile-row"><span class="label">Имя</span><span>${escapeHtml(user.first_name)}</span></div>
         <div class="profile-row"><span class="label">Username</span><span>${user.username ? '@' + escapeHtml(user.username) : '—'}</span></div>
         <div class="profile-row"><span class="label">Телефон</span><span>${user.phone_verified ? '✅ подтверждён' : '❌ не подтверждён'}</span></div>
         <div class="profile-row"><span class="label">Водитель</span><span>${driverProfile ? `✅ ${escapeHtml(driverProfile.car_model)}` : '—'}</span></div>
         ${driverProfile ? `<div class="profile-row"><span class="label">Ваш рейтинг</span><span>${starsHtml(rating?.avg, rating?.count)}</span></div>` : ''}
+        <div class="profile-row" style="margin-top:6px;">
+          <span class="label">Имя и фамилия</span>
+        </div>
+        <input type="text" id="profileNameInput" placeholder="Имя и фамилия" maxlength="100" value="${escapeHtml(user.full_name || '')}" />
+        <button type="button" class="btn small" id="profileNameSaveBtn" style="margin-top:8px;">Сохранить</button>
       `;
     } catch (err) {
       toast(err.message);
@@ -643,7 +664,7 @@
       document.getElementById('adminUsersList').innerHTML = users.map((u) => `
         <div class="card ride-card">
           <div class="row">
-            <div class="route">${escapeHtml(u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
+            <div class="route">${escapeHtml(u.full_name || u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
             <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
           </div>
           <div class="meta">
@@ -694,7 +715,7 @@
       document.getElementById('adminSupportList').innerHTML = messages.map((m) => `
         <div class="card ride-card ${m.from_admin ? 'support-from-admin' : ''}">
           <div class="row">
-            <div class="route">${m.from_admin ? 'Вы →' : ''} ${escapeHtml(m.first_name)}${m.username ? ' · @' + escapeHtml(m.username) : ''}</div>
+            <div class="route">${m.from_admin ? 'Вы →' : ''} ${escapeHtml(m.full_name || m.first_name)}${m.username ? ' · @' + escapeHtml(m.username) : ''}</div>
             <span class="badge ok">${formatDate(m.created_at)}</span>
           </div>
           <div class="meta">
@@ -757,6 +778,18 @@
     document.getElementById('gateTitle').textContent = title;
     document.getElementById('gateText').textContent = text;
     document.getElementById('gateActionBtn').hidden = !showBotButton;
+    document.getElementById('gateNameForm').hidden = true;
+    document.getElementById('app').hidden = true;
+    document.querySelector('.tabbar').hidden = true;
+    document.getElementById('appGate').hidden = false;
+  }
+
+  function showNameGate() {
+    document.getElementById('gateTitle').textContent = 'Укажите имя и фамилию';
+    document.getElementById('gateText').textContent =
+      'Другие пользователи увидят это имя вместо ника из Telegram — так безопаснее и понятнее, кто едет или бронирует место.';
+    document.getElementById('gateActionBtn').hidden = true;
+    document.getElementById('gateNameForm').hidden = false;
     document.getElementById('app').hidden = true;
     document.querySelector('.tabbar').hidden = true;
     document.getElementById('appGate').hidden = false;
@@ -764,6 +797,21 @@
 
   document.getElementById('gateActionBtn').addEventListener('click', () => {
     tg?.close();
+  });
+
+  document.getElementById('gateNameSubmitBtn').addEventListener('click', async () => {
+    const input = document.getElementById('gateNameInput');
+    const fullName = input.value.trim();
+    if (!fullName.includes(' ') || fullName.length < 3) {
+      toast('Укажите имя и фамилию через пробел');
+      return;
+    }
+    try {
+      await api('/users/me/name', { method: 'POST', body: JSON.stringify({ fullName }) });
+      initApp();
+    } catch (err) {
+      toast(err.message);
+    }
   });
 
   async function initApp() {
@@ -790,6 +838,10 @@
           'Чтобы пользоваться приложением, подтвердите номер телефона в чате с ботом кнопкой «Поделиться номером» — это защищает всех от фейковых анкет.',
           true
         );
+        return;
+      }
+      if (!user.full_name) {
+        showNameGate();
         return;
       }
 

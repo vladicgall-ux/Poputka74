@@ -9,6 +9,7 @@ export interface UserRecord {
   phone_verified: number;
   banned: number;
   last_seen_at: string | null;
+  full_name: string | null;
   created_at: string;
 }
 
@@ -63,6 +64,13 @@ export function setPhoneVerified(telegramId: number, phone: string): void {
 
 export function setUserBanned(telegramId: number, banned: boolean): void {
   db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
+}
+
+/** Настоящее имя и фамилия, которые пользователь вводит сам — в отличие от
+ *  first_name/username из Telegram, это может быть любой ник. Показывается
+ *  другой стороне (пассажиру/водителю) вместо телеграм-ника. */
+export function setFullName(telegramId: number, fullName: string): void {
+  db.prepare('UPDATE users SET full_name = ? WHERE telegram_id = ?').run(fullName, telegramId);
 }
 
 export interface UserWithDriverInfo extends UserRecord {

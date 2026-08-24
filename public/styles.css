@@ -405,6 +405,13 @@ input[type="date"], input[type="datetime-local"] {
   font-family: inherit;
   cursor: pointer;
 }
+.passengers-panel h4 {
+  margin: 6px 0 2px;
+  font-size: 14px;
+}
+.passengers-panel .stats-row {
+  margin: 4px 0;
+}
 .passengers-panel .earnings-total {
   font-weight: 700;
   color: var(--success);

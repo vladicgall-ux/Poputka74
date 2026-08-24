@@ -62,3 +62,39 @@ export function getDriverStats(driverId: number, from: string, to: string): Driv
     .get(driverId, from, to) as DriverStats;
   return row;
 }
+
+/** Статистика водителя за всё время — для карточки пользователя в админке. */
+export function getDriverAllTimeStats(driverId: number): DriverStats {
+  const row = db
+    .prepare(
+      `SELECT
+         COUNT(DISTINCT r.id) AS ridesCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked ELSE 0 END), 0) AS passengersCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS earnings
+       FROM rides r
+       LEFT JOIN bookings b ON b.ride_id = r.id
+       WHERE r.driver_id = ?`
+    )
+    .get(driverId) as DriverStats;
+  return row;
+}
+
+export interface PassengerStats {
+  bookingsCount: number;
+  totalSpent: number;
+}
+
+/** Статистика пассажира за всё время — для карточки пользователя в админке. */
+export function getPassengerAllTimeStats(passengerId: number): PassengerStats {
+  const row = db
+    .prepare(
+      `SELECT
+         COUNT(*) AS bookingsCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS totalSpent
+       FROM bookings b
+       JOIN rides r ON r.id = b.ride_id
+       WHERE b.passenger_id = ? AND b.status IN ('pending', 'confirmed')`
+    )
+    .get(passengerId) as PassengerStats;
+  return row;
+}

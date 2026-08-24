@@ -1,11 +1,12 @@
 import { Router, type Request, type Response } from 'express';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { config } from '../../config';
-import { listAllUsers, setUserBanned, getUser } from '../../services/userService';
-import { listAllRides } from '../../services/rideService';
-import { listAllBookings } from '../../services/bookingService';
+import { listAllUsers, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
+import { listAllRides, listRidesByDriver } from '../../services/rideService';
+import { listAllBookings, listBookingsByPassenger } from '../../services/bookingService';
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
-import { getAdminStats } from '../../services/statsService';
+import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
+import { getDriverRatingSummary } from '../../services/ratingService';
 import { notify } from '../../bot/notifier';
 
 export const adminRouter = Router();
@@ -27,6 +28,23 @@ adminRouter.get('/stats', (_req, res) => {
 
 adminRouter.get('/users', (_req, res) => {
   res.json({ users: listAllUsers() });
+});
+
+/** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
+adminRouter.get('/users/:id', (req, res) => {
+  const telegramId = Number(req.params.id);
+  const user = getUser(telegramId);
+  if (!user) {
+    res.status(404).json({ error: 'Пользователь не найден' });
+    return;
+  }
+  const driverProfile = getDriverProfile(telegramId) ?? null;
+  const rides = driverProfile ? listRidesByDriver(telegramId) : [];
+  const driverStats = driverProfile ? getDriverAllTimeStats(telegramId) : null;
+  const rating = driverProfile ? getDriverRatingSummary(telegramId) : null;
+  const bookings = listBookingsByPassenger(telegramId);
+  const passengerStats = getPassengerAllTimeStats(telegramId);
+  res.json({ user, driverProfile, rides, driverStats, rating, bookings, passengerStats });
 });
 
 adminRouter.get('/rides', (_req, res) => {

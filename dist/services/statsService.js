@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getAdminStats = getAdminStats;
 exports.getDriverStats = getDriverStats;
+exports.getDriverAllTimeStats = getDriverAllTimeStats;
+exports.getPassengerAllTimeStats = getPassengerAllTimeStats;
 const db_1 = require("../db/db");
 /**
  * "Онлайн" — грубая оценка: пользователи, чей last_seen_at (обновляется на
@@ -33,5 +35,30 @@ function getDriverStats(driverId, from, to) {
        LEFT JOIN bookings b ON b.ride_id = r.id
        WHERE r.driver_id = ? AND date(r.departure_at, '+5 hours') BETWEEN ? AND ?`)
         .get(driverId, from, to);
+    return row;
+}
+/** Статистика водителя за всё время — для карточки пользователя в админке. */
+function getDriverAllTimeStats(driverId) {
+    const row = db_1.db
+        .prepare(`SELECT
+         COUNT(DISTINCT r.id) AS ridesCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked ELSE 0 END), 0) AS passengersCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS earnings
+       FROM rides r
+       LEFT JOIN bookings b ON b.ride_id = r.id
+       WHERE r.driver_id = ?`)
+        .get(driverId);
+    return row;
+}
+/** Статистика пассажира за всё время — для карточки пользователя в админке. */
+function getPassengerAllTimeStats(passengerId) {
+    const row = db_1.db
+        .prepare(`SELECT
+         COUNT(*) AS bookingsCount,
+         COALESCE(SUM(CASE WHEN b.status = 'confirmed' THEN b.seats_booked * r.price_per_seat ELSE 0 END), 0) AS totalSpent
+       FROM bookings b
+       JOIN rides r ON r.id = b.ride_id
+       WHERE b.passenger_id = ? AND b.status IN ('pending', 'confirmed')`)
+        .get(passengerId);
     return row;
 }

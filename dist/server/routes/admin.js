@@ -9,6 +9,7 @@ const rideService_1 = require("../../services/rideService");
 const bookingService_1 = require("../../services/bookingService");
 const supportService_1 = require("../../services/supportService");
 const statsService_1 = require("../../services/statsService");
+const ratingService_1 = require("../../services/ratingService");
 const notifier_1 = require("../../bot/notifier");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
@@ -25,6 +26,22 @@ exports.adminRouter.get('/stats', (_req, res) => {
 });
 exports.adminRouter.get('/users', (_req, res) => {
     res.json({ users: (0, userService_1.listAllUsers)() });
+});
+/** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
+exports.adminRouter.get('/users/:id', (req, res) => {
+    const telegramId = Number(req.params.id);
+    const user = (0, userService_1.getUser)(telegramId);
+    if (!user) {
+        res.status(404).json({ error: 'Пользователь не найден' });
+        return;
+    }
+    const driverProfile = (0, userService_1.getDriverProfile)(telegramId) ?? null;
+    const rides = driverProfile ? (0, rideService_1.listRidesByDriver)(telegramId) : [];
+    const driverStats = driverProfile ? (0, statsService_1.getDriverAllTimeStats)(telegramId) : null;
+    const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(telegramId) : null;
+    const bookings = (0, bookingService_1.listBookingsByPassenger)(telegramId);
+    const passengerStats = (0, statsService_1.getPassengerAllTimeStats)(telegramId);
+    res.json({ user, driverProfile, rides, driverStats, rating, bookings, passengerStats });
 });
 exports.adminRouter.get('/rides', (_req, res) => {
     res.json({ rides: (0, rideService_1.listAllRides)() });

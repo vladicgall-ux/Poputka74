@@ -633,6 +633,16 @@
     }
   });
 
+  document.getElementById('mineSubSwitch').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dir-btn');
+    if (!btn) return;
+    document.querySelectorAll('#mineSubSwitch .dir-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    const target = btn.dataset.mineTab;
+    document.getElementById('mineDriverSection').hidden = target !== 'driver';
+    document.getElementById('minePassengerSection').hidden = target !== 'passenger';
+  });
+
   // ---------- Admin tab ----------
   document.getElementById('adminSubSwitch').addEventListener('click', (e) => {
     const btn = e.target.closest('.dir-btn');
@@ -673,9 +683,11 @@
           </div>
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
           ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
+          <button type="button" class="btn small user-detail-toggle-btn" data-telegram-id="${u.telegram_id}">📊 Подробнее</button>
           <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
             ${u.banned ? 'Разблокировать' : 'Заблокировать'}
           </button>
+          <div class="user-detail-panel passengers-panel" id="user-detail-${u.telegram_id}" hidden></div>
         </div>
       `).join('') || '<p class="empty">Пока никто не зарегистрирован.</p>';
     } catch (err) {
@@ -736,21 +748,76 @@
   }
 
   document.getElementById('adminUsersList').addEventListener('click', async (e) => {
-    const btn = e.target.closest('.ban-toggle-btn');
-    if (!btn) return;
-    const telegramId = btn.dataset.telegramId;
-    const action = btn.dataset.action;
-    if (action === 'ban' && !confirm('Заблокировать этого пользователя? Он потеряет доступ к приложению.')) return;
-    btn.disabled = true;
-    try {
-      await api(`/admin/users/${telegramId}/${action}`, { method: 'POST' });
-      toast(action === 'ban' ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
-      loadAdminTab();
-    } catch (err) {
-      toast(err.message);
-      btn.disabled = false;
+    const banBtn = e.target.closest('.ban-toggle-btn');
+    if (banBtn) {
+      const telegramId = banBtn.dataset.telegramId;
+      const action = banBtn.dataset.action;
+      if (action === 'ban' && !confirm('Заблокировать этого пользователя? Он потеряет доступ к приложению.')) return;
+      banBtn.disabled = true;
+      try {
+        await api(`/admin/users/${telegramId}/${action}`, { method: 'POST' });
+        toast(action === 'ban' ? 'Пользователь заблокирован' : 'Пользователь разблокирован');
+        loadAdminTab();
+      } catch (err) {
+        toast(err.message);
+        banBtn.disabled = false;
+      }
+      return;
+    }
+
+    const detailBtn = e.target.closest('.user-detail-toggle-btn');
+    if (detailBtn) {
+      const telegramId = detailBtn.dataset.telegramId;
+      const panel = document.getElementById(`user-detail-${telegramId}`);
+      if (!panel.hidden) {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      panel.innerHTML = '<p class="empty">Загрузка...</p>';
+      try {
+        const data = await api(`/admin/users/${telegramId}`);
+        panel.innerHTML = userDetailHtml(data);
+      } catch (err) {
+        panel.innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`;
+      }
     }
   });
+
+  function userDetailHtml(data) {
+    const { driverProfile, driverStats, rating, rides, bookings, passengerStats } = data;
+    const driverBlock = driverProfile
+      ? `
+        <h4>Как водитель</h4>
+        <div class="stats-row">
+          <div class="stat-tile"><div class="value">${driverStats.ridesCount}</div><div class="label">Поездок</div></div>
+          <div class="stat-tile"><div class="value">${driverStats.passengersCount}</div><div class="label">Пассажиров</div></div>
+          <div class="stat-tile"><div class="value">${driverStats.earnings} ₽</div><div class="label">Заработано</div></div>
+        </div>
+        ${starsHtml(rating?.avg, rating?.count)}
+        ${rides.length ? rides.map((r) => `
+          <div class="passenger-row">
+            <span>${escapeHtml(r.from_city)} → ${escapeHtml(r.to_city)} · ${formatDate(r.departure_at)}</span>
+            <span>${r.status === 'completed' ? '✅ выполнена' : r.status === 'cancelled' ? '❌ отменена' : '🟢 активна'}</span>
+          </div>
+        `).join('') : '<p class="empty">Поездок пока нет.</p>'}
+      `
+      : '';
+    const passengerBlock = `
+      <h4>Как пассажир</h4>
+      <div class="stats-row">
+        <div class="stat-tile"><div class="value">${passengerStats.bookingsCount}</div><div class="label">Бронирований</div></div>
+        <div class="stat-tile"><div class="value">${passengerStats.totalSpent} ₽</div><div class="label">Потрачено</div></div>
+      </div>
+      ${bookings.length ? bookings.map((b) => `
+        <div class="passenger-row">
+          <span>${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)} · ${formatDate(b.departure_at)}</span>
+          <span>${b.status === 'confirmed' ? '✅ подтверждена' : b.status === 'pending' ? '⏳ ждёт' : '❌ отменена'}</span>
+        </div>
+      `).join('') : '<p class="empty">Бронирований пока нет.</p>'}
+    `;
+    return driverBlock + passengerBlock;
+  }
 
   document.getElementById('adminSupportList').addEventListener('click', async (e) => {
     const btn = e.target.closest('.support-reply-btn');

@@ -122,7 +122,7 @@ export function listRidesByDriver(
     params.to = range.to;
   }
   return db
-    .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at ASC`)
+    .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
     .all(params) as RideRecord[];
 }
 

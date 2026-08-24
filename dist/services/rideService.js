@@ -81,7 +81,7 @@ function listRidesByDriver(driverId, range) {
         params.to = range.to;
     }
     return db_1.db
-        .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at ASC`)
+        .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
         .all(params);
 }
 function cancelRide(id, driverId) {

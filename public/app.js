@@ -154,21 +154,47 @@
     }[c]));
   }
 
-  // Нормализует номер для tel: — некоторые телефоны не открывают звонилку
-  // по ссылке без ведущего +, а Telegram иногда отдаёт номер как "79..."
-  // или "89..." без плюса.
-  function telHref(phone) {
+  // Нормализует номер — некоторые телефоны не открывают звонилку по ссылке
+  // без ведущего +, а Telegram иногда отдаёт номер как "79..." или "89..." без плюса.
+  function normalizePhone(phone) {
     let digits = String(phone).replace(/[^\d+]/g, '');
     if (!digits.startsWith('+')) {
       if (digits.startsWith('8') && digits.length === 11) digits = '+7' + digits.slice(1);
       else digits = '+' + digits;
     }
-    return `tel:${digits}`;
+    return digits;
   }
 
+  // Встроенный браузер Telegram Mini App блокирует переход по tel: —
+  // обычная ссылка на звонилку там не срабатывает (ограничение клиента,
+  // не наш код). Поэтому по тапу копируем номер в буфер обмена, чтобы
+  // сразу вставить его в приложение «Телефон».
   function phoneLink(phone) {
-    return phone ? `<a href="${telHref(phone)}">${escapeHtml(phone)}</a>` : 'номер не указан';
+    if (!phone) return 'номер не указан';
+    const normalized = normalizePhone(phone);
+    return `<button type="button" class="phone-link" data-phone="${escapeHtml(normalized)}">📞 ${escapeHtml(phone)}</button>`;
   }
+
+  async function copyPhone(phone) {
+    try {
+      await navigator.clipboard.writeText(phone);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = phone;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); } catch {}
+      document.body.removeChild(textarea);
+    }
+    toast(`Номер скопирован: ${phone}`);
+  }
+
+  document.body.addEventListener('click', (e) => {
+    const btn = e.target.closest('.phone-link');
+    if (btn) copyPhone(btn.dataset.phone);
+  });
 
   // По умолчанию поиск сразу отфильтрован на сегодня — самый частый случай.
   state.searchDate = toDateStr(new Date());

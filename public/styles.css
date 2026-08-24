@@ -394,10 +394,16 @@ input[type="date"], input[type="datetime-local"] {
   font-size: 13px;
   padding: 6px 0;
 }
-a[href^="tel:"] {
+.phone-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
   color: var(--link);
-  text-decoration: underline;
   font-weight: 600;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
 }
 .passengers-panel .earnings-total {
   font-weight: 700;

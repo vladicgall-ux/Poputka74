@@ -154,6 +154,22 @@
     }[c]));
   }
 
+  // Нормализует номер для tel: — некоторые телефоны не открывают звонилку
+  // по ссылке без ведущего +, а Telegram иногда отдаёт номер как "79..."
+  // или "89..." без плюса.
+  function telHref(phone) {
+    let digits = String(phone).replace(/[^\d+]/g, '');
+    if (!digits.startsWith('+')) {
+      if (digits.startsWith('8') && digits.length === 11) digits = '+7' + digits.slice(1);
+      else digits = '+' + digits;
+    }
+    return `tel:${digits}`;
+  }
+
+  function phoneLink(phone) {
+    return phone ? `<a href="${telHref(phone)}">${escapeHtml(phone)}</a>` : 'номер не указан';
+  }
+
   // По умолчанию поиск сразу отфильтрован на сегодня — самый частый случай.
   state.searchDate = toDateStr(new Date());
   document.getElementById('searchDate').value = state.searchDate;
@@ -511,7 +527,7 @@
           <div class="passenger-row">
             <span>
               ${escapeHtml(p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
-              ${p.phone ? `<a href="tel:${escapeHtml(p.phone)}">${escapeHtml(p.phone)}</a>` : 'телефон не указан'} · ID ${p.passenger_id}
+              ${phoneLink(p.phone)} · ID ${p.passenger_id}
             </span>
             <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
           </div>
@@ -606,7 +622,7 @@
           </div>
           <div class="meta">
             <span>ID: ${u.telegram_id}</span>
-            <span>${u.phone ? escapeHtml(u.phone) : 'номер не указан'}</span>
+            <span>${phoneLink(u.phone)}</span>
           </div>
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
           ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
@@ -657,7 +673,7 @@
           </div>
           <div class="meta">
             <span>ID: ${m.user_id}</span>
-            <span>${m.phone ? escapeHtml(m.phone) : 'номер не указан'}</span>
+            <span>${phoneLink(m.phone)}</span>
           </div>
           <div class="comment">${escapeHtml(m.message)}</div>
           ${!m.from_admin ? `

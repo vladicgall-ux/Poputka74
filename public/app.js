@@ -20,7 +20,6 @@
     searchDate: null,
     driverRange: 'day',
     passengerRange: 'all',
-    botUsername: null,
   };
 
   // Локальная дата устройства (НЕ toISOString — та берёт UTC и ночью
@@ -619,27 +618,16 @@
   }
 
   document.getElementById('inviteFriendsBtn').addEventListener('click', async () => {
-    if (!state.botUsername) {
-      try {
-        const res = await fetch('/api/config');
-        const data = await res.json();
-        state.botUsername = data.botUsername;
-      } catch (err) {
-        toast('Не удалось получить ссылку на бота');
-        return;
-      }
+    const btn = document.getElementById('inviteFriendsBtn');
+    btn.disabled = true;
+    try {
+      await api('/users/me/invite', { method: 'POST' });
+      toast('Загляните в чат с ботом — там сообщение с баннером, нажмите «Переслать», чтобы пригласить друзей!');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
     }
-    if (!state.botUsername) {
-      toast('Ссылка на бота пока недоступна, попробуйте чуть позже');
-      return;
-    }
-    const botLink = `https://t.me/${state.botUsername}`;
-    const inviteText =
-      '🚗 «Поехали 74» — попутчики Челябинск ⇄ Кунашак.\n' +
-      'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.';
-    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(botLink)}&text=${encodeURIComponent(inviteText)}`;
-    if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
-    else window.open(shareUrl, '_blank');
   });
 
   document.getElementById('supportSendBtn').addEventListener('click', async () => {

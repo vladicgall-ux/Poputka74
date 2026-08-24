@@ -32,13 +32,14 @@ async function notify(telegramId, text, buttonRows) {
     }
 }
 /** Отправляет пользователю фото с подписью; молча игнорирует ошибки (аналогично notify). */
-async function notifyPhoto(telegramId, photoPath, caption) {
+async function notifyPhoto(telegramId, photoPath, caption, buttonRows) {
     if (!botInstance)
         return false;
     try {
         await botInstance.telegram.sendPhoto(telegramId, telegraf_1.Input.fromLocalFile(photoPath), {
             caption,
             parse_mode: 'HTML',
+            ...(buttonRows ? telegraf_1.Markup.inlineKeyboard(buttonRows) : {}),
         });
         return true;
     }

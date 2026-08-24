@@ -13,6 +13,8 @@ const userService_1 = require("../../services/userService");
 const ratingService_1 = require("../../services/ratingService");
 const config_1 = require("../../config");
 const upload_1 = require("../middleware/upload");
+const notifier_1 = require("../../bot/notifier");
+const bot_1 = require("../../bot/bot");
 exports.usersRouter = (0, express_1.Router)();
 exports.usersRouter.use(auth_1.requireTelegramAuth);
 /** Профиль текущего пользователя: данные аккаунта + анкета водителя (если есть). */
@@ -22,6 +24,28 @@ exports.usersRouter.get('/me', (req, res) => {
     const isAdmin = config_1.config.adminIds.includes(user.telegram_id);
     const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(user.telegram_id) : null;
     res.json({ user, driverProfile, isAdmin, rating });
+});
+/**
+ * Присылает пользователю в чат с ботом карточку-приглашение (баннер + текст +
+ * кнопка на бота), которую он может переслать друзьям через штатный «Переслать»
+ * в Telegram. Отдельный канал sharing через t.me/share/url не умеет прикладывать
+ * фото — поэтому здесь используем реальную отправку сообщения от бота.
+ */
+exports.usersRouter.post('/me/invite', (0, rateLimit_1.writeLimiter)(10, 10 * 60000), async (req, res) => {
+    const { user } = req;
+    const botUsername = (0, notifier_1.getBotUsername)();
+    const botLink = botUsername ? `https://t.me/${botUsername}` : null;
+    const caption = '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак.\n' +
+        'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.\n\n' +
+        'Перешлите это сообщение друзьям, чтобы пригласить их!' +
+        (botLink ? `\n${botLink}` : '');
+    const buttons = botLink ? [[{ text: '🚗 Открыть бота', url: botLink }]] : undefined;
+    const ok = await (0, notifier_1.notifyPhoto)(user.telegram_id, bot_1.bannerPath, caption, buttons);
+    if (!ok) {
+        res.status(400).json({ error: 'Не удалось отправить приглашение. Откройте чат с ботом и попробуйте снова.' });
+        return;
+    }
+    res.json({ ok: true });
 });
 /**
  * Сохраняет настоящее имя и фамилию — не через requireActiveUser, потому что

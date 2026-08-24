@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.bannerPath = void 0;
 exports.createBot = createBot;
 const telegraf_1 = require("telegraf");
 const path_1 = __importDefault(require("path"));
@@ -12,7 +13,7 @@ const notifier_1 = require("./notifier");
 const bookingService_1 = require("../services/bookingService");
 const supportService_1 = require("../services/supportService");
 const displayName_1 = require("../utils/displayName");
-const bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
+exports.bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /**
  * Простой лимит на сообщения в поддержку через бота: без него любой
  * пользователь может слать текст бесконечно, заваливая БД и Telegram
@@ -91,7 +92,7 @@ function createBot() {
             last_name: ctx.from.last_name,
             username: ctx.from.username,
         });
-        ctx.replyWithPhoto(telegraf_1.Input.fromLocalFile(bannerPath), {
+        ctx.replyWithPhoto(telegraf_1.Input.fromLocalFile(exports.bannerPath), {
             caption: '🚗 <b>Поехали 74</b> — попутчики Челябинск ⇄ Кунашак\n\n' +
                 'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
                 'Чтобы бронировать поездки или публиковать свои — сначала подтвердите номер телефона кнопкой ниже. ' +

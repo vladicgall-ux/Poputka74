@@ -9,7 +9,6 @@ import { adminRouter } from './routes/admin';
 import { supportRouter } from './routes/support';
 import { ratingsRouter } from './routes/ratings';
 import { uploadsDir } from './middleware/upload';
-import { getBotUsername } from '../bot/notifier';
 
 export function createApp() {
   const app = express();
@@ -56,12 +55,6 @@ export function createApp() {
       legacyHeaders: false,
     })
   );
-
-  // Публичный, без авторизации — нужен фронтенду только чтобы собрать
-  // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.
-  app.get('/api/config', (_req, res) => {
-    res.json({ botUsername: getBotUsername() });
-  });
 
   app.use('/api/users', usersRouter);
   app.use('/api/rides', ridesRouter);

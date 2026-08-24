@@ -1,5 +1,5 @@
 import type { Telegraf } from 'telegraf';
-import { Markup } from 'telegraf';
+import { Markup, Input } from 'telegraf';
 import { config } from '../config';
 
 let botInstance: Telegraf | null = null;
@@ -21,15 +21,31 @@ export async function notify(
   telegramId: number,
   text: string,
   buttonRows?: NotifyButton[][]
-): Promise<void> {
-  if (!botInstance) return;
+): Promise<boolean> {
+  if (!botInstance) return false;
   try {
     await botInstance.telegram.sendMessage(telegramId, text, {
       parse_mode: 'HTML',
       ...(buttonRows ? Markup.inlineKeyboard(buttonRows) : {}),
     });
+    return true;
   } catch {
     // пользователь мог заблокировать бота — это не критично
+    return false;
+  }
+}
+
+/** Отправляет пользователю фото с подписью; молча игнорирует ошибки (аналогично notify). */
+export async function notifyPhoto(telegramId: number, photoPath: string, caption: string): Promise<boolean> {
+  if (!botInstance) return false;
+  try {
+    await botInstance.telegram.sendPhoto(telegramId, Input.fromLocalFile(photoPath), {
+      caption,
+      parse_mode: 'HTML',
+    });
+    return true;
+  } catch {
+    return false;
   }
 }
 

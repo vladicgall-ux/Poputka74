@@ -36,3 +36,25 @@ export const uploadDriverPhoto = multer({
     cb(null, true);
   },
 });
+
+const broadcastStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadsDir),
+  filename: (_req, file, cb) => {
+    const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
+    cb(null, `broadcast-${Date.now()}${ext}`);
+  },
+});
+
+/** Фото для массовой рассылки из админки — не привязано к конкретному водителю,
+ *  удаляется сразу после отправки (не должно оставаться в /uploads навсегда). */
+export const uploadBroadcastPhoto = multer({
+  storage: broadcastStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_TYPES[file.mimetype]) {
+      cb(new Error('Разрешены только изображения JPEG, PNG или WebP'));
+      return;
+    }
+    cb(null, true);
+  },
+});

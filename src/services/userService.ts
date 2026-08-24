@@ -80,6 +80,13 @@ export interface UserWithDriverInfo extends UserRecord {
   rating_count: number;
 }
 
+/** ID всех незаблокированных пользователей — получатели рассылки из админки. */
+export function listActiveUserIds(): number[] {
+  return (db.prepare(`SELECT telegram_id FROM users WHERE banned = 0`).all() as { telegram_id: number }[]).map(
+    (r) => r.telegram_id
+  );
+}
+
 export function listAllUsers(): UserWithDriverInfo[] {
   return db
     .prepare(

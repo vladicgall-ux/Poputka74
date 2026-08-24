@@ -1,13 +1,16 @@
 import { Router, type Request, type Response } from 'express';
+import fs from 'fs';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
+import { writeLimiter } from '../middleware/rateLimit';
+import { uploadBroadcastPhoto } from '../middleware/upload';
 import { config } from '../../config';
-import { listAllUsers, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
+import { listAllUsers, listActiveUserIds, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
 import { listAllRides, listRidesByDriver } from '../../services/rideService';
 import { listAllBookings, listBookingsByPassenger } from '../../services/bookingService';
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
 import { getDriverRatingSummary } from '../../services/ratingService';
-import { notify } from '../../bot/notifier';
+import { notify, notifyPhoto } from '../../bot/notifier';
 
 export const adminRouter = Router();
 
@@ -76,6 +79,51 @@ adminRouter.post('/support/:userId/reply', async (req, res) => {
   await notify(userId, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
   res.status(201).json({ message: record });
 });
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Массовая рассылка всем незаблокированным пользователям от имени бота
+ * (не от личного аккаунта админа). Текст и/или фото — нужно хотя бы одно.
+ * Шлём последовательно с небольшой паузой, чтобы не упереться в лимит
+ * Telegram (~30 сообщений/сек на бота).
+ */
+adminRouter.post(
+  '/broadcast',
+  writeLimiter(5, 60 * 60_000),
+  (req, res, next) => {
+    uploadBroadcastPhoto.single('photo')(req, res, (err: unknown) => {
+      if (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : 'Не удалось загрузить фото' });
+        return;
+      }
+      next();
+    });
+  },
+  async (req, res) => {
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
+    const file = (req as unknown as { file?: Express.Multer.File }).file;
+
+    if (!message && !file) {
+      res.status(400).json({ error: 'Добавьте текст или фото' });
+      return;
+    }
+
+    const recipients = listActiveUserIds();
+    let sent = 0;
+    for (const telegramId of recipients) {
+      const ok = file ? await notifyPhoto(telegramId, file.path, message) : await notify(telegramId, message);
+      if (ok) sent += 1;
+      await sleep(40);
+    }
+
+    if (file) {
+      fs.unlink(file.path, () => {});
+    }
+
+    res.json({ sent, total: recipients.length });
+  }
+);
 
 function setBan(banned: boolean) {
   return (req: Request, res: Response) => {

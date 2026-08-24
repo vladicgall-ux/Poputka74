@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.uploadDriverPhoto = exports.uploadsDir = void 0;
+exports.uploadBroadcastPhoto = exports.uploadDriverPhoto = exports.uploadsDir = void 0;
 const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
@@ -28,6 +28,26 @@ const storage = multer_1.default.diskStorage({
 });
 exports.uploadDriverPhoto = (0, multer_1.default)({
     storage,
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+        if (!ALLOWED_TYPES[file.mimetype]) {
+            cb(new Error('Разрешены только изображения JPEG, PNG или WebP'));
+            return;
+        }
+        cb(null, true);
+    },
+});
+const broadcastStorage = multer_1.default.diskStorage({
+    destination: (_req, _file, cb) => cb(null, exports.uploadsDir),
+    filename: (_req, file, cb) => {
+        const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
+        cb(null, `broadcast-${Date.now()}${ext}`);
+    },
+});
+/** Фото для массовой рассылки из админки — не привязано к конкретному водителю,
+ *  удаляется сразу после отправки (не должно оставаться в /uploads навсегда). */
+exports.uploadBroadcastPhoto = (0, multer_1.default)({
+    storage: broadcastStorage,
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (_req, file, cb) => {
         if (!ALLOWED_TYPES[file.mimetype]) {

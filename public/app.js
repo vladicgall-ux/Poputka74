@@ -654,6 +654,7 @@
     document.getElementById('adminRidesList').hidden = target !== 'rides';
     document.getElementById('adminBookingsList').hidden = target !== 'bookings';
     document.getElementById('adminSupportList').hidden = target !== 'support';
+    document.getElementById('adminBroadcastPanel').hidden = target !== 'broadcast';
   });
 
   async function loadAdminTab() {
@@ -684,6 +685,7 @@
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
           ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
           <button type="button" class="btn small user-detail-toggle-btn" data-telegram-id="${u.telegram_id}">📊 Подробнее</button>
+          ${u.username ? `<button type="button" class="btn secondary small open-dialog-btn" data-username="${escapeHtml(u.username)}">💬 Написать</button>` : ''}
           <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
             ${u.banned ? 'Разблокировать' : 'Заблокировать'}
           </button>
@@ -748,6 +750,14 @@
   }
 
   document.getElementById('adminUsersList').addEventListener('click', async (e) => {
+    const dialogBtn = e.target.closest('.open-dialog-btn');
+    if (dialogBtn) {
+      const url = `https://t.me/${dialogBtn.dataset.username}`;
+      if (tg?.openTelegramLink) tg.openTelegramLink(url);
+      else window.open(url, '_blank');
+      return;
+    }
+
     const banBtn = e.target.closest('.ban-toggle-btn');
     if (banBtn) {
       const telegramId = banBtn.dataset.telegramId;
@@ -837,6 +847,55 @@
     } catch (err) {
       toast(err.message);
       btn.disabled = false;
+    }
+  });
+
+  document.getElementById('broadcastPhotoInput').addEventListener('change', () => {
+    const input = document.getElementById('broadcastPhotoInput');
+    const preview = document.getElementById('broadcastPhotoPreview');
+    const file = input.files?.[0];
+    if (file) {
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+  });
+
+  document.getElementById('broadcastSendBtn').addEventListener('click', async () => {
+    const messageInput = document.getElementById('broadcastMessage');
+    const photoInput = document.getElementById('broadcastPhotoInput');
+    const message = messageInput.value.trim();
+    const file = photoInput.files?.[0];
+    if (!message && !file) {
+      toast('Добавьте текст или фото');
+      return;
+    }
+    if (!confirm('Отправить это сообщение всем пользователям бота?')) return;
+
+    const btn = document.getElementById('broadcastSendBtn');
+    btn.disabled = true;
+    btn.textContent = 'Отправка...';
+    try {
+      const formData = new FormData();
+      if (message) formData.append('message', message);
+      if (file) formData.append('photo', file);
+      const res = await fetch('/api/admin/broadcast', {
+        method: 'POST',
+        headers: { 'X-Telegram-Init-Data': initData },
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Ошибка рассылки');
+      toast(`Отправлено ${data.sent} из ${data.total}`);
+      messageInput.value = '';
+      photoInput.value = '';
+      document.getElementById('broadcastPhotoPreview').style.display = 'none';
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Отправить всем';
     }
   });
 

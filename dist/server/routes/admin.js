@@ -1,8 +1,14 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.adminRouter = void 0;
 const express_1 = require("express");
+const fs_1 = __importDefault(require("fs"));
 const auth_1 = require("../middleware/auth");
+const rateLimit_1 = require("../middleware/rateLimit");
+const upload_1 = require("../middleware/upload");
 const config_1 = require("../../config");
 const userService_1 = require("../../services/userService");
 const rideService_1 = require("../../services/rideService");
@@ -68,6 +74,41 @@ exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
     const record = (0, supportService_1.createAdminReply)(userId, message);
     await (0, notifier_1.notify)(userId, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
     res.status(201).json({ message: record });
+});
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+/**
+ * Массовая рассылка всем незаблокированным пользователям от имени бота
+ * (не от личного аккаунта админа). Текст и/или фото — нужно хотя бы одно.
+ * Шлём последовательно с небольшой паузой, чтобы не упереться в лимит
+ * Telegram (~30 сообщений/сек на бота).
+ */
+exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 60000), (req, res, next) => {
+    upload_1.uploadBroadcastPhoto.single('photo')(req, res, (err) => {
+        if (err) {
+            res.status(400).json({ error: err instanceof Error ? err.message : 'Не удалось загрузить фото' });
+            return;
+        }
+        next();
+    });
+}, async (req, res) => {
+    const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
+    const file = req.file;
+    if (!message && !file) {
+        res.status(400).json({ error: 'Добавьте текст или фото' });
+        return;
+    }
+    const recipients = (0, userService_1.listActiveUserIds)();
+    let sent = 0;
+    for (const telegramId of recipients) {
+        const ok = file ? await (0, notifier_1.notifyPhoto)(telegramId, file.path, message) : await (0, notifier_1.notify)(telegramId, message);
+        if (ok)
+            sent += 1;
+        await sleep(40);
+    }
+    if (file) {
+        fs_1.default.unlink(file.path, () => { });
+    }
+    res.json({ sent, total: recipients.length });
 });
 function setBan(banned) {
     return (req, res) => {

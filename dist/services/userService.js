@@ -5,6 +5,7 @@ exports.getUser = getUser;
 exports.setPhoneVerified = setPhoneVerified;
 exports.setUserBanned = setUserBanned;
 exports.setFullName = setFullName;
+exports.listActiveUserIds = listActiveUserIds;
 exports.listAllUsers = listAllUsers;
 exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
@@ -41,6 +42,10 @@ function setUserBanned(telegramId, banned) {
  *  другой стороне (пассажиру/водителю) вместо телеграм-ника. */
 function setFullName(telegramId, fullName) {
     db_1.db.prepare('UPDATE users SET full_name = ? WHERE telegram_id = ?').run(fullName, telegramId);
+}
+/** ID всех незаблокированных пользователей — получатели рассылки из админки. */
+function listActiveUserIds() {
+    return db_1.db.prepare(`SELECT telegram_id FROM users WHERE banned = 0`).all().map((r) => r.telegram_id);
 }
 function listAllUsers() {
     return db_1.db

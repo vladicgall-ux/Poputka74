@@ -9,6 +9,7 @@ const rideService_1 = require("./services/rideService");
 const reminders_1 = require("./jobs/reminders");
 const SWEEP_INTERVAL_MS = 60000;
 async function main() {
+    console.log(`NODE_EXTRA_CA_CERTS=${process.env.NODE_EXTRA_CA_CERTS ?? '(не задан)'}`);
     const app = (0, app_1.createApp)();
     app.listen(config_1.config.port, () => {
         console.log(`HTTP-сервер и Mini App запущены на порту ${config_1.config.port}`);
@@ -27,14 +28,13 @@ async function main() {
     // MAX_BOT_TOKEN, и не должен мешать боту Telegram, если что-то пойдёт не
     // так. bot.start() у MAX SDK так же не резолвится, пока бот не
     // остановлен — запускаем без await, по той же причине, что и Telegram.
+    let maxBot;
     if (config_1.config.maxBotToken) {
-        const maxBot = (0, maxBot_1.createMaxBot)();
+        maxBot = (0, maxBot_1.createMaxBot)();
         maxBot
             .start()
             .then(() => console.log('Бот MAX запущен (long polling)'))
             .catch((err) => console.error('Не удалось запустить бота MAX:', err));
-        process.once('SIGINT', () => maxBot.stop());
-        process.once('SIGTERM', () => maxBot.stop());
     }
     // Переводит поездки, время которых прошло, в «выполнена»/«отменена» —
     // без этого статус навсегда оставался бы 'active', даже когда поездка
@@ -51,14 +51,29 @@ async function main() {
     };
     runPeriodicJobs();
     const jobsTimer = setInterval(runPeriodicJobs, SWEEP_INTERVAL_MS);
-    process.once('SIGINT', () => {
+    // Telegraf/MAX SDK бросают синхронное исключение ('Bot is not running!'),
+    // если stop() вызван раньше, чем launch()/start() успел завершить
+    // инициализацию (например, сигнал пришёл сразу после старта контейнера) —
+    // без try/catch это необработанное исключение в обработчике сигнала
+    // валило весь процесс, и хостинг видел бесконечный цикл рестартов вместо
+    // штатной остановки.
+    const shutdown = (signal) => {
         clearInterval(jobsTimer);
-        bot.stop('SIGINT');
-    });
-    process.once('SIGTERM', () => {
-        clearInterval(jobsTimer);
-        bot.stop('SIGTERM');
-    });
+        try {
+            bot.stop(signal);
+        }
+        catch (err) {
+            console.error('Ошибка при остановке Telegram-бота:', err);
+        }
+        try {
+            maxBot?.stop();
+        }
+        catch (err) {
+            console.error('Ошибка при остановке бота MAX:', err);
+        }
+    };
+    process.once('SIGINT', () => shutdown('SIGINT'));
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
 }
 main().catch((err) => {
     console.error('Не удалось запустить приложение:', err);

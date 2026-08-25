@@ -12,9 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@types/http-proxy": "^1.17.14",
     "@types/node": "^20.14.9",
-    "http-proxy": "^1.18.1",
     "typescript": "^5.5.4"
   },
   "devDependencies": {

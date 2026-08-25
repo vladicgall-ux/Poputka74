@@ -370,6 +370,7 @@
       });
       state.driverProfile = driverProfile;
       document.getElementById('rideForm').hidden = false;
+      document.getElementById('driverPhotoCard').hidden = false;
       toast('Анкета водителя сохранена');
     } catch (err) {
       toast(err.message);

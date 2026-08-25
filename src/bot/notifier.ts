@@ -23,6 +23,13 @@ export type NotifyButton =
   // открывает именно Mini App, с рабочим initData.
   | { text: string; web_app: { url: string } };
 
+/**
+ * Кнопка действия, одинаковая для обеих платформ — просто текст и строка
+ * action, которая долетает до обработчика (в Telegram это callback_data,
+ * в MAX — payload). notifyUser сама превращает её в нужный платформе формат.
+ */
+export type ActionButton = { text: string; action: string };
+
 /** Отправляет сообщение пользователю; молча игнорирует ошибки (например, если он ни разу не писал боту). */
 export async function notify(
   telegramId: number,
@@ -61,7 +68,9 @@ export async function notifyAdmins(text: string, buttonRows?: NotifyButton[][]):
   await Promise.all(config.adminIds.map((id) => notify(id, text, buttonRows)));
 }
 
-/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован. */
-export async function notifyUser(user: UserRecord, text: string): Promise<boolean> {
-  return user.platform === 'max' ? notifyMax(user, text) : notify(user.telegram_id, text);
+/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован, включая кнопки действий. */
+export async function notifyUser(user: UserRecord, text: string, buttonRows?: ActionButton[][]): Promise<boolean> {
+  if (user.platform === 'max') return notifyMax(user, text, buttonRows);
+  const telegramButtons = buttonRows?.map((row) => row.map((b) => ({ text: b.text, callback_data: b.action })));
+  return notify(user.telegram_id, text, telegramButtons);
 }

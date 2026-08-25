@@ -7,6 +7,7 @@ const rateLimit_1 = require("../middleware/rateLimit");
 const bookingService_1 = require("../../services/bookingService");
 const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
+const userService_1 = require("../../services/userService");
 const displayName_1 = require("../../utils/displayName");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
@@ -40,12 +41,15 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
             .join(' ');
         const driverButtons = [
             [
-                { text: '✅ Подтверждаю бронирование', callback_data: `confirm_booking:${booking.id}` },
-                { text: '❌ Отклонить', callback_data: `decline_booking:${booking.id}` },
+                { text: '✅ Подтверждаю бронирование', action: `confirm_booking:${booking.id}` },
+                { text: '❌ Отклонить', action: `decline_booking:${booking.id}` },
             ],
         ];
-        await (0, notifier_1.notify)(ride.driver_id, `🚗 Новая заявка на бронирование!\n${passengerName} хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`, driverButtons);
-        await (0, notifier_1.notify)(user.telegram_id, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
+        const driver = (0, userService_1.getUser)(ride.driver_id);
+        if (driver) {
+            await (0, notifier_1.notifyUser)(driver, `🚗 Новая заявка на бронирование!\n${passengerName} хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`, driverButtons);
+        }
+        await (0, notifier_1.notifyUser)(user, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
         res.status(201).json({ booking });
     }
     catch (err) {
@@ -62,7 +66,10 @@ exports.bookingsRouter.post('/:id/cancel', async (req, res) => {
         const booking = (0, bookingService_1.cancelBooking)(Number(req.params.id), user.telegram_id);
         const ride = (0, rideService_1.getRideWithDriver)(booking.ride_id);
         if (ride) {
-            await (0, notifier_1.notify)(ride.driver_id, `❌ Пассажир отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`);
+            const driver = (0, userService_1.getUser)(ride.driver_id);
+            if (driver) {
+                await (0, notifier_1.notifyUser)(driver, `❌ Пассажир отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`);
+            }
         }
         res.json({ booking });
     }

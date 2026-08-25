@@ -52,7 +52,10 @@ async function notifyPhoto(telegramId, photoPath, caption) {
 async function notifyAdmins(text, buttonRows) {
     await Promise.all(config_1.config.adminIds.map((id) => notify(id, text, buttonRows)));
 }
-/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован. */
-async function notifyUser(user, text) {
-    return user.platform === 'max' ? (0, maxNotifier_1.notifyMax)(user, text) : notify(user.telegram_id, text);
+/** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован, включая кнопки действий. */
+async function notifyUser(user, text, buttonRows) {
+    if (user.platform === 'max')
+        return (0, maxNotifier_1.notifyMax)(user, text, buttonRows);
+    const telegramButtons = buttonRows?.map((row) => row.map((b) => ({ text: b.text, callback_data: b.action })));
+    return notify(user.telegram_id, text, telegramButtons);
 }

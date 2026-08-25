@@ -1,10 +1,21 @@
 import { Bot, Keyboard, ImageAttachment } from '@maxhub/max-bot-api';
 import { config } from '../config';
-import { upsertMaxUser, setPhoneVerified, setFullName, maxStorageId } from '../services/userService';
+import { upsertMaxUser, setPhoneVerified, setFullName, maxStorageId, getUser } from '../services/userService';
 import { setMaxBotInstance } from './maxNotifier';
-import { notifyAdmins } from './notifier';
+import { notifyAdmins, notifyUser } from './notifier';
 import { createSupportMessage } from '../services/supportService';
+import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
+import { displayName } from '../utils/displayName';
 import { bannerPath } from './bot';
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
 const SUPPORT_LIMIT = 5;
@@ -87,6 +98,57 @@ export function createMaxBot(): Bot {
       `🆘 <b>Сообщение в поддержку (MAX)</b>\nОт: ${sender.name}${sender.username ? ' · @' + sender.username : ''} (ID ${maxStorageId(sender.user_id)})\n\n${text}`
     );
     await ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
+  });
+
+  bot.action(/^confirm_booking:(\d+)$/, async (ctx) => {
+    const bookingId = Number(ctx.match![1]);
+    const driverId = maxStorageId(ctx.callback.user.user_id);
+    try {
+      confirmBooking(bookingId, driverId);
+      const info = getBookingWithPeople(bookingId)!;
+
+      await ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' });
+      await ctx.editMessage({
+        text:
+          `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+          `Пассажир: ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+          `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+          `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
+        format: 'html',
+      });
+
+      await notifyUser(
+        getUser(info.passenger_id)!,
+        `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
+      );
+    } catch (err) {
+      const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';
+      await ctx.answerOnCallback({ notification: message });
+    }
+  });
+
+  bot.action(/^decline_booking:(\d+)$/, async (ctx) => {
+    const bookingId = Number(ctx.match![1]);
+    const driverId = maxStorageId(ctx.callback.user.user_id);
+    try {
+      const info = getBookingWithPeople(bookingId)!;
+      declineBooking(bookingId, driverId);
+
+      await ctx.answerOnCallback({ notification: 'Бронирование отклонено' });
+      await ctx.editMessage({
+        text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`,
+        format: 'html',
+      });
+
+      await notifyUser(
+        getUser(info.passenger_id)!,
+        `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`
+      );
+    } catch (err) {
+      const message = err instanceof BookingError ? err.message : 'Не удалось отклонить бронирование';
+      await ctx.answerOnCallback({ notification: message });
+    }
   });
 
   return bot;

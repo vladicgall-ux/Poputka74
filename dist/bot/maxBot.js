@@ -7,7 +7,17 @@ const userService_1 = require("../services/userService");
 const maxNotifier_1 = require("./maxNotifier");
 const notifier_1 = require("./notifier");
 const supportService_1 = require("../services/supportService");
+const bookingService_1 = require("../services/bookingService");
+const displayName_1 = require("../utils/displayName");
 const bot_1 = require("./bot");
+function formatDate(iso) {
+    return new Date(iso).toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
 const SUPPORT_LIMIT = 5;
 const SUPPORT_WINDOW_MS = 60000;
@@ -76,6 +86,46 @@ function createMaxBot() {
         (0, supportService_1.createSupportMessage)(user.telegram_id, text.slice(0, 1000));
         await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку (MAX)</b>\nОт: ${sender.name}${sender.username ? ' · @' + sender.username : ''} (ID ${(0, userService_1.maxStorageId)(sender.user_id)})\n\n${text}`);
         await ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
+    });
+    bot.action(/^confirm_booking:(\d+)$/, async (ctx) => {
+        const bookingId = Number(ctx.match[1]);
+        const driverId = (0, userService_1.maxStorageId)(ctx.callback.user.user_id);
+        try {
+            (0, bookingService_1.confirmBooking)(bookingId, driverId);
+            const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
+            await ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' });
+            await ctx.editMessage({
+                text: `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+                    `Пассажир: ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+                    `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+                    `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
+                format: 'html',
+            });
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+                `Водитель: ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`);
+        }
+        catch (err) {
+            const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
+            await ctx.answerOnCallback({ notification: message });
+        }
+    });
+    bot.action(/^decline_booking:(\d+)$/, async (ctx) => {
+        const bookingId = Number(ctx.match[1]);
+        const driverId = (0, userService_1.maxStorageId)(ctx.callback.user.user_id);
+        try {
+            const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
+            (0, bookingService_1.declineBooking)(bookingId, driverId);
+            await ctx.answerOnCallback({ notification: 'Бронирование отклонено' });
+            await ctx.editMessage({
+                text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`,
+                format: 'html',
+            });
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
+        }
+        catch (err) {
+            const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось отклонить бронирование';
+            await ctx.answerOnCallback({ notification: message });
+        }
     });
     return bot;
 }

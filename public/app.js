@@ -747,14 +747,18 @@
     }
   });
 
+  function switchMineSubTab(target) {
+    document.querySelectorAll('#mineSubSwitch .dir-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.mineTab === target);
+    });
+    document.getElementById('mineDriverSection').hidden = target !== 'driver';
+    document.getElementById('minePassengerSection').hidden = target !== 'passenger';
+  }
+
   document.getElementById('mineSubSwitch').addEventListener('click', (e) => {
     const btn = e.target.closest('.dir-btn');
     if (!btn) return;
-    document.querySelectorAll('#mineSubSwitch .dir-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    const target = btn.dataset.mineTab;
-    document.getElementById('mineDriverSection').hidden = target !== 'driver';
-    document.getElementById('minePassengerSection').hidden = target !== 'passenger';
+    switchMineSubTab(btn.dataset.mineTab);
   });
 
   // ---------- Admin tab ----------
@@ -1105,7 +1109,26 @@
       }
 
       document.getElementById('adminTabBtn').hidden = !isAdmin;
-      showTab('search');
+
+      // Если есть состоявшаяся подтверждённая поездка без оценки — открываем
+      // сразу вкладку «Мои поездки» → «Как пассажир», чтобы не заставлять
+      // искать её самому после уведомления «Оцените поездку».
+      let hasPendingRating = false;
+      try {
+        const { bookings } = await api('/bookings/mine');
+        hasPendingRating = bookings.some(
+          (b) => b.status === 'confirmed' && !b.rated && new Date(b.departure_at).getTime() < Date.now()
+        );
+      } catch (err) {
+        // не критично — просто откроется обычный экран поиска
+      }
+
+      if (hasPendingRating) {
+        showTab('mine');
+        switchMineSubTab('passenger');
+      } else {
+        showTab('search');
+      }
     } catch (err) {
       toast(err.message);
     }

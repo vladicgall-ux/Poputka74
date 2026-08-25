@@ -71,6 +71,7 @@ async function main() {
         catch (err) {
             console.error('Ошибка при остановке бота MAX:', err);
         }
+        process.exit(0);
     };
     process.once('SIGINT', () => shutdown('SIGINT'));
     process.once('SIGTERM', () => shutdown('SIGTERM'));

@@ -28,11 +28,27 @@ export interface ValidatedMaxInitData {
  * потребуется только эта константа, остальной алгоритм неизменен.
  */
 export function validateMaxInitData(initData: string): ValidatedMaxInitData | null {
-  if (!initData || !config.maxBotToken) return null;
+  // ВРЕМЕННАЯ диагностика, пока алгоритм не подтверждён на реальных данных
+  // MAX — убрать после того, как автаризация MAX заработает. Не логируем
+  // ничего, если запроса вообще не было (initData пустая — это норма для
+  // каждого обычного Telegram-запроса, идущего через тот же миддлвар).
+  const log = (reason: string) => console.log(`[maxAuth] отклонено: ${reason}. initData="${initData}"`);
+
+  if (!initData) {
+    log('X-Max-Init-Data пустой или отсутствует — фронтенд не получил initData от MAX Bridge');
+    return null;
+  }
+  if (!config.maxBotToken) {
+    log('MAX_BOT_TOKEN не задан на сервере');
+    return null;
+  }
 
   const params = new URLSearchParams(initData);
   const hash = params.get('hash');
-  if (!hash) return null;
+  if (!hash) {
+    log('нет поля hash');
+    return null;
+  }
   params.delete('hash');
 
   const dataCheckString = [...params.entries()]
@@ -44,16 +60,21 @@ export function validateMaxInitData(initData: string): ValidatedMaxInitData | nu
   const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
   if (!timingSafeEqualHex(computedHash, hash)) {
+    log(`подпись не совпала (ожидали ${computedHash}, получили ${hash}, dataCheckString="${dataCheckString}")`);
     return null;
   }
 
   const authDate = Number(params.get('auth_date') ?? 0);
   if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
+    log(`просрочено или нет auth_date (${params.get('auth_date')})`);
     return null;
   }
 
   const userRaw = params.get('user');
-  if (!userRaw) return null;
+  if (!userRaw) {
+    log('нет поля user');
+    return null;
+  }
 
   const parsed = JSON.parse(userRaw) as { id: number; first_name?: string; name?: string; username?: string };
   const user: MaxProfile = {

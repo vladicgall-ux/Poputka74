@@ -27,12 +27,25 @@ const config_1 = require("../config");
  * потребуется только эта константа, остальной алгоритм неизменен.
  */
 function validateMaxInitData(initData) {
-    if (!initData || !config_1.config.maxBotToken)
+    // ВРЕМЕННАЯ диагностика, пока алгоритм не подтверждён на реальных данных
+    // MAX — убрать после того, как автаризация MAX заработает. Не логируем
+    // ничего, если запроса вообще не было (initData пустая — это норма для
+    // каждого обычного Telegram-запроса, идущего через тот же миддлвар).
+    const log = (reason) => console.log(`[maxAuth] отклонено: ${reason}. initData="${initData}"`);
+    if (!initData) {
+        log('X-Max-Init-Data пустой или отсутствует — фронтенд не получил initData от MAX Bridge');
         return null;
+    }
+    if (!config_1.config.maxBotToken) {
+        log('MAX_BOT_TOKEN не задан на сервере');
+        return null;
+    }
     const params = new URLSearchParams(initData);
     const hash = params.get('hash');
-    if (!hash)
+    if (!hash) {
+        log('нет поля hash');
         return null;
+    }
     params.delete('hash');
     const dataCheckString = [...params.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
@@ -41,15 +54,19 @@ function validateMaxInitData(initData) {
     const secretKey = crypto_1.default.createHmac('sha256', 'WebAppData').update(config_1.config.maxBotToken).digest();
     const computedHash = crypto_1.default.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
     if (!timingSafeEqualHex(computedHash, hash)) {
+        log(`подпись не совпала (ожидали ${computedHash}, получили ${hash}, dataCheckString="${dataCheckString}")`);
         return null;
     }
     const authDate = Number(params.get('auth_date') ?? 0);
     if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
+        log(`просрочено или нет auth_date (${params.get('auth_date')})`);
         return null;
     }
     const userRaw = params.get('user');
-    if (!userRaw)
+    if (!userRaw) {
+        log('нет поля user');
         return null;
+    }
     const parsed = JSON.parse(userRaw);
     const user = {
         id: parsed.id,

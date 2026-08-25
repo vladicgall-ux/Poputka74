@@ -9,11 +9,14 @@ import { displayName } from '../utils/displayName';
 import { bannerPath } from './bot';
 
 function formatDate(iso: string): string {
+  // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует
+  // по своему часовому поясу (UTC), а не по времени Челябинска/Кунашака.
   return new Date(iso).toLocaleString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'Asia/Yekaterinburg',
   });
 }
 

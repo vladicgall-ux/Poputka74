@@ -55,6 +55,7 @@
     driverRange: 'day',
     passengerRange: 'all',
     botUsername: null,
+    activeTab: 'search',
   };
 
   // Локальная дата устройства (НЕ toISOString — та берёт UTC и ночью
@@ -115,6 +116,7 @@
   // ---------- Tabs ----------
   const tabs = ['search', 'offer', 'mine', 'profile', 'admin'];
   function showTab(name) {
+    state.activeTab = name;
     tabs.forEach((t) => {
       document.getElementById(`tab-${t}`).hidden = t !== name;
     });
@@ -129,6 +131,15 @@
   }
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => showTab(btn.dataset.tab));
+  });
+
+  // Уведомления о бронях/отменах приходят в чат бота, а не пушем в само
+  // приложение — если вкладка «Мои поездки» (или любая другая) уже открыта,
+  // без этого её данные (например, свободные места) останутся устаревшими,
+  // пока пользователь не переключит вкладку вручную. Обновляем текущую
+  // вкладку каждый раз, когда пользователь возвращается в открытое приложение.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) showTab(state.activeTab);
   });
 
   // ---------- Search tab ----------

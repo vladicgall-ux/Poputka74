@@ -11,11 +11,14 @@ const bookingService_1 = require("../services/bookingService");
 const displayName_1 = require("../utils/displayName");
 const bot_1 = require("./bot");
 function formatDate(iso) {
+    // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует
+    // по своему часовому поясу (UTC), а не по времени Челябинска/Кунашака.
     return new Date(iso).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Yekaterinburg',
     });
 }
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */

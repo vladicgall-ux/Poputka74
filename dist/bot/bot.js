@@ -43,11 +43,15 @@ function dialogRows(text, username, platform) {
     return [[{ text, url: `https://t.me/${username}` }]];
 }
 function formatDate(iso) {
+    // Без явной timeZone Node форматирует по времени сервера (обычно UTC на
+    // хостинге), а не по местному времени Челябинска/Кунашака — из-за этого
+    // в уведомлениях бота показывалось время на 5 часов меньше настоящего.
     return new Date(iso).toLocaleString('ru-RU', {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'Asia/Yekaterinburg',
     });
 }
 /** Кнопка открытия Mini App — только если известен публичный HTTPS-адрес. */

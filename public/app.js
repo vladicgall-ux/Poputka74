@@ -653,7 +653,35 @@
     }
   }
 
+  const MAX_BOT_LINK = 'https://max.ru/se14080601_bot';
+
   document.getElementById('inviteFriendsBtn').addEventListener('click', async () => {
+    const inviteText =
+      '🚗 «Поехали 74» — попутчики Челябинск ⇄ Кунашак.\n' +
+      'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.';
+
+    // В MAX нет аналога t.me/share/url, поэтому шарим через стандартный
+    // Web Share API (системное окно «Поделиться»), а если оно недоступно —
+    // просто копируем текст со ссылкой в буфер обмена.
+    if (maxApp) {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'Поехали 74', text: inviteText, url: MAX_BOT_LINK });
+          return;
+        } catch (err) {
+          // Пользователь закрыл системное окно шаринга — не ошибка, просто выходим.
+          if (err?.name === 'AbortError') return;
+        }
+      }
+      try {
+        await navigator.clipboard.writeText(`${inviteText}\n${MAX_BOT_LINK}`);
+        toast('Ссылка скопирована — отправьте её друзьям в любом чате');
+      } catch (err) {
+        window.open(MAX_BOT_LINK, '_blank');
+      }
+      return;
+    }
+
     if (!state.botUsername) {
       try {
         const res = await fetch('/api/config');
@@ -669,9 +697,6 @@
       return;
     }
     const botLink = `https://t.me/${state.botUsername}`;
-    const inviteText =
-      '🚗 «Поехали 74» — попутчики Челябинск ⇄ Кунашак.\n' +
-      'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.';
     const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(botLink)}&text=${encodeURIComponent(inviteText)}`;
     if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
     else window.open(shareUrl, '_blank');

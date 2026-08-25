@@ -10,7 +10,7 @@ import { listAllBookings, listBookingsByPassenger } from '../../services/booking
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
 import { getDriverRatingSummary } from '../../services/ratingService';
-import { notify, notifyPhoto, notifyUser } from '../../bot/notifier';
+import { notifyPhoto, notifyUser } from '../../bot/notifier';
 
 export const adminRouter = Router();
 
@@ -112,7 +112,15 @@ adminRouter.post(
     const recipients = listActiveUserIds();
     let sent = 0;
     for (const telegramId of recipients) {
-      const ok = file ? await notifyPhoto(telegramId, file.path, message) : await notify(telegramId, message);
+      const recipient = getUser(telegramId);
+      if (!recipient) continue;
+      // Фото умеем слать только через Telegram — у пользователей MAX пока
+      // нет notifyPhoto для этой платформы, поэтому им уходит хотя бы текст,
+      // чтобы рассылка не пропадала для них совсем.
+      const ok =
+        file && recipient.platform === 'telegram'
+          ? await notifyPhoto(telegramId, file.path, message)
+          : await notifyUser(recipient, message || '📷 Новое объявление от Поехали 74');
       if (ok) sent += 1;
       await sleep(40);
     }

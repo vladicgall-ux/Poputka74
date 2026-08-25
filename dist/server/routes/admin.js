@@ -100,7 +100,15 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
     const recipients = (0, userService_1.listActiveUserIds)();
     let sent = 0;
     for (const telegramId of recipients) {
-        const ok = file ? await (0, notifier_1.notifyPhoto)(telegramId, file.path, message) : await (0, notifier_1.notify)(telegramId, message);
+        const recipient = (0, userService_1.getUser)(telegramId);
+        if (!recipient)
+            continue;
+        // Фото умеем слать только через Telegram — у пользователей MAX пока
+        // нет notifyPhoto для этой платформы, поэтому им уходит хотя бы текст,
+        // чтобы рассылка не пропадала для них совсем.
+        const ok = file && recipient.platform === 'telegram'
+            ? await (0, notifier_1.notifyPhoto)(telegramId, file.path, message)
+            : await (0, notifier_1.notifyUser)(recipient, message || '📷 Новое объявление от Поехали 74');
         if (ok)
             sent += 1;
         await sleep(40);

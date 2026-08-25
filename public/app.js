@@ -3,7 +3,6 @@
   // MAX Bridge (st.max.ru/js/max-web-app.js) — тот же принцип, что у Telegram:
   // глобальный объект с initData, только называется window.WebApp.
   const maxApp = window.WebApp;
-  const platform = tg ? 'telegram' : maxApp ? 'max' : null;
 
   if (tg) {
     tg.ready();
@@ -18,11 +17,34 @@
   } else if (maxApp) {
     maxApp.ready?.();
   }
-  const initData = tg?.initData ?? maxApp?.initData ?? '';
+  // Читаем initData каждый раз заново, а не один раз при загрузке: у
+  // Telegram initData синхронно готов сразу, а у MAX Bridge (судя по
+  // тому, что заголовок реально приходит на сервер, но пустой) он
+  // заполняется с задержкой — иногда уже после того, как этот скрипт
+  // начал выполняться. waitForInitData() ниже ждёт этот момент явно.
+  function currentInitData() {
+    return window.Telegram?.WebApp?.initData || window.WebApp?.initData || '';
+  }
   // Какой заголовок нести до бэкенда — тот определяет, каким алгоритмом
   // проверять подпись (у Telegram и MAX разные секреты бота).
   function authHeader() {
-    return platform === 'max' ? { 'X-Max-Init-Data': initData } : { 'X-Telegram-Init-Data': initData };
+    if (window.Telegram?.WebApp?.initData) return { 'X-Telegram-Init-Data': currentInitData() };
+    return { 'X-Max-Init-Data': currentInitData() };
+  }
+  // MAX Bridge, в отличие от Telegram, не гарантирует initData сразу же
+  // после загрузки скрипта — ждём до 3 секунд, проверяя каждые 100мс.
+  function waitForInitData() {
+    if (tg || currentInitData()) return Promise.resolve();
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const timer = setInterval(() => {
+        attempts += 1;
+        if (currentInitData() || attempts >= 30) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 100);
+    });
   }
 
   const state = {
@@ -1016,5 +1038,5 @@
   }
 
   // init
-  initApp();
+  waitForInitData().then(initApp);
 })();

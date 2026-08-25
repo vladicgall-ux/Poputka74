@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { validateInitData } from '../../utils/telegramAuth';
-import { upsertUser, getUser, type UserRecord } from '../../services/userService';
+import { validateMaxInitData } from '../../utils/maxAuth';
+import { upsertUser, upsertMaxUser, getUser, type UserRecord } from '../../services/userService';
 import { config } from '../../config';
 
 export interface AuthedRequest extends Request {
@@ -8,21 +9,32 @@ export interface AuthedRequest extends Request {
 }
 
 /**
- * Ожидает заголовок X-Telegram-Init-Data с сырой строкой initData,
- * которую фронтенд Mini App получает из window.Telegram.WebApp.initData.
- * Это единственный способ авторизации в API — так исключаются
- * подделанные запросы от имени чужого telegram_id.
+ * Принимает initData либо из Telegram (заголовок X-Telegram-Init-Data,
+ * window.Telegram.WebApp.initData), либо из MAX (заголовок X-Max-Init-Data,
+ * window.WebApp.initData через MAX Bridge). Ровно один из них должен быть
+ * валиден — это единственный способ авторизации в API, так исключаются
+ * подделанные запросы от чужого имени.
  */
 export function requireTelegramAuth(req: Request, res: Response, next: NextFunction): void {
-  const initData = req.header('X-Telegram-Init-Data') ?? '';
-  const validated = validateInitData(initData);
-  if (!validated) {
-    res.status(401).json({ error: 'Недействительные данные авторизации Telegram' });
+  const telegramInitData = req.header('X-Telegram-Init-Data') ?? '';
+  const validatedTelegram = validateInitData(telegramInitData);
+  if (validatedTelegram) {
+    const user = upsertUser(validatedTelegram.user);
+    (req as AuthedRequest).user = getUser(user.telegram_id)!;
+    next();
     return;
   }
-  const user = upsertUser(validated.user);
-  (req as AuthedRequest).user = getUser(user.telegram_id)!;
-  next();
+
+  const maxInitData = req.header('X-Max-Init-Data') ?? '';
+  const validatedMax = validateMaxInitData(maxInitData);
+  if (validatedMax) {
+    const user = upsertMaxUser(validatedMax.user);
+    (req as AuthedRequest).user = getUser(user.telegram_id)!;
+    next();
+    return;
+  }
+
+  res.status(401).json({ error: 'Недействительные данные авторизации' });
 }
 
 /**

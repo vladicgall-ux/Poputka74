@@ -2,7 +2,7 @@ import { Telegraf, Markup, Input } from 'telegraf';
 import path from 'path';
 import { config } from '../config';
 import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
-import { setBotInstance, notify, notifyAdmins, type NotifyButton } from './notifier';
+import { setBotInstance, notify, notifyUser, notifyAdmins, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
 import { createSupportMessage } from '../services/supportService';
 import { displayName } from '../utils/displayName';
@@ -27,9 +27,15 @@ function isSupportRateLimited(userId: number): boolean {
   return hits.length > SUPPORT_LIMIT;
 }
 
-/** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
-function dialogRows(text: string, username: string | null): NotifyButton[][] | undefined {
-  if (!username) return undefined;
+/**
+ * Ряд с кнопкой, открывающей личный чат с собеседником — только если у
+ * него есть username И он тоже в Telegram: ссылка t.me/username не имеет
+ * смысла для пользователя MAX (это два разных пространства ников). Если
+ * собеседник из другой платформы, показываем только имя и телефон (уже
+ * есть в тексте сообщения), без кнопки диалога.
+ */
+function dialogRows(text: string, username: string | null, platform: string): NotifyButton[][] | undefined {
+  if (!username || platform !== 'telegram') return undefined;
   return [[{ text, url: `https://t.me/${username}` }]];
 }
 
@@ -163,7 +169,7 @@ export function createBot(): Telegraf {
       confirmBooking(bookingId, ctx.from.id);
       const info = getBookingWithPeople(bookingId)!;
 
-      const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username);
+      const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username, info.passenger_platform);
       await ctx.answerCbQuery('Бронирование подтверждено!');
       await ctx.editMessageText(
         `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
@@ -176,11 +182,11 @@ export function createBot(): Telegraf {
         }
       );
 
-      await notify(
-        info.passenger_id,
+      const passengerUser = getUser(info.passenger_id)!;
+      await notifyUser(
+        passengerUser,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`,
-        dialogRows('💬 Написать водителю', info.driver_username)
+          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -199,8 +205,8 @@ export function createBot(): Telegraf {
         `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`
       );
 
-      await notify(
-        info.passenger_id,
+      await notifyUser(
+        getUser(info.passenger_id)!,
         `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`
       );
     } catch (err) {
@@ -239,7 +245,7 @@ export function createBot(): Telegraf {
       .join(' ');
     await notifyAdmins(
       `🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`,
-      dialogRows('💬 Написать в ответ', ctx.from.username ?? null)
+      dialogRows('💬 Написать в ответ', ctx.from.username ?? null, 'telegram')
     );
 
     ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');

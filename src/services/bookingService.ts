@@ -1,5 +1,6 @@
 import { db } from '../db/db';
 import { decrementSeats, incrementSeats, getRide } from './rideService';
+import type { Platform } from './userService';
 
 export interface BookingRecord {
   id: number;
@@ -114,10 +115,12 @@ export interface BookingWithPeople extends BookingWithRide {
   passenger_username: string | null;
   passenger_full_name: string | null;
   passenger_phone: string | null;
+  passenger_platform: Platform;
   driver_first_name: string;
   driver_username: string | null;
   driver_full_name: string | null;
   driver_phone: string | null;
+  driver_platform: Platform;
 }
 
 /** Полный контекст брони (поездка + пассажир + водитель) для сообщений бота. */
@@ -125,8 +128,8 @@ export function getBookingWithPeople(bookingId: number): BookingWithPeople | und
   return db
     .prepare(
       `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id

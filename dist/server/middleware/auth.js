@@ -3,24 +3,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.requireTelegramAuth = requireTelegramAuth;
 exports.requireActiveUser = requireActiveUser;
 const telegramAuth_1 = require("../../utils/telegramAuth");
+const maxAuth_1 = require("../../utils/maxAuth");
 const userService_1 = require("../../services/userService");
 const config_1 = require("../../config");
 /**
- * Ожидает заголовок X-Telegram-Init-Data с сырой строкой initData,
- * которую фронтенд Mini App получает из window.Telegram.WebApp.initData.
- * Это единственный способ авторизации в API — так исключаются
- * подделанные запросы от имени чужого telegram_id.
+ * Принимает initData либо из Telegram (заголовок X-Telegram-Init-Data,
+ * window.Telegram.WebApp.initData), либо из MAX (заголовок X-Max-Init-Data,
+ * window.WebApp.initData через MAX Bridge). Ровно один из них должен быть
+ * валиден — это единственный способ авторизации в API, так исключаются
+ * подделанные запросы от чужого имени.
  */
 function requireTelegramAuth(req, res, next) {
-    const initData = req.header('X-Telegram-Init-Data') ?? '';
-    const validated = (0, telegramAuth_1.validateInitData)(initData);
-    if (!validated) {
-        res.status(401).json({ error: 'Недействительные данные авторизации Telegram' });
+    const telegramInitData = req.header('X-Telegram-Init-Data') ?? '';
+    const validatedTelegram = (0, telegramAuth_1.validateInitData)(telegramInitData);
+    if (validatedTelegram) {
+        const user = (0, userService_1.upsertUser)(validatedTelegram.user);
+        req.user = (0, userService_1.getUser)(user.telegram_id);
+        next();
         return;
     }
-    const user = (0, userService_1.upsertUser)(validated.user);
-    req.user = (0, userService_1.getUser)(user.telegram_id);
-    next();
+    const maxInitData = req.header('X-Max-Init-Data') ?? '';
+    const validatedMax = (0, maxAuth_1.validateMaxInitData)(maxInitData);
+    if (validatedMax) {
+        const user = (0, userService_1.upsertMaxUser)(validatedMax.user);
+        req.user = (0, userService_1.getUser)(user.telegram_id);
+        next();
+        return;
+    }
+    res.status(401).json({ error: 'Недействительные данные авторизации' });
 }
 /**
  * Полностью закрывает доступ к разделу (поиск/бронирование/публикация поездок)

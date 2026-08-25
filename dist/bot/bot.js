@@ -30,9 +30,15 @@ function isSupportRateLimited(userId) {
     supportHits.set(userId, hits);
     return hits.length > SUPPORT_LIMIT;
 }
-/** Ряд с кнопкой, открывающей личный чат с собеседником — только если у него есть username. */
-function dialogRows(text, username) {
-    if (!username)
+/**
+ * Ряд с кнопкой, открывающей личный чат с собеседником — только если у
+ * него есть username И он тоже в Telegram: ссылка t.me/username не имеет
+ * смысла для пользователя MAX (это два разных пространства ников). Если
+ * собеседник из другой платформы, показываем только имя и телефон (уже
+ * есть в тексте сообщения), без кнопки диалога.
+ */
+function dialogRows(text, username, platform) {
+    if (!username || platform !== 'telegram')
         return undefined;
     return [[{ text, url: `https://t.me/${username}` }]];
 }
@@ -143,7 +149,7 @@ function createBot() {
         try {
             (0, bookingService_1.confirmBooking)(bookingId, ctx.from.id);
             const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
-            const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username);
+            const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username, info.passenger_platform);
             await ctx.answerCbQuery('Бронирование подтверждено!');
             await ctx.editMessageText(`✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
                 `Пассажир: ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
@@ -152,8 +158,9 @@ function createBot() {
                 parse_mode: 'HTML',
                 ...(passengerButtons ? telegraf_1.Markup.inlineKeyboard(passengerButtons) : {}),
             });
-            await (0, notifier_1.notify)(info.passenger_id, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-                `Водитель: ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`, dialogRows('💬 Написать водителю', info.driver_username));
+            const passengerUser = (0, userService_1.getUser)(info.passenger_id);
+            await (0, notifier_1.notifyUser)(passengerUser, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+                `Водитель: ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`);
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -167,7 +174,7 @@ function createBot() {
             (0, bookingService_1.declineBooking)(bookingId, ctx.from.id);
             await ctx.answerCbQuery('Бронирование отклонено');
             await ctx.editMessageText(`❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`);
-            await (0, notifier_1.notify)(info.passenger_id, `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось отклонить бронирование';
@@ -201,7 +208,7 @@ function createBot() {
         ]
             .filter(Boolean)
             .join(' ');
-        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null));
+        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null, 'telegram'));
         ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
     });
     bot.catch((err) => {

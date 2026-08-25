@@ -92,8 +92,8 @@ function declineBooking(bookingId, driverId) {
 function getBookingWithPeople(bookingId) {
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
-              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
-              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone
+              p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
+              drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id

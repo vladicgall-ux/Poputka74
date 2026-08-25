@@ -1,5 +1,10 @@
 (() => {
   const tg = window.Telegram?.WebApp;
+  // MAX Bridge (st.max.ru/js/max-web-app.js) — тот же принцип, что у Telegram:
+  // глобальный объект с initData, только называется window.WebApp.
+  const maxApp = window.WebApp;
+  const platform = tg ? 'telegram' : maxApp ? 'max' : null;
+
   if (tg) {
     tg.ready();
     tg.expand();
@@ -10,8 +15,15 @@
     };
     syncColorScheme();
     tg.onEvent('themeChanged', syncColorScheme);
+  } else if (maxApp) {
+    maxApp.ready?.();
   }
-  const initData = tg?.initData ?? '';
+  const initData = tg?.initData ?? maxApp?.initData ?? '';
+  // Какой заголовок нести до бэкенда — тот определяет, каким алгоритмом
+  // проверять подпись (у Telegram и MAX разные секреты бота).
+  function authHeader() {
+    return platform === 'max' ? { 'X-Max-Init-Data': initData } : { 'X-Telegram-Init-Data': initData };
+  }
 
   const state = {
     direction: { from: 'Челябинск', to: 'Кунашак' },
@@ -53,7 +65,7 @@
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'X-Telegram-Init-Data': initData,
+        ...authHeader(),
         ...(options.headers || {}),
       },
     });
@@ -354,7 +366,7 @@
     try {
       const res = await fetch('/api/users/me/photo', {
         method: 'POST',
-        headers: { 'X-Telegram-Init-Data': initData },
+        headers: authHeader(),
         body: formData,
       });
       const data = await res.json().catch(() => ({}));
@@ -704,13 +716,13 @@
             <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
           </div>
           <div class="meta">
-            <span>ID: ${u.telegram_id}</span>
+            <span>${u.platform === 'max' ? 'MAX' : 'Telegram'} ID: ${Math.abs(u.telegram_id)}</span>
             <span>${phoneLink(u.phone)}</span>
           </div>
           ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
           ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
           <button type="button" class="btn small user-detail-toggle-btn" data-telegram-id="${u.telegram_id}">📊 Подробнее</button>
-          ${u.username ? `<button type="button" class="btn secondary small open-dialog-btn" data-username="${escapeHtml(u.username)}">💬 Написать</button>` : ''}
+          ${u.username && u.platform === 'telegram' ? `<button type="button" class="btn secondary small open-dialog-btn" data-username="${escapeHtml(u.username)}">💬 Написать</button>` : ''}
           <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
             ${u.banned ? 'Разблокировать' : 'Заблокировать'}
           </button>
@@ -907,7 +919,7 @@
       if (file) formData.append('photo', file);
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
-        headers: { 'X-Telegram-Init-Data': initData },
+        headers: authHeader(),
         body: formData,
       });
       const data = await res.json().catch(() => ({}));

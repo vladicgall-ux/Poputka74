@@ -47,9 +47,9 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
         ];
         const driver = (0, userService_1.getUser)(ride.driver_id);
         if (driver) {
-            await (0, notifier_1.notifyUser)(driver, `🚗 Новая заявка на бронирование!\n${passengerName} хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`, driverButtons);
+            await (0, notifier_1.notifyUser)(driver, `🚗 Новая заявка на бронирование!\n${passengerName} (${(0, displayName_1.platformLabel)(user.platform)}) хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`, driverButtons);
         }
-        await (0, notifier_1.notifyUser)(user, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
+        await (0, notifier_1.notifyUser)(user, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}${driver ? ` (${(0, displayName_1.platformLabel)(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
         res.status(201).json({ booking });
     }
     catch (err) {
@@ -68,7 +68,7 @@ exports.bookingsRouter.post('/:id/cancel', async (req, res) => {
         if (ride) {
             const driver = (0, userService_1.getUser)(ride.driver_id);
             if (driver) {
-                await (0, notifier_1.notifyUser)(driver, `❌ Пассажир отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`);
+                await (0, notifier_1.notifyUser)(driver, `❌ Пассажир (${(0, displayName_1.platformLabel)(user.platform)}) отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`);
             }
         }
         res.json({ booking });

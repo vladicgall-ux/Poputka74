@@ -5,7 +5,7 @@ import { setMaxBotInstance } from './maxNotifier';
 import { notifyAdmins, notifyUser } from './notifier';
 import { createSupportMessage } from '../services/supportService';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
-import { displayName } from '../utils/displayName';
+import { displayName, platformLabel } from '../utils/displayName';
 import { bannerPath } from './bot';
 
 function formatDate(iso: string): string {
@@ -114,7 +114,7 @@ export function createMaxBot(): Bot {
       await ctx.editMessage({
         text:
           `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Пассажир: ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+          `Пассажир (${platformLabel(info.passenger_platform)}): ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
           `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
           `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
         format: 'html',
@@ -123,7 +123,7 @@ export function createMaxBot(): Bot {
       await notifyUser(
         getUser(info.passenger_id)!,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
+          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';

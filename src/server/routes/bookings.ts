@@ -5,7 +5,7 @@ import { createBooking, cancelBooking, listBookingsByPassenger, BookingError } f
 import { getRideWithDriver } from '../../services/rideService';
 import { notifyUser, type ActionButton } from '../../bot/notifier';
 import { getUser } from '../../services/userService';
-import { displayName } from '../../utils/displayName';
+import { displayName, platformLabel } from '../../utils/displayName';
 
 export const bookingsRouter = Router();
 
@@ -55,13 +55,13 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
     if (driver) {
       await notifyUser(
         driver,
-        `🚗 Новая заявка на бронирование!\n${passengerName} хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`,
+        `🚗 Новая заявка на бронирование!\n${passengerName} (${platformLabel(user.platform)}) хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`,
         driverButtons
       );
     }
     await notifyUser(
       user,
-      `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`
+      `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}${driver ? ` (${platformLabel(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`
     );
 
     res.status(201).json({ booking });
@@ -84,7 +84,7 @@ bookingsRouter.post('/:id/cancel', async (req, res) => {
       if (driver) {
         await notifyUser(
           driver,
-          `❌ Пассажир отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`
+          `❌ Пассажир (${platformLabel(user.platform)}) отменил бронирование на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}). Освободилось ${booking.seats_booked} мест.`
         );
       }
     }

@@ -783,7 +783,8 @@
           <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
         </div>
         <div class="meta">
-          <span>${u.platform === 'max' ? 'MAX' : 'Telegram'} ID: ${Math.abs(u.telegram_id)}</span>
+          <span class="badge platform-${u.platform === 'max' ? 'max' : 'telegram'}">${u.platform === 'max' ? 'MAX' : 'Telegram'}</span>
+          <span>ID: ${Math.abs(u.telegram_id)}</span>
           <span>${phoneLink(u.phone)}</span>
         </div>
         ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}

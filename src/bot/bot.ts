@@ -5,7 +5,7 @@ import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
 import { setBotInstance, notify, notifyUser, notifyAdmins, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
 import { createSupportMessage } from '../services/supportService';
-import { displayName } from '../utils/displayName';
+import { displayName, platformLabel } from '../utils/displayName';
 
 export const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
@@ -177,7 +177,7 @@ export function createBot(): Telegraf {
       await ctx.answerCbQuery('Бронирование подтверждено!');
       await ctx.editMessageText(
         `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Пассажир: ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+          `Пассажир (${platformLabel(info.passenger_platform)}): ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
           `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
           `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
         {
@@ -190,7 +190,7 @@ export function createBot(): Telegraf {
       await notifyUser(
         passengerUser,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель: ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
+          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';

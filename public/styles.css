@@ -151,6 +151,8 @@ body {
 .badge.cancelled { background: rgba(229,72,77,0.12); color: var(--danger); }
 .badge.completed { background: rgba(26,168,119,0.15); color: var(--success); }
 .badge.pending { background: rgba(255,171,64,0.18); color: #b9700a; }
+.badge.platform-telegram { background: rgba(43,134,255,0.15); color: #2b86ff; }
+.badge.platform-max { background: rgba(139,92,246,0.15); color: #8b5cf6; }
 
 .driver-row {
   display: flex;

@@ -56,6 +56,8 @@
     passengerRange: 'all',
     botUsername: null,
     activeTab: 'search',
+    adminUsers: [],
+    adminUsersPlatform: 'all',
   };
 
   // Локальная дата устройства (НЕ toISOString — та берёт UTC и ночью
@@ -762,11 +764,47 @@
     document.querySelectorAll('#adminSubSwitch .dir-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     const target = btn.dataset.adminTab;
+    document.getElementById('adminUsersPlatformFilter').hidden = target !== 'users';
     document.getElementById('adminUsersList').hidden = target !== 'users';
     document.getElementById('adminRidesList').hidden = target !== 'rides';
     document.getElementById('adminBookingsList').hidden = target !== 'bookings';
     document.getElementById('adminSupportList').hidden = target !== 'support';
     document.getElementById('adminBroadcastPanel').hidden = target !== 'broadcast';
+  });
+
+  function renderAdminUsersList() {
+    const filtered = (state.adminUsers || []).filter(
+      (u) => state.adminUsersPlatform === 'all' || u.platform === state.adminUsersPlatform
+    );
+    document.getElementById('adminUsersList').innerHTML = filtered.map((u) => `
+      <div class="card ride-card">
+        <div class="row">
+          <div class="route">${escapeHtml(u.full_name || u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
+          <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
+        </div>
+        <div class="meta">
+          <span>${u.platform === 'max' ? 'MAX' : 'Telegram'} ID: ${Math.abs(u.telegram_id)}</span>
+          <span>${phoneLink(u.phone)}</span>
+        </div>
+        ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
+        ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
+        <button type="button" class="btn small user-detail-toggle-btn" data-telegram-id="${u.telegram_id}">📊 Подробнее</button>
+        ${u.username && u.platform === 'telegram' ? `<button type="button" class="btn secondary small open-dialog-btn" data-username="${escapeHtml(u.username)}">💬 Написать</button>` : ''}
+        <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
+          ${u.banned ? 'Разблокировать' : 'Заблокировать'}
+        </button>
+        <div class="user-detail-panel passengers-panel" id="user-detail-${u.telegram_id}" hidden></div>
+      </div>
+    `).join('') || `<p class="empty">${state.adminUsersPlatform === 'all' ? 'Пока никто не зарегистрирован.' : 'Нет пользователей на этой платформе.'}</p>`;
+  }
+
+  document.getElementById('adminUsersPlatformFilter').addEventListener('click', (e) => {
+    const btn = e.target.closest('.dir-btn');
+    if (!btn) return;
+    document.querySelectorAll('#adminUsersPlatformFilter .dir-btn').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.adminUsersPlatform = btn.dataset.platform;
+    renderAdminUsersList();
   });
 
   async function loadAdminTab() {
@@ -784,26 +822,8 @@
 
     try {
       const { users } = await api('/admin/users');
-      document.getElementById('adminUsersList').innerHTML = users.map((u) => `
-        <div class="card ride-card">
-          <div class="row">
-            <div class="route">${escapeHtml(u.full_name || u.first_name)}${u.username ? ' · @' + escapeHtml(u.username) : ''}</div>
-            <span class="badge ${u.banned ? 'full' : u.phone_verified ? 'ok' : 'cancelled'}">${u.banned ? 'заблокирован' : u.phone_verified ? 'телефон подтверждён' : 'не подтверждён'}</span>
-          </div>
-          <div class="meta">
-            <span>${u.platform === 'max' ? 'MAX' : 'Telegram'} ID: ${Math.abs(u.telegram_id)}</span>
-            <span>${phoneLink(u.phone)}</span>
-          </div>
-          ${u.car_model ? `<div class="driver">Водитель: ${escapeHtml(u.car_model)} · ${escapeHtml(u.car_plate)}</div>` : ''}
-          ${u.car_model ? starsHtml(u.avg_rating, u.rating_count) : ''}
-          <button type="button" class="btn small user-detail-toggle-btn" data-telegram-id="${u.telegram_id}">📊 Подробнее</button>
-          ${u.username && u.platform === 'telegram' ? `<button type="button" class="btn secondary small open-dialog-btn" data-username="${escapeHtml(u.username)}">💬 Написать</button>` : ''}
-          <button class="btn ${u.banned ? '' : 'secondary'} small ban-toggle-btn" data-telegram-id="${u.telegram_id}" data-action="${u.banned ? 'unban' : 'ban'}">
-            ${u.banned ? 'Разблокировать' : 'Заблокировать'}
-          </button>
-          <div class="user-detail-panel passengers-panel" id="user-detail-${u.telegram_id}" hidden></div>
-        </div>
-      `).join('') || '<p class="empty">Пока никто не зарегистрирован.</p>';
+      state.adminUsers = users;
+      renderAdminUsersList();
     } catch (err) {
       toast(err.message);
     }

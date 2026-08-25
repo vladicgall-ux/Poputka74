@@ -667,14 +667,30 @@
   const MAX_BOT_LINK = 'https://max.ru/se14080601_bot';
 
   document.getElementById('inviteFriendsBtn').addEventListener('click', async () => {
+    // Кнопка живёт на вкладке «Профиль», которая обычно уже успевает
+    // подгрузить state.me — но на всякий случай (медленная сеть) подстрахуемся.
+    if (!state.me) {
+      try {
+        const { user } = await api('/users/me');
+        state.me = user;
+      } catch (err) {
+        toast('Не удалось определить платформу, попробуйте ещё раз');
+        return;
+      }
+    }
+
     const inviteText =
       '🚗 «Поехали 74» — попутчики Челябинск ⇄ Кунашак.\n' +
       'Ищи попутку или предлагай свободные места в поездке — быстро и без лишних сообщений.';
 
+    // window.WebApp существует на любой платформе (скрипт max-web-app.js
+    // подключён всегда), поэтому одного его наличия недостаточно, чтобы
+    // отличить реальный MAX от Telegram — доверяем платформе, которую
+    // определил сервер при авторизации (state.me.platform).
     // В MAX нет аналога t.me/share/url, поэтому шарим через стандартный
     // Web Share API (системное окно «Поделиться»), а если оно недоступно —
     // просто копируем текст со ссылкой в буфер обмена.
-    if (maxApp) {
+    if (state.me?.platform === 'max') {
       if (navigator.share) {
         try {
           await navigator.share({ title: 'Поехали 74', text: inviteText, url: MAX_BOT_LINK });

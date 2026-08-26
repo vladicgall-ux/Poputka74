@@ -415,14 +415,24 @@ input[type="date"], input[type="datetime-local"] {
   text-decoration: none;
   margin-bottom: 8px;
 }
+.login-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
 .login-code-text {
+  flex: 1;
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 4px;
   background: var(--bg);
   border-radius: 10px;
   padding: 12px;
-  margin-bottom: 12px;
+}
+.login-code-row .btn {
+  flex: 0 0 auto;
+  width: auto;
 }
 .login-code-status {
   color: var(--hint);

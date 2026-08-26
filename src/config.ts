@@ -33,7 +33,7 @@ export const config = {
   // Бампается вручную вместе с ?v=NN у app.js/styles.css в public/index.html.
   // Клиент сверяет это значение при загрузке и сам перезагружает страницу,
   // если у пользователя в кэше/WebView застряла старая версия.
-  appVersion: '48',
+  appVersion: '49',
 };
 
 export type City = (typeof config.cities)[number];

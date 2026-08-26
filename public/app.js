@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '48';
+  const APP_VERSION = '49';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1539,6 +1539,26 @@
       toast(err.message);
       btn.disabled = false;
     }
+  });
+
+  document.getElementById('loginCodeCopyBtn').addEventListener('click', async () => {
+    const code = document.getElementById('loginCodeText').textContent;
+    if (!code) return;
+    const btn = document.getElementById('loginCodeCopyBtn');
+    try {
+      await navigator.clipboard.writeText(code);
+      btn.textContent = 'Скопировано ✓';
+    } catch (err) {
+      // Буфер обмена может быть недоступен (нет HTTPS, старый браузер и т.д.) —
+      // тогда просто выделяем текст, чтобы можно было скопировать вручную.
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById('loginCodeText'));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      btn.textContent = 'Выделено — Ctrl+C';
+    }
+    setTimeout(() => { btn.textContent = 'Копировать'; }, 2000);
   });
 
   function startLoginPolling(code) {

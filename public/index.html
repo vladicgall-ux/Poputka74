@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=36" />
+  <link rel="stylesheet" href="styles.css?v=37" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -134,7 +134,13 @@
           <button type="button" class="dir-btn active" data-range="day">День</button>
           <button type="button" class="dir-btn" data-range="week">Неделя</button>
           <button type="button" class="dir-btn" data-range="month">Месяц</button>
+          <button type="button" class="dir-btn" data-range="period">Период</button>
           <input type="date" id="driverRangeDate" />
+        </div>
+        <div class="range-period-inputs" id="driverRangePeriod" hidden>
+          <input type="date" id="driverRangeFrom" />
+          <span>—</span>
+          <input type="date" id="driverRangeTo" />
         </div>
         <div class="stats-row" id="driverStats"></div>
         <div id="myRidesList" class="cards"></div>
@@ -146,7 +152,13 @@
           <button type="button" class="dir-btn active" data-range="all">Все</button>
           <button type="button" class="dir-btn" data-range="day">День</button>
           <button type="button" class="dir-btn" data-range="week">Неделя</button>
+          <button type="button" class="dir-btn" data-range="period">Период</button>
           <input type="date" id="passengerRangeDate" />
+        </div>
+        <div class="range-period-inputs" id="passengerRangePeriod" hidden>
+          <input type="date" id="passengerRangeFrom" />
+          <span>—</span>
+          <input type="date" id="passengerRangeTo" />
         </div>
         <div id="myBookingsList" class="cards"></div>
         <p id="myBookingsEmpty" class="empty" hidden>Бронирований за этот период нет.</p>
@@ -217,6 +229,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=36"></script>
+  <script src="app.js?v=37"></script>
 </body>
 </html>

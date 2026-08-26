@@ -109,6 +109,11 @@
       const date = preset.slice(5);
       return { from: date, to: date };
     }
+    if (preset.startsWith('range:')) {
+      const [, from, to] = preset.split(':');
+      // Если перепутали местами — молча меняем, чтобы не показывать пустой список.
+      return from <= to ? { from, to } : { from: to, to: from };
+    }
     const today = new Date();
     const to = toDateStr(today);
     const days = preset === 'week' ? 6 : preset === 'month' ? 29 : 0;
@@ -482,42 +487,61 @@
   });
 
   // ---------- Mine tab ----------
-  document.getElementById('driverRangeFilter').addEventListener('click', (e) => {
-    const btn = e.target.closest('.dir-btn');
-    if (!btn) return;
-    document.querySelectorAll('#driverRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('driverRangeDate').value = toDateStr(new Date());
-    state.driverRange = btn.dataset.range;
-    loadMineTab();
-  });
-  document.getElementById('driverRangeDate').addEventListener('change', (e) => {
-    if (!e.target.value) return;
-    document.querySelectorAll('#driverRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
-    state.driverRange = `date:${e.target.value}`;
-    loadMineTab();
-  });
+  // День/Неделя/Месяц/Все — готовые пресеты; Период — выбор произвольного
+  // диапазона двумя датами (state вида "range:2026-01-21:2026-01-23").
+  function setupRangeFilter(prefix) {
+    const filterEl = document.getElementById(`${prefix}RangeFilter`);
+    const dateEl = document.getElementById(`${prefix}RangeDate`);
+    const periodEl = document.getElementById(`${prefix}RangePeriod`);
+    const fromEl = document.getElementById(`${prefix}RangeFrom`);
+    const toEl = document.getElementById(`${prefix}RangeTo`);
 
-  document.getElementById('passengerRangeFilter').addEventListener('click', (e) => {
-    const btn = e.target.closest('.dir-btn');
-    if (!btn) return;
-    document.querySelectorAll('#passengerRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('passengerRangeDate').value = toDateStr(new Date());
-    state.passengerRange = btn.dataset.range;
-    loadMineTab();
-  });
-  document.getElementById('passengerRangeDate').addEventListener('change', (e) => {
-    if (!e.target.value) return;
-    document.querySelectorAll('#passengerRangeFilter .dir-btn').forEach((b) => b.classList.remove('active'));
-    state.passengerRange = `date:${e.target.value}`;
-    loadMineTab();
-  });
+    function apply(range) {
+      state[`${prefix}Range`] = range;
+      loadMineTab();
+    }
 
-  // Поле даты сразу показывает сегодня, а не пусто — как и в поиске.
-  // Активный пресет (День/Неделя/...) от этого не меняется, пока пользователь сам не тронет поле.
-  document.getElementById('driverRangeDate').value = toDateStr(new Date());
-  document.getElementById('passengerRangeDate').value = toDateStr(new Date());
+    filterEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.dir-btn');
+      if (!btn) return;
+      filterEl.querySelectorAll('.dir-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      if (btn.dataset.range === 'period') {
+        dateEl.hidden = true;
+        periodEl.hidden = false;
+        if (!fromEl.value) fromEl.value = toDateStr(new Date());
+        if (!toEl.value) toEl.value = toDateStr(new Date());
+        apply(`range:${fromEl.value}:${toEl.value}`);
+        return;
+      }
+
+      dateEl.hidden = false;
+      periodEl.hidden = true;
+      dateEl.value = toDateStr(new Date());
+      apply(btn.dataset.range);
+    });
+
+    dateEl.addEventListener('change', (e) => {
+      if (!e.target.value) return;
+      filterEl.querySelectorAll('.dir-btn').forEach((b) => b.classList.remove('active'));
+      apply(`date:${e.target.value}`);
+    });
+
+    function onPeriodChange() {
+      if (!fromEl.value || !toEl.value) return;
+      apply(`range:${fromEl.value}:${toEl.value}`);
+    }
+    fromEl.addEventListener('change', onPeriodChange);
+    toEl.addEventListener('change', onPeriodChange);
+
+    // Поле даты сразу показывает сегодня, а не пусто — как и в поиске.
+    // Активный пресет (День/Неделя/...) от этого не меняется, пока пользователь сам не тронет поле.
+    dateEl.value = toDateStr(new Date());
+  }
+
+  setupRangeFilter('driver');
+  setupRangeFilter('passenger');
 
   async function loadMineTab() {
     const ridesList = document.getElementById('myRidesList');

@@ -453,6 +453,30 @@ input[type="date"], input[type="datetime-local"] {
   font-size: 13px;
 }
 
+.range-period-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--secondary-bg);
+  border-radius: 12px;
+  padding: 8px;
+  margin: -6px 0 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.range-period-inputs input[type="date"] {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 9px;
+  padding: 8px;
+  font-size: 13px;
+  background: var(--bg);
+}
+.range-period-inputs span {
+  color: var(--hint);
+  flex: 0 0 auto;
+}
+
 /* Раскрывающийся список пассажиров у поездки водителя */
 .passenger-toggle-btn {
   margin-top: 4px;

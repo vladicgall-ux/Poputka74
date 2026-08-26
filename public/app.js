@@ -1,4 +1,23 @@
 (() => {
+  // telegram-web-app.js и max-web-app.js подключены как async (без блокировки
+  // остальной страницы — если один из этих внешних доменов недоступен без VPN,
+  // страница и этот скрипт всё равно должны загрузиться). Из-за async нет
+  // гарантии, что SDK уже подключился к этому моменту — ждём его появления
+  // короткое время, иначе просто продолжаем без него (браузерная версия).
+  function waitForPlatformSdk(timeoutMs) {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      (function poll() {
+        if (window.Telegram?.WebApp || window.WebApp || Date.now() - start >= timeoutMs) {
+          resolve();
+          return;
+        }
+        setTimeout(poll, 50);
+      })();
+    });
+  }
+
+  waitForPlatformSdk(1500).then(() => {
   const tg = window.Telegram?.WebApp;
   // MAX Bridge (st.max.ru/js/max-web-app.js) — тот же принцип, что у Telegram:
   // глобальный объект с initData, только называется window.WebApp.
@@ -1490,4 +1509,5 @@
 
   // init
   waitForInitData().then(initApp);
+  });
 })();

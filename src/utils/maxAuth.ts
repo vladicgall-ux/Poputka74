@@ -10,22 +10,11 @@ export interface ValidatedMaxInitData {
 /**
  * Проверяет подпись initData из MAX Mini App.
  *
- * ВАЖНО: dev.max.ru (единственный официальный источник точной формулы)
- * был недоступен из этой сессии — сеть блокирует egress на этот домен.
- * Подтверждено из открытых источников только то, что MAX Bridge отдаёт
- * initData тем же набором полей, что и Telegram (query_id, auth_date,
- * hash, user.{id,first_name,last_name,username,language_code,photo_url},
- * start_param) — MAX сознательно скопировал схему Telegram Mini Apps.
- * Поэтому здесь применён ТОТ ЖЕ алгоритм, что и для Telegram
- * (validateInitData в telegramAuth.ts): HMAC-SHA256 от отсортированной
- * data-check-string, ключ — HMAC-SHA256('WebAppData', токен бота).
- *
- * Это лучшее обоснованное предположение, а не подтверждённый факт. Перед
- * тем как полагаться на это в проде, нужно получить реальный initData от
- * живого MAX Mini App (залогировать сырую строку на сервере при первом
- * запросе) и свериться с этой реализацией — если MAX использует другую
- * секретную строку вместо 'WebAppData' или другой набор полей, здесь
- * потребуется только эта константа, остальной алгоритм неизменен.
+ * Алгоритм подтверждён официальной документацией MAX (dev.max.ru/docs/
+ * webapps/validation): та же схема, что и у Telegram Mini Apps —
+ * HMAC-SHA256 от отсортированной data-check-string, ключ —
+ * HMAC-SHA256('WebAppData', токен бота). Реализация ниже совпадает с
+ * validateInitData в telegramAuth.ts, только с секретом MAX-бота.
  */
 export function validateMaxInitData(initData: string): ValidatedMaxInitData | null {
   // ВРЕМЕННАЯ диагностика, пока алгоритм не подтверждён на реальных данных

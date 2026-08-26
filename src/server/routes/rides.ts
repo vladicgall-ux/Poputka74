@@ -1,12 +1,13 @@
 import { Router, type Request } from 'express';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
-import { getDriverProfile } from '../../services/userService';
+import { getDriverProfile, getUser } from '../../services/userService';
 import {
   createRide,
   searchRides,
   listRidesByDriver,
   cancelRide,
+  getRide,
   getRideWithDriver,
 } from '../../services/rideService';
 import {
@@ -14,8 +15,10 @@ import {
   listTemplatesByDriver,
   deactivateTemplate,
 } from '../../services/rideTemplateService';
-import { getRidePassengers, BookingError } from '../../services/bookingService';
+import { getRidePassengers, cancelBookingsForRide, BookingError } from '../../services/bookingService';
 import { getDriverStats } from '../../services/statsService';
+import { notifyUser } from '../../bot/notifier';
+import { formatDate } from '../../utils/dateFormat';
 import { config, type City } from '../../config';
 
 export const ridesRouter = Router();
@@ -187,15 +190,31 @@ ridesRouter.post('/templates/:id/deactivate', (req, res) => {
   res.json({ ok: true });
 });
 
-/** Отмена поездки водителем. */
-ridesRouter.post('/:id/cancel', (req, res) => {
+/** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
+ridesRouter.post('/:id/cancel', async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const rideId = Number(req.params.id);
-  const ok = cancelRide(rideId, user.telegram_id);
+  const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 300) : undefined;
+
+  const ok = cancelRide(rideId, user.telegram_id, reason);
   if (!ok) {
     res.status(404).json({ error: 'Поездка не найдена или уже отменена' });
     return;
   }
+
+  const ride = getRide(rideId)!;
+  const affected = cancelBookingsForRide(rideId);
+  const reasonLine = reason ? `\nПричина: ${reason}` : '';
+  for (const booking of affected) {
+    const passenger = getUser(booking.passenger_id);
+    if (passenger) {
+      await notifyUser(
+        passenger,
+        `❌ Водитель отменил поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).${reasonLine}\nПопробуйте найти другую поездку в приложении.`
+      );
+    }
+  }
+
   res.json({ ok: true });
 });
 

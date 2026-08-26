@@ -98,3 +98,6 @@ if (!columnExists('rides', 'dropoff_point')) {
 if (!columnExists('ride_templates', 'dropoff_point')) {
     exports.db.exec(`ALTER TABLE ride_templates ADD COLUMN dropoff_point TEXT`);
 }
+if (!columnExists('rides', 'cancellation_reason')) {
+    exports.db.exec(`ALTER TABLE rides ADD COLUMN cancellation_reason TEXT`);
+}

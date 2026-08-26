@@ -9,6 +9,8 @@ const rideService_1 = require("../../services/rideService");
 const rideTemplateService_1 = require("../../services/rideTemplateService");
 const bookingService_1 = require("../../services/bookingService");
 const statsService_1 = require("../../services/statsService");
+const notifier_1 = require("../../bot/notifier");
+const dateFormat_1 = require("../../utils/dateFormat");
 const config_1 = require("../../config");
 exports.ridesRouter = (0, express_1.Router)();
 exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
@@ -161,14 +163,24 @@ exports.ridesRouter.post('/templates/:id/deactivate', (req, res) => {
     }
     res.json({ ok: true });
 });
-/** Отмена поездки водителем. */
-exports.ridesRouter.post('/:id/cancel', (req, res) => {
+/** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
+exports.ridesRouter.post('/:id/cancel', async (req, res) => {
     const { user } = req;
     const rideId = Number(req.params.id);
-    const ok = (0, rideService_1.cancelRide)(rideId, user.telegram_id);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 300) : undefined;
+    const ok = (0, rideService_1.cancelRide)(rideId, user.telegram_id, reason);
     if (!ok) {
         res.status(404).json({ error: 'Поездка не найдена или уже отменена' });
         return;
+    }
+    const ride = (0, rideService_1.getRide)(rideId);
+    const affected = (0, bookingService_1.cancelBookingsForRide)(rideId);
+    const reasonLine = reason ? `\nПричина: ${reason}` : '';
+    for (const booking of affected) {
+        const passenger = (0, userService_1.getUser)(booking.passenger_id);
+        if (passenger) {
+            await (0, notifier_1.notifyUser)(passenger, `❌ Водитель отменил поездку ${ride.from_city} → ${ride.to_city} (${(0, dateFormat_1.formatDate)(ride.departure_at)}).${reasonLine}\nПопробуйте найти другую поездку в приложении.`);
+        }
     }
     res.json({ ok: true });
 });

@@ -192,6 +192,26 @@ export function listBookingsForRide(rideId: number): BookingRecord[] {
     .all(rideId) as BookingRecord[];
 }
 
+export interface AffectedBooking {
+  passenger_id: number;
+}
+
+/**
+ * Отменяет все активные брони на поездку, которую отменил водитель, и
+ * возвращает пассажиров для уведомления. Не трогает cancelled_at — это
+ * поле означает «пассажир отменил сам» (используется как сигнал для
+ * модерации в админке), а тут отмена по инициативе водителя, не пассажира.
+ */
+export function cancelBookingsForRide(rideId: number): AffectedBooking[] {
+  const affected = db
+    .prepare(`SELECT passenger_id FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
+    .all(rideId) as AffectedBooking[];
+  db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE ride_id = ? AND status IN ('pending', 'confirmed')`).run(
+    rideId
+  );
+  return affected;
+}
+
 export interface RidePassenger {
   id: number;
   passenger_id: number;

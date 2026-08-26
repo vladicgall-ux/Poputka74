@@ -100,11 +100,11 @@ function listRidesByDriver(driverId, range) {
         .prepare(`SELECT * FROM rides WHERE ${clauses.join(' AND ')} ORDER BY departure_at DESC`)
         .all(params);
 }
-function cancelRide(id, driverId) {
+function cancelRide(id, driverId, reason) {
     const info = db_1.db
-        .prepare(`UPDATE rides SET status = 'cancelled', cancelled_at = datetime('now')
+        .prepare(`UPDATE rides SET status = 'cancelled', cancelled_at = datetime('now'), cancellation_reason = ?
        WHERE id = ? AND driver_id = ? AND status = 'active'`)
-        .run(id, driverId);
+        .run(reason ?? null, id, driverId);
     return info.changes > 0;
 }
 /** Сколько поездок водитель отменил сам — сигнал для модерации в админке. */

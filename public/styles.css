@@ -375,6 +375,12 @@ input[type="date"], input[type="datetime-local"] {
   font-size: 15px;
   line-height: 1.4;
 }
+.cancel-reason-input {
+  width: 100%;
+  min-height: 70px;
+  resize: vertical;
+  margin-bottom: 14px;
+}
 .confirm-actions {
   display: flex;
   gap: 10px;

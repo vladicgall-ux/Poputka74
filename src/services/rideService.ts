@@ -17,6 +17,7 @@ export interface RideRecord {
   departure_reminder_sent: number;
   template_id: number | null;
   cancelled_at: string | null;
+  cancellation_reason: string | null;
   created_at: string;
 }
 
@@ -151,13 +152,13 @@ export function listRidesByDriver(
     .all(params) as RideRecord[];
 }
 
-export function cancelRide(id: number, driverId: number): boolean {
+export function cancelRide(id: number, driverId: number, reason?: string): boolean {
   const info = db
     .prepare(
-      `UPDATE rides SET status = 'cancelled', cancelled_at = datetime('now')
+      `UPDATE rides SET status = 'cancelled', cancelled_at = datetime('now'), cancellation_reason = ?
        WHERE id = ? AND driver_id = ? AND status = 'active'`
     )
-    .run(id, driverId);
+    .run(reason ?? null, id, driverId);
   return info.changes > 0;
 }
 

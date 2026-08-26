@@ -64,6 +64,44 @@
     });
   }
 
+  // Как askConfirm, но с полем для причины — водитель может пояснить,
+  // почему отменяет поездку, и пассажиры увидят это в уведомлении.
+  // Возвращает null, если передумали, иначе текст причины (может быть пустым).
+  function askCancelReason(message) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'confirm-overlay';
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <p>${escapeHtml(message)}</p>
+          <textarea class="cancel-reason-input" maxlength="300" placeholder="Причина отмены (необязательно) — пассажиры её увидят"></textarea>
+          <div class="confirm-actions">
+            <button type="button" class="btn secondary" data-act="cancel">Не отменять</button>
+            <button type="button" class="btn" data-act="ok">Отменить поездку</button>
+          </div>
+        </div>
+      `;
+      function close(result) {
+        overlay.remove();
+        resolve(result);
+      }
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) {
+          close(null);
+          return;
+        }
+        const act = e.target.closest('button')?.dataset.act;
+        if (!act) return;
+        if (act === 'cancel') {
+          close(null);
+          return;
+        }
+        close(overlay.querySelector('.cancel-reason-input').value.trim());
+      });
+      document.body.appendChild(overlay);
+    });
+  }
+
   // MAX Bridge, в отличие от Telegram, не гарантирует initData сразу же
   // после загрузки скрипта — ждём до 3 секунд, проверяя каждые 100мс.
   function waitForInitData() {
@@ -762,10 +800,14 @@
   document.getElementById('myRidesList').addEventListener('click', async (e) => {
     const cancelBtn = e.target.closest('.cancel-ride-btn');
     if (cancelBtn) {
-      if (!(await askConfirm('Отменить поездку?'))) return;
+      const reason = await askCancelReason('Отменить поездку?');
+      if (reason === null) return;
       try {
-        await api(`/rides/${cancelBtn.dataset.rideId}/cancel`, { method: 'POST' });
-        toast('Поездка отменена');
+        await api(`/rides/${cancelBtn.dataset.rideId}/cancel`, {
+          method: 'POST',
+          body: JSON.stringify({ reason }),
+        });
+        toast('Поездка отменена, пассажиры уведомлены');
         loadMineTab();
       } catch (err) {
         toast(err.message);

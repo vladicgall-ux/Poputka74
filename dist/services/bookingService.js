@@ -10,6 +10,7 @@ exports.getBookingWithPeople = getBookingWithPeople;
 exports.listAllBookings = listAllBookings;
 exports.listBookingsByPassenger = listBookingsByPassenger;
 exports.listBookingsForRide = listBookingsForRide;
+exports.cancelBookingsForRide = cancelBookingsForRide;
 exports.listConfirmedPassengerIds = listConfirmedPassengerIds;
 exports.listBookingsDueForRatingReminder = listBookingsDueForRatingReminder;
 exports.markRatingReminderSent = markRatingReminderSent;
@@ -142,6 +143,19 @@ function listBookingsForRide(rideId) {
     return db_1.db
         .prepare(`SELECT * FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
         .all(rideId);
+}
+/**
+ * Отменяет все активные брони на поездку, которую отменил водитель, и
+ * возвращает пассажиров для уведомления. Не трогает cancelled_at — это
+ * поле означает «пассажир отменил сам» (используется как сигнал для
+ * модерации в админке), а тут отмена по инициативе водителя, не пассажира.
+ */
+function cancelBookingsForRide(rideId) {
+    const affected = db_1.db
+        .prepare(`SELECT passenger_id FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
+        .all(rideId);
+    db_1.db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE ride_id = ? AND status IN ('pending', 'confirmed')`).run(rideId);
+    return affected;
 }
 /** Пассажиры с подтверждённой бронью на поездку — для напоминания о скором отправлении. */
 function listConfirmedPassengerIds(rideId) {

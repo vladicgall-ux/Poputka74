@@ -37,6 +37,12 @@ export function createApp() {
       // это и есть современный дефолт браузеров: отдаёт origin (без пути)
       // на чужие HTTPS-домены, этого достаточно для проверки Telegram.
       referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+      // Cross-Origin-Opener-Policy: same-origin (дефолт helmet) изолирует
+      // всплывающее окно/попап от родительской страницы, обрывая
+      // window.opener — именно на нём построены такие OAuth/login-виджеты,
+      // как у Telegram и Google. Без этого виджет не может сообщить
+      // странице результат входа и выглядит как постоянная ошибка домена.
+      crossOriginOpenerPolicy: false,
     })
   );
 

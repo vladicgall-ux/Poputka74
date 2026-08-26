@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '43';
+  const APP_VERSION = '44';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -402,10 +402,21 @@
     return opts;
   }
 
+  // Заглушки на время загрузки списка — вместо пустого экрана до ответа сервера.
+  function skeletonHtml(count) {
+    const card = `<div class="skeleton-card">
+      <div class="skeleton-line w-60"></div>
+      <div class="skeleton-line w-40"></div>
+      <div class="skeleton-line w-90"></div>
+    </div>`;
+    return card.repeat(count);
+  }
+
   async function loadRides() {
     const list = document.getElementById('ridesList');
     const empty = document.getElementById('ridesEmpty');
-    list.innerHTML = '';
+    empty.hidden = true;
+    list.innerHTML = skeletonHtml(3);
     try {
       const params = new URLSearchParams({ from: state.direction.from, to: state.direction.to });
       if (state.searchDate) params.set('date', state.searchDate);
@@ -427,6 +438,7 @@
           : '',
       })).join('');
     } catch (err) {
+      list.innerHTML = '';
       toast(err.message);
     }
   }
@@ -493,9 +505,34 @@
     }
   }
 
-  document.getElementById('openBotFromOffer').addEventListener('click', () => {
-    tg?.close();
-  });
+  // "Открыть чат с ботом" на гейтах (неподтверждённый телефон, бан и т.д.).
+  // tg.close() просто закрывает Mini App — на Telegram это худо-бедно
+  // работает (обычно возвращает в чат с ботом), а на MAX объекта tg вообще
+  // нет, и кнопка молча ничего не делала. Открываем чат явной ссылкой на
+  // обеих платформах, а не полагаемся на close().
+  async function openBotChat() {
+    if (tg) {
+      if (!state.botUsername) {
+        try {
+          const res = await fetch('/api/config');
+          const data = await res.json();
+          state.botUsername = data.botUsername;
+        } catch (err) {
+          tg.close();
+          return;
+        }
+      }
+      if (state.botUsername && tg.openTelegramLink) {
+        tg.openTelegramLink(`https://t.me/${state.botUsername}`);
+      } else {
+        tg.close();
+      }
+      return;
+    }
+    window.open(MAX_BOT_LINK, '_blank');
+  }
+
+  document.getElementById('openBotFromOffer').addEventListener('click', openBotChat);
 
   document.getElementById('driverForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -742,6 +779,11 @@
     const driverRange = rangeToDates(state.driverRange);
     const driverQuery = driverRange ? `?from=${driverRange.from}&to=${driverRange.to}` : '';
 
+    ridesEmpty.hidden = true;
+    ridesList.innerHTML = skeletonHtml(2);
+    bookingsEmpty.hidden = true;
+    bookingsList.innerHTML = skeletonHtml(2);
+
     try {
       const { stats } = await api(`/rides/mine/stats${driverQuery}`);
       document.getElementById('driverStats').innerHTML = `
@@ -764,6 +806,7 @@
         `,
       })).join('');
     } catch (err) {
+      ridesList.innerHTML = '';
       toast(err.message);
     }
 
@@ -802,6 +845,7 @@
         </div>`;
       }).join('');
     } catch (err) {
+      bookingsList.innerHTML = '';
       toast(err.message);
     }
   }
@@ -1396,9 +1440,7 @@
     document.getElementById('appGate').hidden = false;
   }
 
-  document.getElementById('gateActionBtn').addEventListener('click', () => {
-    tg?.close();
-  });
+  document.getElementById('gateActionBtn').addEventListener('click', openBotChat);
 
   document.getElementById('gateNameSubmitBtn').addEventListener('click', async () => {
     const input = document.getElementById('gateNameInput');
@@ -1519,9 +1561,16 @@
 
       document.getElementById('adminTabBtn').hidden = !isAdmin;
 
-      // Если есть состоявшаяся подтверждённая поездка без оценки — открываем
-      // сразу вкладку «Мои поездки» → «Как пассажир», чтобы не заставлять
-      // искать её самому после уведомления «Оцените поездку».
+      // Уведомление "Оцените поездку" ведёт на ссылку с ?tab=mine — если
+      // пришли по ней, сразу открываем "Мои поездки" → "Как пассажир",
+      // не дожидаясь проверки ниже (та же тема, но независимый явный сигнал —
+      // сработает, даже если следующий блок почему-то не найдёт бронь).
+      const wantsMineTab = new URLSearchParams(location.search).get('tab') === 'mine';
+
+      // Плюс: если есть состоявшаяся подтверждённая поездка без оценки —
+      // тоже открываем "Мои поездки" → "Как пассажир", даже без параметра
+      // в ссылке (например, открыли приложение из закреплённого в MAX
+      // значка, а не по кнопке из конкретного уведомления).
       let hasPendingRating = false;
       try {
         const { bookings } = await api('/bookings/mine');
@@ -1532,7 +1581,7 @@
         // не критично — просто откроется обычный экран поиска
       }
 
-      if (hasPendingRating) {
+      if (wantsMineTab || hasPendingRating) {
         showTab('mine');
         switchMineSubTab('passenger');
       } else {

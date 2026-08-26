@@ -9,6 +9,7 @@ import {
   markDepartureReminderSent,
 } from '../services/rideService';
 import { notify, notifyUser, type NotifyButton } from '../bot/notifier';
+import { notifyMaxWithLink } from '../bot/maxNotifier';
 import { getUser } from '../services/userService';
 import { displayName } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
@@ -18,10 +19,13 @@ import { formatDate } from '../utils/dateFormat';
  * подтверждена и оценки ещё нет. Отмечает бронь как «напоминание отправлено»
  * сразу после отправки, чтобы не слать повторно на каждом тике.
  *
- * Кнопка «Оценить поездку» открывает Mini App через web_app — это работает
- * только в Telegram (в MAX подтверждённого способа открыть Mini App кнопкой
- * из чата пока нет, а обычная url-кнопка потеряла бы initData). Пассажирам
- * MAX уходит тот же текст без кнопки — приложение у них уже закреплено в чате.
+ * Кнопка «Оценить поездку» ведёт на ?tab=mine — app.js при загрузке читает
+ * этот параметр и сразу открывает «Мои поездки» → «Как пассажир», а не
+ * просто стартовый экран поиска. В Telegram это web_app-кнопка (гарантированно
+ * открывает именно Mini App с initData). В MAX — обычная ссылка: если MAX
+ * откроет её не как встроенный Mini App, а как внешний браузер, initData не
+ * будет, но приложение уже умеет входить по коду через browserLoginGate —
+ * это лишний шаг, а не тупик, так что кнопку всё равно стоит слать.
  */
 export async function sendRatingReminders(): Promise<void> {
   const due = listBookingsDueForRatingReminder();
@@ -29,11 +33,14 @@ export async function sendRatingReminders(): Promise<void> {
     const passenger = getUser(b.passenger_id);
     if (passenger) {
       const text = `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${displayName(b.driver_full_name, b.driver_first_name)}?\nОцените поездку в приложении — это поможет другим пассажирам.`;
+      const deepLink = config.webappUrl ? `${config.webappUrl}?tab=mine` : undefined;
       if (passenger.platform === 'telegram') {
-        const buttons: NotifyButton[][] | undefined = config.webappUrl
-          ? [[{ text: '⭐ Оценить поездку', web_app: { url: config.webappUrl } }]]
+        const buttons: NotifyButton[][] | undefined = deepLink
+          ? [[{ text: '⭐ Оценить поездку', web_app: { url: deepLink } }]]
           : undefined;
         await notify(passenger.telegram_id, text, buttons);
+      } else if (deepLink) {
+        await notifyMaxWithLink(passenger, text, '⭐ Оценить поездку', deepLink);
       } else {
         await notifyUser(passenger, text);
       }

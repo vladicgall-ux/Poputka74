@@ -36,12 +36,25 @@ async function main() {
   // так. bot.start() у MAX SDK так же не резолвится, пока бот не
   // остановлен — запускаем без await, по той же причине, что и Telegram.
   let maxBot: ReturnType<typeof createMaxBot> | undefined;
+  const MAX_START_RETRY_MS = 30_000;
   if (config.maxBotToken) {
     maxBot = createMaxBot();
-    maxBot
-      .start()
-      .then(() => console.log('Бот MAX запущен (long polling)'))
-      .catch((err) => console.error('Не удалось запустить бота MAX:', err));
+    // API MAX иногда вместо JSON на первый long-poll запрос отвечает HTML-
+    // страницей ошибки (похоже на временный сбой прокси/шлюза на их
+    // стороне) — тогда start() падает с SyntaxError при разборе JSON. Без
+    // повторных попыток бот MAX молча переставал бы отвечать на что-либо
+    // (в т.ч. на нажатия кнопок) до следующего ручного передеплоя.
+    const startMaxBot = () => {
+      maxBot!
+        .start()
+        .then(() => console.log('Бот MAX запущен (long polling)'))
+        .catch((err) => {
+          console.error('Не удалось запустить бота MAX:', err);
+          console.log(`Повторная попытка запуска бота MAX через ${MAX_START_RETRY_MS / 1000} секунд...`);
+          setTimeout(startMaxBot, MAX_START_RETRY_MS);
+        });
+    };
+    startMaxBot();
   }
 
   // Переводит поездки, время которых прошло, в «выполнена»/«отменена» —

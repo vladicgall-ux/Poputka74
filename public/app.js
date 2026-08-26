@@ -31,6 +31,25 @@
     if (window.Telegram?.WebApp?.initData) return { 'X-Telegram-Init-Data': currentInitData() };
     return { 'X-Max-Init-Data': currentInitData() };
   }
+  // window.confirm() внутри WebView Telegram/MAX часто не показывает
+  // диалог вовсе и сразу возвращает false/undefined — кнопка выглядит
+  // так, будто просто ничего не делает. Используем нативное подтверждение
+  // платформы, если оно есть, и только вне Mini App (обычный браузер)
+  // падаем обратно на window.confirm.
+  function askConfirm(message) {
+    return new Promise((resolve) => {
+      if (tg?.showConfirm) {
+        tg.showConfirm(message, (ok) => resolve(!!ok));
+        return;
+      }
+      if (maxApp?.showConfirm) {
+        maxApp.showConfirm(message, (ok) => resolve(!!ok));
+        return;
+      }
+      resolve(window.confirm(message));
+    });
+  }
+
   // MAX Bridge, в отличие от Telegram, не гарантирует initData сразу же
   // после загрузки скрипта — ждём до 3 секунд, проверяя каждые 100мс.
   function waitForInitData() {
@@ -588,7 +607,7 @@
   document.getElementById('myRidesList').addEventListener('click', async (e) => {
     const cancelBtn = e.target.closest('.cancel-ride-btn');
     if (cancelBtn) {
-      if (!confirm('Отменить поездку?')) return;
+      if (!(await askConfirm('Отменить поездку?'))) return;
       try {
         await api(`/rides/${cancelBtn.dataset.rideId}/cancel`, { method: 'POST' });
         toast('Поездка отменена');
@@ -633,7 +652,7 @@
   document.getElementById('myBookingsList').addEventListener('click', async (e) => {
     const btn = e.target.closest('.cancel-booking-btn');
     if (!btn) return;
-    if (!confirm('Отменить бронирование?')) return;
+    if (!(await askConfirm('Отменить бронирование?'))) return;
     try {
       await api(`/bookings/${btn.dataset.bookingId}/cancel`, { method: 'POST' });
       toast('Бронирование отменено');
@@ -899,7 +918,7 @@
     if (banBtn) {
       const telegramId = banBtn.dataset.telegramId;
       const action = banBtn.dataset.action;
-      if (action === 'ban' && !confirm('Заблокировать этого пользователя? Он потеряет доступ к приложению.')) return;
+      if (action === 'ban' && !(await askConfirm('Заблокировать этого пользователя? Он потеряет доступ к приложению.'))) return;
       banBtn.disabled = true;
       try {
         await api(`/admin/users/${telegramId}/${action}`, { method: 'POST' });
@@ -1008,7 +1027,7 @@
       toast('Добавьте текст или фото');
       return;
     }
-    if (!confirm('Отправить это сообщение всем пользователям бота?')) return;
+    if (!(await askConfirm('Отправить это сообщение всем пользователям бота?'))) return;
 
     const btn = document.getElementById('broadcastSendBtn');
     btn.disabled = true;

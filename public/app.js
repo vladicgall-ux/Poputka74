@@ -31,22 +31,36 @@
     if (window.Telegram?.WebApp?.initData) return { 'X-Telegram-Init-Data': currentInitData() };
     return { 'X-Max-Init-Data': currentInitData() };
   }
-  // window.confirm() внутри WebView Telegram/MAX часто не показывает
-  // диалог вовсе и сразу возвращает false/undefined — кнопка выглядит
-  // так, будто просто ничего не делает. Используем нативное подтверждение
-  // платформы, если оно есть, и только вне Mini App (обычный браузер)
-  // падаем обратно на window.confirm.
+  // window.confirm() внутри WebView Telegram/MAX часто не показывает диалог
+  // вовсе и сразу возвращает false/undefined — кнопка выглядит так, будто
+  // просто ничего не делает. tg.showConfirm() существует у Telegram, но
+  // равнозначного showConfirm у MAX Bridge нет (проверено — молча падает
+  // обратно на тот же сломанный window.confirm), поэтому вместо угадывания
+  // API конкретной платформы рисуем свой диалог поверх страницы — он
+  // одинаково работает и в Telegram, и в MAX, и в обычном браузере.
   function askConfirm(message) {
     return new Promise((resolve) => {
-      if (tg?.showConfirm) {
-        tg.showConfirm(message, (ok) => resolve(!!ok));
-        return;
+      const overlay = document.createElement('div');
+      overlay.className = 'confirm-overlay';
+      overlay.innerHTML = `
+        <div class="confirm-box">
+          <p>${escapeHtml(message)}</p>
+          <div class="confirm-actions">
+            <button type="button" class="btn secondary" data-act="cancel">Отмена</button>
+            <button type="button" class="btn" data-act="ok">ОК</button>
+          </div>
+        </div>
+      `;
+      function close(result) {
+        overlay.remove();
+        resolve(result);
       }
-      if (maxApp?.showConfirm) {
-        maxApp.showConfirm(message, (ok) => resolve(!!ok));
-        return;
-      }
-      resolve(window.confirm(message));
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close(false);
+        const act = e.target.closest('button')?.dataset.act;
+        if (act) close(act === 'ok');
+      });
+      document.body.appendChild(overlay);
     });
   }
 

@@ -120,8 +120,11 @@ button, .dir-btn, .tab-btn, .weekday-btn, a.btn {
   flex-wrap: wrap;
 }
 #adminSubSwitch .dir-btn {
-  flex: 1 1 calc(50% - 4px);
+  /* 3 в ряд (3+2), а не 2 в ряд (3 строки) — короче по высоте, меньше скролла. */
+  flex: 1 1 calc(33.333% - 4px);
   min-width: 0;
+  padding: 8px 4px;
+  font-size: 12px;
 }
 
 .cards {

@@ -110,3 +110,11 @@ if (!columnExists('rides', 'cancelled_at')) {
 if (!columnExists('bookings', 'cancelled_at')) {
   db.exec(`ALTER TABLE bookings ADD COLUMN cancelled_at TEXT`);
 }
+
+if (!columnExists('rides', 'dropoff_point')) {
+  db.exec(`ALTER TABLE rides ADD COLUMN dropoff_point TEXT`);
+}
+
+if (!columnExists('ride_templates', 'dropoff_point')) {
+  db.exec(`ALTER TABLE ride_templates ADD COLUMN dropoff_point TEXT`);
+}

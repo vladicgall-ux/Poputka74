@@ -12,6 +12,7 @@ export interface RideRecord {
   seats_available: number;
   comment: string | null;
   meeting_point: string | null;
+  dropoff_point: string | null;
   status: 'active' | 'cancelled' | 'completed';
   departure_reminder_sent: number;
   template_id: number | null;
@@ -40,12 +41,13 @@ export function createRide(input: {
   seatsTotal: number;
   comment?: string;
   meetingPoint?: string;
+  dropoffPoint?: string;
   templateId?: number;
 }): RideRecord {
   const info = db
     .prepare(
-      `INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, meeting_point, template_id)
-       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment, @meetingPoint, @templateId)`
+      `INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, meeting_point, dropoff_point, template_id)
+       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment, @meetingPoint, @dropoffPoint, @templateId)`
     )
     .run({
       driverId: input.driverId,
@@ -56,6 +58,7 @@ export function createRide(input: {
       seatsTotal: input.seatsTotal,
       comment: input.comment ?? null,
       meetingPoint: input.meetingPoint ?? null,
+      dropoffPoint: input.dropoffPoint ?? null,
       templateId: input.templateId ?? null,
     });
   return getRide(Number(info.lastInsertRowid))!;
@@ -221,6 +224,7 @@ export interface DepartureReminder {
   to_city: City;
   departure_at: string;
   meeting_point: string | null;
+  dropoff_point: string | null;
   driver_id: number;
 }
 
@@ -228,7 +232,7 @@ export interface DepartureReminder {
 export function listRidesDueForDepartureReminder(): DepartureReminder[] {
   return db
     .prepare(
-      `SELECT id AS ride_id, from_city, to_city, departure_at, meeting_point, driver_id
+      `SELECT id AS ride_id, from_city, to_city, departure_at, meeting_point, dropoff_point, driver_id
        FROM rides
        WHERE status = 'active'
          AND departure_reminder_sent = 0

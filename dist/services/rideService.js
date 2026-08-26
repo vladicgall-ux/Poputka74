@@ -16,8 +16,8 @@ exports.markDepartureReminderSent = markDepartureReminderSent;
 const db_1 = require("../db/db");
 function createRide(input) {
     const info = db_1.db
-        .prepare(`INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, meeting_point, template_id)
-       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment, @meetingPoint, @templateId)`)
+        .prepare(`INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, meeting_point, dropoff_point, template_id)
+       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment, @meetingPoint, @dropoffPoint, @templateId)`)
         .run({
         driverId: input.driverId,
         fromCity: input.fromCity,
@@ -27,6 +27,7 @@ function createRide(input) {
         seatsTotal: input.seatsTotal,
         comment: input.comment ?? null,
         meetingPoint: input.meetingPoint ?? null,
+        dropoffPoint: input.dropoffPoint ?? null,
         templateId: input.templateId ?? null,
     });
     return getRide(Number(info.lastInsertRowid));
@@ -150,7 +151,7 @@ exports.sweepExpiredRides = db_1.db.transaction(() => {
 /** Активные поездки, которые отправляются в течение часа и по которым напоминание ещё не отправлено. */
 function listRidesDueForDepartureReminder() {
     return db_1.db
-        .prepare(`SELECT id AS ride_id, from_city, to_city, departure_at, meeting_point, driver_id
+        .prepare(`SELECT id AS ride_id, from_city, to_city, departure_at, meeting_point, dropoff_point, driver_id
        FROM rides
        WHERE status = 'active'
          AND departure_reminder_sent = 0

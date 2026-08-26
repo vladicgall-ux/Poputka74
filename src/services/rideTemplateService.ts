@@ -13,6 +13,7 @@ export interface RideTemplateRecord {
   seats_total: number;
   comment: string | null;
   meeting_point: string | null;
+  dropoff_point: string | null;
   active: number;
   created_at: string;
 }
@@ -27,11 +28,12 @@ export function createRideTemplate(input: {
   seatsTotal: number;
   comment?: string;
   meetingPoint?: string;
+  dropoffPoint?: string;
 }): RideTemplateRecord {
   const info = db
     .prepare(
-      `INSERT INTO ride_templates (driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point)
-       VALUES (@driverId, @fromCity, @toCity, @departureTime, @weekdays, @pricePerSeat, @seatsTotal, @comment, @meetingPoint)`
+      `INSERT INTO ride_templates (driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point, dropoff_point)
+       VALUES (@driverId, @fromCity, @toCity, @departureTime, @weekdays, @pricePerSeat, @seatsTotal, @comment, @meetingPoint, @dropoffPoint)`
     )
     .run({
       driverId: input.driverId,
@@ -43,6 +45,7 @@ export function createRideTemplate(input: {
       seatsTotal: input.seatsTotal,
       comment: input.comment ?? null,
       meetingPoint: input.meetingPoint ?? null,
+      dropoffPoint: input.dropoffPoint ?? null,
     });
   return getRideTemplate(Number(info.lastInsertRowid))!;
 }
@@ -114,6 +117,7 @@ export function generateUpcomingRides(): void {
         seatsTotal: t.seats_total,
         comment: t.comment ?? undefined,
         meetingPoint: t.meeting_point ?? undefined,
+        dropoffPoint: t.dropoff_point ?? undefined,
         templateId: t.id,
       });
     }

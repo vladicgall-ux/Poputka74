@@ -180,7 +180,8 @@ export function createBot(): Telegraf {
         passengerUser,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
           `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
-          (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '')
+          (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '') +
+          (info.dropoff_point ? `\n🏁 Конечная точка: ${info.dropoff_point}` : '')
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=38" />
+  <link rel="stylesheet" href="styles.css?v=39" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -159,8 +159,11 @@
         <label>Свободных мест
           <input type="number" id="rideSeats" min="1" max="8" value="3" required />
         </label>
-        <label>Место встречи
+        <label>Место встречи (откуда)
           <input type="text" id="rideMeetingPoint" maxlength="200" placeholder="Например, у ТЦ Мегаполис" />
+        </label>
+        <label>Конечная точка (куда)
+          <input type="text" id="rideDropoffPoint" maxlength="200" placeholder="Например, автовокзал" />
         </label>
         <label>Комментарий
           <textarea id="rideComment" maxlength="300" placeholder="Багаж, животные и т.д."></textarea>
@@ -281,6 +284,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>

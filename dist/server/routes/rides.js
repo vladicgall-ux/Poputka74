@@ -67,7 +67,7 @@ exports.ridesRouter.post('/', (0, rateLimit_1.writeLimiter)(15, 10 * 60000), (re
         res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель' });
         return;
     }
-    const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment, meetingPoint } = req.body ?? {};
+    const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment, meetingPoint, dropoffPoint } = req.body ?? {};
     if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
         res.status(400).json({ error: 'Некорректное направление поездки' });
         return;
@@ -96,6 +96,7 @@ exports.ridesRouter.post('/', (0, rateLimit_1.writeLimiter)(15, 10 * 60000), (re
         seatsTotal: seats,
         comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
         meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
+        dropoffPoint: typeof dropoffPoint === 'string' ? dropoffPoint.trim().slice(0, 200) : undefined,
     });
     res.status(201).json({ ride });
 });
@@ -112,7 +113,7 @@ exports.ridesRouter.post('/templates', (0, rateLimit_1.writeLimiter)(10, 10 * 60
         res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель' });
         return;
     }
-    const { fromCity, toCity, departureTime, weekdays, pricePerSeat, seatsTotal, comment, meetingPoint } = req.body ?? {};
+    const { fromCity, toCity, departureTime, weekdays, pricePerSeat, seatsTotal, comment, meetingPoint, dropoffPoint } = req.body ?? {};
     if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
         res.status(400).json({ error: 'Некорректное направление поездки' });
         return;
@@ -146,6 +147,7 @@ exports.ridesRouter.post('/templates', (0, rateLimit_1.writeLimiter)(10, 10 * 60
         seatsTotal: seats,
         comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
         meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
+        dropoffPoint: typeof dropoffPoint === 'string' ? dropoffPoint.trim().slice(0, 200) : undefined,
     });
     res.status(201).json({ template });
 });

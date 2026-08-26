@@ -84,7 +84,8 @@ ridesRouter.post('/', writeLimiter(15, 10 * 60_000), (req, res) => {
     return;
   }
 
-  const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment, meetingPoint } = req.body ?? {};
+  const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment, meetingPoint, dropoffPoint } =
+    req.body ?? {};
   if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
     res.status(400).json({ error: 'Некорректное направление поездки' });
     return;
@@ -114,6 +115,7 @@ ridesRouter.post('/', writeLimiter(15, 10 * 60_000), (req, res) => {
     seatsTotal: seats,
     comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
     meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
+    dropoffPoint: typeof dropoffPoint === 'string' ? dropoffPoint.trim().slice(0, 200) : undefined,
   });
   res.status(201).json({ ride });
 });
@@ -133,7 +135,7 @@ ridesRouter.post('/templates', writeLimiter(10, 10 * 60_000), (req, res) => {
     return;
   }
 
-  const { fromCity, toCity, departureTime, weekdays, pricePerSeat, seatsTotal, comment, meetingPoint } =
+  const { fromCity, toCity, departureTime, weekdays, pricePerSeat, seatsTotal, comment, meetingPoint, dropoffPoint } =
     req.body ?? {};
   if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
     res.status(400).json({ error: 'Некорректное направление поездки' });
@@ -169,6 +171,7 @@ ridesRouter.post('/templates', writeLimiter(10, 10 * 60_000), (req, res) => {
     seatsTotal: seats,
     comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
     meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
+    dropoffPoint: typeof dropoffPoint === 'string' ? dropoffPoint.trim().slice(0, 200) : undefined,
   });
   res.status(201).json({ template });
 });

@@ -47,7 +47,8 @@ async function sendDepartureReminders() {
     const due = (0, rideService_1.listRidesDueForDepartureReminder)();
     for (const ride of due) {
         const route = `${ride.from_city} → ${ride.to_city}`;
-        const meetingLine = ride.meeting_point ? `\n📍 Место встречи: ${ride.meeting_point}` : '';
+        const meetingLine = (ride.meeting_point ? `\n📍 Место встречи: ${ride.meeting_point}` : '') +
+            (ride.dropoff_point ? `\n🏁 Конечная точка: ${ride.dropoff_point}` : '');
         const driver = (0, userService_1.getUser)(ride.driver_id);
         if (driver) {
             await (0, notifier_1.notifyUser)(driver, `⏰ Через час у вас поездка ${route} (${(0, dateFormat_1.formatDate)(ride.departure_at)}).${meetingLine}`);

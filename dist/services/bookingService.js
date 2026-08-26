@@ -100,7 +100,7 @@ function declineBooking(bookingId, driverId) {
 /** Полный контекст брони (поездка + пассажир + водитель) для сообщений бота. */
 function getBookingWithPeople(bookingId) {
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
@@ -112,7 +112,7 @@ function getBookingWithPeople(bookingId) {
 }
 function listAllBookings() {
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
@@ -131,7 +131,7 @@ function listBookingsByPassenger(passengerId, range) {
         params.to = range.to;
     }
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE ${clauses.join(' AND ')}

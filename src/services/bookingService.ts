@@ -17,6 +17,7 @@ export interface BookingWithRide extends BookingRecord {
   departure_at: string;
   price_per_seat: number;
   meeting_point: string | null;
+  dropoff_point: string | null;
   driver_id: number;
   rated: number;
 }
@@ -136,7 +137,7 @@ export interface BookingWithPeople extends BookingWithRide {
 export function getBookingWithPeople(bookingId: number): BookingWithPeople | undefined {
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
@@ -151,7 +152,7 @@ export function getBookingWithPeople(bookingId: number): BookingWithPeople | und
 export function listAllBookings(): BookingWithPeople[] {
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
@@ -176,7 +177,7 @@ export function listBookingsByPassenger(
   }
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE ${clauses.join(' AND ')}

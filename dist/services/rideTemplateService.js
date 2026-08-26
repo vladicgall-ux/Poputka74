@@ -9,8 +9,8 @@ const db_1 = require("../db/db");
 const rideService_1 = require("./rideService");
 function createRideTemplate(input) {
     const info = db_1.db
-        .prepare(`INSERT INTO ride_templates (driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point)
-       VALUES (@driverId, @fromCity, @toCity, @departureTime, @weekdays, @pricePerSeat, @seatsTotal, @comment, @meetingPoint)`)
+        .prepare(`INSERT INTO ride_templates (driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point, dropoff_point)
+       VALUES (@driverId, @fromCity, @toCity, @departureTime, @weekdays, @pricePerSeat, @seatsTotal, @comment, @meetingPoint, @dropoffPoint)`)
         .run({
         driverId: input.driverId,
         fromCity: input.fromCity,
@@ -21,6 +21,7 @@ function createRideTemplate(input) {
         seatsTotal: input.seatsTotal,
         comment: input.comment ?? null,
         meetingPoint: input.meetingPoint ?? null,
+        dropoffPoint: input.dropoffPoint ?? null,
     });
     return getRideTemplate(Number(info.lastInsertRowid));
 }
@@ -84,6 +85,7 @@ function generateUpcomingRides() {
                 seatsTotal: t.seats_total,
                 comment: t.comment ?? undefined,
                 meetingPoint: t.meeting_point ?? undefined,
+                dropoffPoint: t.dropoff_point ?? undefined,
                 templateId: t.id,
             });
         }

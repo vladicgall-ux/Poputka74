@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS ride_templates (
   seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),
   comment           TEXT,
   meeting_point     TEXT,
+  dropoff_point     TEXT,
   active            INTEGER NOT NULL DEFAULT 1,
   created_at        TEXT NOT NULL DEFAULT (datetime('now'))
 );

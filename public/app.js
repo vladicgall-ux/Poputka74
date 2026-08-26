@@ -232,6 +232,7 @@
         ${driverLine}
         ${ratingLine}
         ${ride.meeting_point ? `<div class="comment">📍 ${escapeHtml(ride.meeting_point)}</div>` : ''}
+        ${ride.dropoff_point ? `<div class="comment">🏁 ${escapeHtml(ride.dropoff_point)}</div>` : ''}
         ${ride.comment ? `<div class="comment">${escapeHtml(ride.comment)}</div>` : ''}
         ${actionHtml}
       </div>`;
@@ -495,6 +496,7 @@
     const seatsTotal = Number(document.getElementById('rideSeats').value);
     const comment = document.getElementById('rideComment').value;
     const meetingPoint = document.getElementById('rideMeetingPoint').value;
+    const dropoffPoint = document.getElementById('rideDropoffPoint').value;
     const recurring = document.getElementById('rideRecurring').checked;
 
     try {
@@ -519,6 +521,7 @@
             seatsTotal,
             comment,
             meetingPoint,
+            dropoffPoint,
           }),
         });
         toast('Регулярная поездка создана! Ближайшие даты появятся в поиске в течение минуты.');
@@ -539,6 +542,7 @@
             seatsTotal,
             comment,
             meetingPoint,
+            dropoffPoint,
           }),
         });
         toast('Поездка опубликована!');

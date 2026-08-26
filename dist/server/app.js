@@ -31,6 +31,14 @@ function createApp() {
         // остальные защитные заголовки helmet (nosniff, HSTS, скрытие X-Powered-By и т.д.)
         // включены и работают.
         contentSecurityPolicy: false,
+        // По умолчанию helmet ставит Referrer-Policy: no-referrer — из-за этого
+        // браузер не передаёт заголовок Referer при обращении Telegram Login
+        // Widget к oauth.telegram.org, а Telegram сверяет домен именно по нему.
+        // Без реферера виджет всегда отвечает "Bot domain invalid", даже если
+        // домен в BotFather прописан верно. strict-origin-when-cross-origin —
+        // это и есть современный дефолт браузеров: отдаёт origin (без пути)
+        // на чужие HTTPS-домены, этого достаточно для проверки Telegram.
+        referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
     }));
     // Ограничиваем размер тела запроса — иначе один клиент может прислать
     // гигантский JSON и занять память/CPU процесса на его разборе.

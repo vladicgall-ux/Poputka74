@@ -129,7 +129,9 @@
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      throw new Error(data.error || 'Ошибка запроса');
+      const err = new Error(data.error || 'Ошибка запроса');
+      err.status = res.status;
+      throw err;
     }
     return data;
   }
@@ -1110,6 +1112,104 @@
     }
   });
 
+  // ---------- Вход в браузерной версии (вне Telegram/MAX Mini App) ----------
+  // Внутри Mini App авторизация идёт через initData — снаружи (обычный
+  // браузер на ПК/телефоне) initData нет вовсе, и /api/users/me отвечает
+  // 401. Показываем экран входа: Telegram Login Widget или код в чат MAX.
+  function showBrowserLogin() {
+    document.getElementById('app').hidden = true;
+    document.querySelector('.tabbar').hidden = true;
+    document.getElementById('appGate').hidden = true;
+    document.getElementById('browserLoginGate').hidden = false;
+    loadTelegramLoginWidget();
+  }
+
+  async function loadTelegramLoginWidget() {
+    const container = document.getElementById('telegramLoginWidget');
+    if (container.dataset.loaded) return;
+    container.dataset.loaded = '1';
+    try {
+      if (!state.botUsername) {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        state.botUsername = data.botUsername;
+      }
+      if (!state.botUsername) return;
+      const script = document.createElement('script');
+      script.src = 'https://telegram.org/js/telegram-widget.js?22';
+      script.async = true;
+      script.setAttribute('data-telegram-login', state.botUsername);
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-radius', '10');
+      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+      script.setAttribute('data-request-access', 'write');
+      container.appendChild(script);
+    } catch (err) {
+      // Кнопка Telegram просто не появится — вход через MAX всё равно доступен.
+    }
+  }
+
+  // Вызывается самим виджетом Telegram после подтверждения пользователем.
+  window.onTelegramAuth = async (user) => {
+    try {
+      const res = await fetch('/api/auth/telegram-widget', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Не удалось войти через Telegram');
+      location.reload();
+    } catch (err) {
+      toast(err.message);
+    }
+  };
+
+  let maxLoginPollTimer = null;
+
+  document.getElementById('maxLoginStartBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('maxLoginStartBtn');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/auth/max-code/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Не удалось получить код');
+      document.getElementById('maxLoginCodeText').textContent = data.code;
+      document.getElementById('maxLoginOpenBotLink').href = MAX_BOT_LINK;
+      document.getElementById('maxLoginStatus').textContent = 'Ожидаем подтверждение…';
+      document.getElementById('maxLoginCodeBox').hidden = false;
+      startMaxLoginPolling(data.code);
+    } catch (err) {
+      toast(err.message);
+      btn.disabled = false;
+    }
+  });
+
+  function startMaxLoginPolling(code) {
+    clearInterval(maxLoginPollTimer);
+    let attempts = 0;
+    maxLoginPollTimer = setInterval(async () => {
+      attempts += 1;
+      if (attempts > 200) {
+        // ~10 минут при интервале 3с — столько же живёт сам код на сервере.
+        clearInterval(maxLoginPollTimer);
+        document.getElementById('maxLoginStatus').textContent = 'Время истекло — запросите код заново.';
+        document.getElementById('maxLoginStartBtn').disabled = false;
+        return;
+      }
+      try {
+        const res = await fetch(`/api/auth/max-code/status?code=${encodeURIComponent(code)}`);
+        const data = await res.json().catch(() => ({}));
+        if (data.ok) {
+          clearInterval(maxLoginPollTimer);
+          location.reload();
+        }
+      } catch (err) {
+        // Сеть моргнула — просто попробуем на следующем тике.
+      }
+    }, 3000);
+  }
+
   async function initApp() {
     try {
       const { user, isAdmin } = await api('/users/me');
@@ -1163,6 +1263,10 @@
         showTab('search');
       }
     } catch (err) {
+      if (err.status === 401) {
+        showBrowserLogin();
+        return;
+      }
       toast(err.message);
     }
   }

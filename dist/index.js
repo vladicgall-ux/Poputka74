@@ -7,6 +7,7 @@ const bot_1 = require("./bot/bot");
 const maxBot_1 = require("./bot/maxBot");
 const rideService_1 = require("./services/rideService");
 const reminders_1 = require("./jobs/reminders");
+const webSessionService_1 = require("./services/webSessionService");
 const SWEEP_INTERVAL_MS = 60000;
 async function main() {
     console.log(`NODE_EXTRA_CA_CERTS=${process.env.NODE_EXTRA_CA_CERTS ?? '(не задан)'}`);
@@ -48,6 +49,12 @@ async function main() {
             console.error('Ошибка при обработке истёкших поездок:', err);
         }
         (0, reminders_1.sendRatingReminders)().catch((err) => console.error('Ошибка при отправке напоминаний об оценке:', err));
+        try {
+            (0, webSessionService_1.sweepExpiredWebAuth)();
+        }
+        catch (err) {
+            console.error('Ошибка при очистке истёкших веб-сессий:', err);
+        }
     };
     runPeriodicJobs();
     const jobsTimer = setInterval(runPeriodicJobs, SWEEP_INTERVAL_MS);

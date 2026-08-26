@@ -14,6 +14,7 @@ const bookings_1 = require("./routes/bookings");
 const admin_1 = require("./routes/admin");
 const support_1 = require("./routes/support");
 const ratings_1 = require("./routes/ratings");
+const auth_1 = require("./routes/auth");
 const upload_1 = require("./middleware/upload");
 const notifier_1 = require("../bot/notifier");
 function createApp() {
@@ -54,6 +55,7 @@ function createApp() {
     app.get('/api/config', (_req, res) => {
         res.json({ botUsername: (0, notifier_1.getBotUsername)() });
     });
+    app.use('/api/auth', auth_1.authRouter);
     app.use('/api/users', users_1.usersRouter);
     app.use('/api/rides', rides_1.ridesRouter);
     app.use('/api/bookings', bookings_1.bookingsRouter);

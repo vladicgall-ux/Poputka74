@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=32" />
+  <link rel="stylesheet" href="styles.css?v=33" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -24,6 +24,28 @@
         <button class="btn" id="gateNameSubmitBtn" style="margin-top:10px;">Сохранить</button>
       </div>
       <button class="btn" id="gateActionBtn" hidden>Открыть чат с ботом</button>
+    </div>
+  </div>
+
+  <!-- Экран входа для браузерной версии (вне Telegram/MAX Mini App) -->
+  <div id="browserLoginGate" class="gate-screen" hidden>
+    <div class="card gate">
+      <h3>Войдите, чтобы продолжить</h3>
+      <p>Тот же аккаунт, что и в приложении — подтвердите его через Telegram или MAX.</p>
+
+      <div id="telegramLoginWidget" class="telegram-login-widget"></div>
+
+      <div class="login-divider">или</div>
+
+      <div id="maxLoginBlock">
+        <button type="button" class="btn" id="maxLoginStartBtn">Войти через MAX</button>
+        <div id="maxLoginCodeBox" hidden>
+          <p>Отправьте этот код боту в чате MAX:</p>
+          <div class="max-login-code" id="maxLoginCodeText"></div>
+          <a class="btn secondary" id="maxLoginOpenBotLink" target="_blank" rel="noopener">Открыть чат с ботом MAX</a>
+          <p class="max-login-status" id="maxLoginStatus">Ожидаем подтверждение…</p>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -195,6 +217,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=32"></script>
+  <script src="app.js?v=33"></script>
 </body>
 </html>

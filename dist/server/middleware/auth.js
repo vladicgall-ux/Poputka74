@@ -1,17 +1,39 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.SESSION_COOKIE_NAME = void 0;
+exports.readCookie = readCookie;
 exports.requireTelegramAuth = requireTelegramAuth;
 exports.requireActiveUser = requireActiveUser;
 const telegramAuth_1 = require("../../utils/telegramAuth");
 const maxAuth_1 = require("../../utils/maxAuth");
 const userService_1 = require("../../services/userService");
+const webSessionService_1 = require("../../services/webSessionService");
 const config_1 = require("../../config");
+exports.SESSION_COOKIE_NAME = 'web_session';
+/** Простой разбор Cookie-заголовка — одна ожидаемая кука, тащить ради
+ *  неё зависимость cookie-parser не нужно. */
+function readCookie(req, name) {
+    const header = req.header('Cookie');
+    if (!header)
+        return undefined;
+    for (const part of header.split(';')) {
+        const eq = part.indexOf('=');
+        if (eq === -1)
+            continue;
+        if (part.slice(0, eq).trim() === name) {
+            return decodeURIComponent(part.slice(eq + 1).trim());
+        }
+    }
+    return undefined;
+}
 /**
  * Принимает initData либо из Telegram (заголовок X-Telegram-Init-Data,
  * window.Telegram.WebApp.initData), либо из MAX (заголовок X-Max-Init-Data,
- * window.WebApp.initData через MAX Bridge). Ровно один из них должен быть
- * валиден — это единственный способ авторизации в API, так исключаются
- * подделанные запросы от чужого имени.
+ * window.WebApp.initData через MAX Bridge) — это авторизация внутри Mini
+ * App. Вне Mini App (обычный браузер на ПК/телефоне) initData нет вовсе —
+ * там используется cookie-сессия, выданная после входа через Telegram
+ * Login Widget или код в чате с ботом MAX (см. server/routes/auth.ts).
+ * Один из трёх способов должен сработать — иначе запрос отклоняется.
  */
 function requireTelegramAuth(req, res, next) {
     const telegramInitData = req.header('X-Telegram-Init-Data') ?? '';
@@ -27,6 +49,13 @@ function requireTelegramAuth(req, res, next) {
     if (validatedMax) {
         const user = (0, userService_1.upsertMaxUser)(validatedMax.user);
         req.user = (0, userService_1.getUser)(user.telegram_id);
+        next();
+        return;
+    }
+    const sessionToken = readCookie(req, exports.SESSION_COOKIE_NAME);
+    const sessionUser = sessionToken ? (0, webSessionService_1.getSessionUser)(sessionToken) : undefined;
+    if (sessionUser) {
+        req.user = sessionUser;
         next();
         return;
     }

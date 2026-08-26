@@ -4,6 +4,7 @@ exports.createMaxBot = createMaxBot;
 const max_bot_api_1 = require("@maxhub/max-bot-api");
 const config_1 = require("../config");
 const userService_1 = require("../services/userService");
+const webSessionService_1 = require("../services/webSessionService");
 const maxNotifier_1 = require("./maxNotifier");
 const notifier_1 = require("./notifier");
 const supportService_1 = require("../services/supportService");
@@ -81,6 +82,17 @@ function createMaxBot() {
         const text = ctx.message.body.text?.trim();
         if (!text)
             return;
+        // Код для входа в браузерную (не Mini App) версию сайта — у MAX нет
+        // публичного login-виджета для сторонних сайтов, поэтому пользователь
+        // получает 6-значный код на сайте и присылает его сюда, боту.
+        if (/^\d{6}$/.test(text)) {
+            const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
+            const linked = (0, webSessionService_1.consumeMaxLoginCode)(text, user.telegram_id);
+            await ctx.reply(linked
+                ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'
+                : 'Код не найден или уже устарел. Запросите новый код на сайте и попробуйте снова.');
+            return;
+        }
         if (isSupportRateLimited(sender.user_id)) {
             await ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.');
             return;

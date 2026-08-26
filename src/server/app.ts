@@ -8,6 +8,7 @@ import { bookingsRouter } from './routes/bookings';
 import { adminRouter } from './routes/admin';
 import { supportRouter } from './routes/support';
 import { ratingsRouter } from './routes/ratings';
+import { authRouter } from './routes/auth';
 import { uploadsDir } from './middleware/upload';
 import { getBotUsername } from '../bot/notifier';
 
@@ -63,6 +64,7 @@ export function createApp() {
     res.json({ botUsername: getBotUsername() });
   });
 
+  app.use('/api/auth', authRouter);
   app.use('/api/users', usersRouter);
   app.use('/api/rides', ridesRouter);
   app.use('/api/bookings', bookingsRouter);

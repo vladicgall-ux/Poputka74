@@ -307,6 +307,47 @@ input[type="date"], input[type="datetime-local"] {
   box-shadow: 0 4px 14px rgba(0,0,0,0.25);
 }
 
+.telegram-login-widget {
+  display: flex;
+  justify-content: center;
+  margin: 16px 0;
+  min-height: 40px;
+}
+.login-divider {
+  color: var(--hint);
+  font-size: 13px;
+  margin: 4px 0 16px;
+}
+#maxLoginBlock .btn {
+  margin-bottom: 0;
+}
+#maxLoginCodeBox {
+  margin-top: 14px;
+}
+#maxLoginCodeBox p {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+#maxLoginOpenBotLink {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+.max-login-code {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+.max-login-status {
+  color: var(--hint);
+  font-size: 13px;
+  margin: 10px 0 0 !important;
+}
+
 .confirm-overlay {
   position: fixed;
   inset: 0;

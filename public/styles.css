@@ -250,10 +250,10 @@ label {
 }
 input, select, textarea {
   font-family: inherit;
-  /* iOS Safari/WebView автоматически зумит страницу при фокусе на поле
-     с font-size меньше 16px — это относится ко всем input/select/textarea
-     в файле, даже там, где ниже переопределён более компактный размер. */
-  font-size: 16px;
+  /* Было поднято до 16px против авто-зума iOS Safari при фокусе на поле —
+     но у большинства пользователей Android, и там это просто увеличивало
+     все поля без всякой пользы. Вернули как было; компромисс сознательный. */
+  font-size: 15px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -522,7 +522,7 @@ input[type="date"], input[type="datetime-local"] {
 .search-filters select {
   flex: 1;
   min-width: 120px;
-  font-size: 16px;
+  font-size: 13px;
   padding: 8px 10px;
 }
 
@@ -586,7 +586,7 @@ input[type="date"], input[type="datetime-local"] {
   border: none;
   border-radius: 9px;
   padding: 8px;
-  font-size: 16px;
+  font-size: 13px;
   /* Здесь фон сам .range-filter уже белый (--secondary-bg) — заливаем
      полем цветом страницы (--bg), иначе белое на белом без рамки
      сливается в одно пятно (та же идея, что и у .range-period-inputs). */
@@ -609,7 +609,7 @@ input[type="date"], input[type="datetime-local"] {
   border: none;
   border-radius: 9px;
   padding: 8px;
-  font-size: 16px;
+  font-size: 13px;
   background: var(--bg);
 }
 .range-period-inputs span {

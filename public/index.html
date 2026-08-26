@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=33" />
+  <link rel="stylesheet" href="styles.css?v=34" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -33,11 +33,19 @@
       <h3>Войдите, чтобы продолжить</h3>
       <p>Тот же аккаунт, что и в приложении — подтвердите его через Telegram или MAX.</p>
 
+      <div class="login-option-label">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="#29a9eb" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16l-1.98 9.34c-.15.66-.537.82-1.084.51l-3-2.21-1.447 1.394c-.16.16-.294.294-.6.294l.213-3.05 5.56-5.02c.242-.213-.054-.334-.373-.12l-6.87 4.33-2.96-.924c-.643-.203-.657-.643.136-.953l11.57-4.46c.537-.196 1.006.13.834.95z"/></svg>
+        <span>Telegram</span>
+      </div>
       <div id="telegramLoginWidget" class="telegram-login-widget"></div>
 
       <div class="login-divider">или</div>
 
       <div id="maxLoginBlock">
+        <div class="login-option-label">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="#2b86ff" aria-hidden="true"><path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>
+          <span>MAX</span>
+        </div>
         <button type="button" class="btn" id="maxLoginStartBtn">Войти через MAX</button>
         <div id="maxLoginCodeBox" hidden>
           <p>Отправьте этот код боту в чате MAX:</p>
@@ -217,6 +225,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=33"></script>
+  <script src="app.js?v=34"></script>
 </body>
 </html>

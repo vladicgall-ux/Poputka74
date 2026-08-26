@@ -30,18 +30,30 @@ export type NotifyButton =
  */
 export type ActionButton = { text: string; action: string };
 
+/** Закрепляет сообщение в личном чате с пользователем; не роняет вызывающий код при ошибке — это необязательное дополнение к отправке. */
+async function tryPin(chatId: number, messageId: number): Promise<void> {
+  if (!botInstance) return;
+  try {
+    await botInstance.telegram.pinChatMessage(chatId, messageId, { disable_notification: true });
+  } catch {
+    // например, сообщение уже откреплено пользователем вручную — не критично
+  }
+}
+
 /** Отправляет сообщение пользователю; молча игнорирует ошибки (например, если он ни разу не писал боту). */
 export async function notify(
   telegramId: number,
   text: string,
-  buttonRows?: NotifyButton[][]
+  buttonRows?: NotifyButton[][],
+  pin?: boolean
 ): Promise<boolean> {
   if (!botInstance) return false;
   try {
-    await botInstance.telegram.sendMessage(telegramId, text, {
+    const msg = await botInstance.telegram.sendMessage(telegramId, text, {
       parse_mode: 'HTML',
       ...(buttonRows ? Markup.inlineKeyboard(buttonRows) : {}),
     });
+    if (pin) await tryPin(telegramId, msg.message_id);
     return true;
   } catch {
     // пользователь мог заблокировать бота — это не критично
@@ -50,13 +62,14 @@ export async function notify(
 }
 
 /** Отправляет пользователю фото с подписью; молча игнорирует ошибки (аналогично notify). */
-export async function notifyPhoto(telegramId: number, photoPath: string, caption: string): Promise<boolean> {
+export async function notifyPhoto(telegramId: number, photoPath: string, caption: string, pin?: boolean): Promise<boolean> {
   if (!botInstance) return false;
   try {
-    await botInstance.telegram.sendPhoto(telegramId, Input.fromLocalFile(photoPath), {
+    const msg = await botInstance.telegram.sendPhoto(telegramId, Input.fromLocalFile(photoPath), {
       caption,
       parse_mode: 'HTML',
     });
+    if (pin) await tryPin(telegramId, msg.message_id);
     return true;
   } catch {
     return false;
@@ -69,8 +82,13 @@ export async function notifyAdmins(text: string, buttonRows?: NotifyButton[][]):
 }
 
 /** Отправляет сообщение пользователю через того бота, в котором он зарегистрирован, включая кнопки действий. */
-export async function notifyUser(user: UserRecord, text: string, buttonRows?: ActionButton[][]): Promise<boolean> {
-  if (user.platform === 'max') return notifyMax(user, text, buttonRows);
+export async function notifyUser(
+  user: UserRecord,
+  text: string,
+  buttonRows?: ActionButton[][],
+  pin?: boolean
+): Promise<boolean> {
+  if (user.platform === 'max') return notifyMax(user, text, buttonRows, pin);
   const telegramButtons = buttonRows?.map((row) => row.map((b) => ({ text: b.text, callback_data: b.action })));
-  return notify(user.telegram_id, text, telegramButtons);
+  return notify(user.telegram_id, text, telegramButtons, pin);
 }

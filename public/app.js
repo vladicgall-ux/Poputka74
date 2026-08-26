@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '47';
+  const APP_VERSION = '48';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1420,6 +1420,7 @@
       const formData = new FormData();
       if (message) formData.append('message', message);
       if (file) formData.append('photo', file);
+      if (document.getElementById('broadcastPinInput').checked) formData.append('pin', 'true');
       const res = await fetch('/api/admin/broadcast', {
         method: 'POST',
         headers: authHeader(),
@@ -1430,6 +1431,7 @@
       toast(`Отправлено ${data.sent} из ${data.total}`);
       messageInput.value = '';
       photoInput.value = '';
+      document.getElementById('broadcastPinInput').checked = false;
       document.getElementById('broadcastPhotoPreview').style.display = 'none';
     } catch (err) {
       toast(err.message);
@@ -1463,18 +1465,33 @@
 
   document.getElementById('gateActionBtn').addEventListener('click', openBotChat);
 
-  document.getElementById('gateNameSubmitBtn').addEventListener('click', async () => {
+  async function submitNameGate() {
     const input = document.getElementById('gateNameInput');
     const fullName = input.value.trim();
     if (!fullName.includes(' ') || fullName.length < 3) {
       toast('Укажите имя и фамилию через пробел');
       return;
     }
+    const btn = document.getElementById('gateNameSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Сохраняем…';
     try {
       await api('/users/me/name', { method: 'POST', body: JSON.stringify({ fullName }) });
       initApp();
     } catch (err) {
       toast(err.message);
+      btn.disabled = false;
+      btn.textContent = 'Сохранить';
+    }
+  }
+  document.getElementById('gateNameSubmitBtn').addEventListener('click', submitNameGate);
+  // На части WebView первое касание после ввода текста только закрывает
+  // клавиатуру и не доходит до клика по кнопке — Enter/Done с клавиатуры
+  // работает надёжнее в этом случае.
+  document.getElementById('gateNameInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submitNameGate();
     }
   });
 

@@ -108,6 +108,8 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
 }, async (req, res) => {
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     const file = req.file;
+    // multipart/form-data — значения всегда строки, не булевы.
+    const pin = req.body?.pin === 'true' || req.body?.pin === '1';
     if (!message && !file) {
         res.status(400).json({ error: 'Добавьте текст или фото' });
         return;
@@ -122,8 +124,8 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
         // нет notifyPhoto для этой платформы, поэтому им уходит хотя бы текст,
         // чтобы рассылка не пропадала для них совсем.
         const ok = file && recipient.platform === 'telegram'
-            ? await (0, notifier_1.notifyPhoto)(telegramId, file.path, message)
-            : await (0, notifier_1.notifyUser)(recipient, message || '📷 Новое объявление от Поехали 74');
+            ? await (0, notifier_1.notifyPhoto)(telegramId, file.path, message, pin)
+            : await (0, notifier_1.notifyUser)(recipient, message || '📷 Новое объявление от Поехали 74', undefined, pin);
         if (ok)
             sent += 1;
         await sleep(40);

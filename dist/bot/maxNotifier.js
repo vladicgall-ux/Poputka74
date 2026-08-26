@@ -32,16 +32,24 @@ async function notifyMaxWithLink(user, text, buttonText, url) {
     }
 }
 /** Отправляет пользователю MAX сообщение (при необходимости — с кнопками действий); молча игнорирует ошибки, аналогично notify() для Telegram. */
-async function notifyMax(user, text, buttonRows) {
+async function notifyMax(user, text, buttonRows, pin) {
     if (!maxBotInstance)
         return false;
     try {
-        await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
+        const msg = await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
             format: 'html',
             ...(buttonRows
                 ? { attachments: [max_bot_api_1.Keyboard.inlineKeyboard(buttonRows.map((row) => row.map((b) => max_bot_api_1.Keyboard.button.callback(b.text, b.action))))] }
                 : {}),
         });
+        if (pin && msg.recipient.chat_id != null) {
+            try {
+                await maxBotInstance.api.pinMessage(msg.recipient.chat_id, msg.body.mid, { notify: false });
+            }
+            catch {
+                // необязательное дополнение к отправке — не роняем рассылку из-за этого
+            }
+        }
         return true;
     }
     catch {

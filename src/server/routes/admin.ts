@@ -118,6 +118,8 @@ adminRouter.post(
   async (req, res) => {
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     const file = (req as unknown as { file?: Express.Multer.File }).file;
+    // multipart/form-data — значения всегда строки, не булевы.
+    const pin = req.body?.pin === 'true' || req.body?.pin === '1';
 
     if (!message && !file) {
       res.status(400).json({ error: 'Добавьте текст или фото' });
@@ -134,8 +136,8 @@ adminRouter.post(
       // чтобы рассылка не пропадала для них совсем.
       const ok =
         file && recipient.platform === 'telegram'
-          ? await notifyPhoto(telegramId, file.path, message)
-          : await notifyUser(recipient, message || '📷 Новое объявление от Поехали 74');
+          ? await notifyPhoto(telegramId, file.path, message, pin)
+          : await notifyUser(recipient, message || '📷 Новое объявление от Поехали 74', undefined, pin);
       if (ok) sent += 1;
       await sleep(40);
     }

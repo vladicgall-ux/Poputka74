@@ -32,4 +32,8 @@ exports.config = {
         .map(Number),
     dbPath: process.env.DB_PATH ?? './data/poputka74.db',
     cities: ['Челябинск', 'Кунашак'],
+    // Бампается вручную вместе с ?v=NN у app.js/styles.css в public/index.html.
+    // Клиент сверяет это значение при загрузке и сам перезагружает страницу,
+    // если у пользователя в кэше/WebView застряла старая версия.
+    appVersion: '41',
 };

@@ -11,6 +11,7 @@ import { ratingsRouter } from './routes/ratings';
 import { authRouter } from './routes/auth';
 import { uploadsDir } from './middleware/upload';
 import { getBotUsername } from '../bot/notifier';
+import { config } from '../config';
 
 export function createApp() {
   const app = express();
@@ -75,7 +76,7 @@ export function createApp() {
   // Публичный, без авторизации — нужен фронтенду только чтобы собрать
   // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.
   app.get('/api/config', (_req, res) => {
-    res.json({ botUsername: getBotUsername() });
+    res.json({ botUsername: getBotUsername(), appVersion: config.appVersion });
   });
 
   app.use('/api/auth', authRouter);
@@ -90,10 +91,17 @@ export function createApp() {
   app.use(
     express.static(path.join(__dirname, '..', '..', 'public'), {
       setHeaders: (res, filePath) => {
-        // index.html не кэшируем вовсе — иначе Telegram-клиент годами
+        // index.html не кэшируем вовсе — иначе Telegram/MAX клиент годами
         // показывает старую версию Mini App внутри своего WebView.
         if (filePath.endsWith('index.html')) {
           res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+          // app.js/styles.css подключаются из index.html с ?v=NN — при любом
+          // изменении файла версия в разметке бампается вручную, то есть
+          // URL меняется. Раз URL всегда новый при реальном изменении,
+          // можно кэшировать текущий URL надолго и не тратить время на
+          // повторную загрузку при каждом открытии.
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
         }
       },
     })

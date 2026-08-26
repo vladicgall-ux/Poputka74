@@ -17,6 +17,7 @@ const ratings_1 = require("./routes/ratings");
 const auth_1 = require("./routes/auth");
 const upload_1 = require("./middleware/upload");
 const notifier_1 = require("../bot/notifier");
+const config_1 = require("../config");
 function createApp() {
     const app = (0, express_1.default)();
     // bothost и подобные PaaS обычно ставят приложение за обратный прокси —
@@ -67,7 +68,7 @@ function createApp() {
     // Публичный, без авторизации — нужен фронтенду только чтобы собрать
     // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.
     app.get('/api/config', (_req, res) => {
-        res.json({ botUsername: (0, notifier_1.getBotUsername)() });
+        res.json({ botUsername: (0, notifier_1.getBotUsername)(), appVersion: config_1.config.appVersion });
     });
     app.use('/api/auth', auth_1.authRouter);
     app.use('/api/users', users_1.usersRouter);
@@ -79,10 +80,18 @@ function createApp() {
     app.use('/uploads', express_1.default.static(upload_1.uploadsDir));
     app.use(express_1.default.static(path_1.default.join(__dirname, '..', '..', 'public'), {
         setHeaders: (res, filePath) => {
-            // index.html не кэшируем вовсе — иначе Telegram-клиент годами
+            // index.html не кэшируем вовсе — иначе Telegram/MAX клиент годами
             // показывает старую версию Mini App внутри своего WebView.
             if (filePath.endsWith('index.html')) {
                 res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+            }
+            else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+                // app.js/styles.css подключаются из index.html с ?v=NN — при любом
+                // изменении файла версия в разметке бампается вручную, то есть
+                // URL меняется. Раз URL всегда новый при реальном изменении,
+                // можно кэшировать текущий URL надолго и не тратить время на
+                // повторную загрузку при каждом открытии.
+                res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
             }
         },
     }));

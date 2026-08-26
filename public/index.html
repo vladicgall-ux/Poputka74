@@ -4,6 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
+  <!-- Не все встроенные WebView (Telegram/MAX) честно соблюдают Cache-Control
+       с сервера — дублируем запрет кэширования на всякий случай мета-тегами. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
   <link rel="stylesheet" href="styles.css?v=40" />
   <script src="https://telegram.org/js/telegram-web-app.js" async></script>
   <script src="https://st.max.ru/js/max-web-app.js" async></script>

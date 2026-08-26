@@ -1,4 +1,22 @@
 (() => {
+  // Версия текущего app.js — бампается вручную вместе с ?v=NN в index.html.
+  // Не полагаемся только на HTTP-кэш: некоторые встроенные WebView (особенно
+  // MAX) держат старую копию страницы дольше, чем говорят заголовки. Сверяем
+  // версию с сервером при каждом запуске и один раз перезагружаем страницу,
+  // если сервер уже новее — без этого часть пользователей годами видит
+  // старую сломанную версию, даже если баг давно исправлен и задеплоен.
+  const APP_VERSION = '41';
+  fetch('/api/config', { cache: 'no-store' })
+    .then((r) => r.json())
+    .then((data) => {
+      const already = sessionStorage.getItem('appVersionReloadFor');
+      if (data.appVersion && data.appVersion !== APP_VERSION && already !== data.appVersion) {
+        sessionStorage.setItem('appVersionReloadFor', data.appVersion);
+        location.reload();
+      }
+    })
+    .catch(() => {});
+
   // telegram-web-app.js и max-web-app.js подключены как async (без блокировки
   // остальной страницы — если один из этих внешних доменов недоступен без VPN,
   // страница и этот скрипт всё равно должны загрузиться). Из-за async нет

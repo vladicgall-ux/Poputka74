@@ -226,6 +226,10 @@ input[type="date"], input[type="datetime-local"] {
   background: #ffffff;
   color: #14171f;
   color-scheme: light;
+  /* Стандартная едва заметная рамка (8% непрозрачности) на белом фоне
+     карточки/фильтра сливается в сплошное белое пятно без границ —
+     здесь рамку делаем заметнее, раз фон всегда белый независимо от темы. */
+  border: 1px solid rgba(0, 0, 0, 0.18);
 }
 
 .section-title {
@@ -505,6 +509,10 @@ input[type="date"], input[type="datetime-local"] {
   border-radius: 9px;
   padding: 8px;
   font-size: 13px;
+  /* Здесь фон сам .range-filter уже белый (--secondary-bg) — заливаем
+     полем цветом страницы (--bg), иначе белое на белом без рамки
+     сливается в одно пятно (та же идея, что и у .range-period-inputs). */
+  background: var(--bg);
 }
 
 .range-period-inputs {

@@ -5,6 +5,7 @@ import { upsertUser, setPhoneVerified, getUser } from '../services/userService';
 import { setBotInstance, notify, notifyUser, notifyAdmins, type NotifyButton } from './notifier';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
 import { createSupportMessage } from '../services/supportService';
+import { consumeLoginCode } from '../services/webSessionService';
 import { displayName, platformLabel } from '../utils/displayName';
 
 export const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
@@ -223,9 +224,31 @@ export function createBot(): Telegraf {
   // перехватываются раньше и сюда не попадают) — это и есть «Поддержка»:
   // всё, что пишут боту, долетает администратору и сохраняется в БД.
   bot.on('text', async (ctx) => {
-    if (config.adminIds.includes(ctx.from.id)) return; // не шлём админу его же сообщения
     const text = ctx.message.text.trim();
     if (!text) return;
+
+    // Код для входа в браузерную (не Mini App) версию сайта — у Telegram
+    // (как и у MAX) больше нет рабочего публичного login-виджета для
+    // сторонних сайтов, поэтому пользователь получает 6-значный код на
+    // сайте и присылает его сюда, боту. Проверяем это раньше исключения
+    // админов ниже — админу тоже может понадобиться войти через браузер.
+    if (/^\d{6}$/.test(text)) {
+      upsertUser({
+        id: ctx.from.id,
+        first_name: ctx.from.first_name,
+        last_name: ctx.from.last_name,
+        username: ctx.from.username,
+      });
+      const linked = consumeLoginCode(text, ctx.from.id);
+      ctx.reply(
+        linked
+          ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'
+          : 'Код не найден или уже устарел. Запросите новый код на сайте и попробуйте снова.'
+      );
+      return;
+    }
+
+    if (config.adminIds.includes(ctx.from.id)) return; // не шлём админу его же сообщения
 
     if (isSupportRateLimited(ctx.from.id)) {
       ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.');

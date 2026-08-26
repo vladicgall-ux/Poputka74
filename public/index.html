@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=35" />
+  <link rel="stylesheet" href="styles.css?v=36" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -35,24 +35,16 @@
 
       <div class="login-option-label">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="#29a9eb" aria-hidden="true"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16l-1.98 9.34c-.15.66-.537.82-1.084.51l-3-2.21-1.447 1.394c-.16.16-.294.294-.6.294l.213-3.05 5.56-5.02c.242-.213-.054-.334-.373-.12l-6.87 4.33-2.96-.924c-.643-.203-.657-.643.136-.953l11.57-4.46c.537-.196 1.006.13.834.95z"/></svg>
-        <span>Telegram</span>
+        <img src="assets/max-icon.png" width="20" height="20" alt="" class="max-icon" />
+        <span>Telegram или MAX</span>
       </div>
-      <div id="telegramLoginWidget" class="telegram-login-widget"></div>
-
-      <div class="login-divider">или</div>
-
-      <div id="maxLoginBlock">
-        <div class="login-option-label">
-          <img src="assets/max-icon.png" width="20" height="20" alt="" class="max-icon" />
-          <span>MAX</span>
-        </div>
-        <button type="button" class="btn" id="maxLoginStartBtn">Войти через MAX</button>
-        <div id="maxLoginCodeBox" hidden>
-          <p>Отправьте этот код боту в чате MAX:</p>
-          <div class="max-login-code" id="maxLoginCodeText"></div>
-          <a class="btn secondary" id="maxLoginOpenBotLink" target="_blank" rel="noopener">Открыть чат с ботом MAX</a>
-          <p class="max-login-status" id="maxLoginStatus">Ожидаем подтверждение…</p>
-        </div>
+      <button type="button" class="btn" id="loginCodeStartBtn">Получить код для входа</button>
+      <div id="loginCodeBox" hidden>
+        <p>Отправьте этот код боту в чате — в Telegram или в MAX:</p>
+        <div class="login-code-text" id="loginCodeText"></div>
+        <a class="btn secondary" id="loginOpenTelegramLink" target="_blank" rel="noopener">Открыть чат в Telegram</a>
+        <a class="btn secondary" id="loginOpenMaxLink" target="_blank" rel="noopener">Открыть чат в MAX</a>
+        <p class="login-code-status" id="loginCodeStatus">Ожидаем подтверждение…</p>
       </div>
     </div>
   </div>
@@ -225,6 +217,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=35"></script>
+  <script src="app.js?v=36"></script>
 </body>
 </html>

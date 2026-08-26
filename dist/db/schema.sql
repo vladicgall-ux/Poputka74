@@ -86,8 +86,8 @@ CREATE TABLE IF NOT EXISTS ratings (
 CREATE INDEX IF NOT EXISTS idx_ratings_driver ON ratings (driver_id);
 
 -- Веб-сессии для входа с ПК/браузера вне Mini App (там нет initData,
--- поэтому нужен обычный cookie-based сеанс). Выдаются после проверки
--- Telegram Login Widget или подтверждения кода в чате с ботом MAX.
+-- поэтому нужен обычный cookie-based сеанс). Выдаются после подтверждения
+-- кода в чате с ботом — Telegram или MAX (см. login_codes ниже).
 CREATE TABLE IF NOT EXISTS web_sessions (
   token       TEXT PRIMARY KEY,
   user_id     INTEGER NOT NULL REFERENCES users(telegram_id),
@@ -97,11 +97,12 @@ CREATE TABLE IF NOT EXISTS web_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions (user_id);
 
--- Одноразовые коды для входа через MAX в браузерной версии: у MAX, в
--- отличие от Telegram, нет публичного login-виджета/OAuth для сторонних
--- сайтов — пользователь получает код на сайте и присылает его боту в чат
--- MAX, бот подтверждает код и привязывает к нему свой user_id.
-CREATE TABLE IF NOT EXISTS max_login_codes (
+-- Одноразовые коды для входа в браузерной версии: ни у MAX, ни (с недавних
+-- пор — Telegram отключил классический Login Widget) у Telegram нет
+-- рабочего публичного login-виджета/OAuth для сторонних сайтов. Пользователь
+-- получает код на сайте и присылает его боту в чат — любому из двух, — бот
+-- подтверждает код и привязывает к нему свой user_id.
+CREATE TABLE IF NOT EXISTS login_codes (
   code        TEXT PRIMARY KEY,
   user_id     INTEGER REFERENCES users(telegram_id),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),

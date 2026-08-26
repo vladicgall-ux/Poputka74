@@ -6,15 +6,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createWebSession = createWebSession;
 exports.getSessionUser = getSessionUser;
 exports.deleteWebSession = deleteWebSession;
-exports.createMaxLoginCode = createMaxLoginCode;
-exports.consumeMaxLoginCode = consumeMaxLoginCode;
-exports.checkMaxLoginCode = checkMaxLoginCode;
+exports.createLoginCode = createLoginCode;
+exports.consumeLoginCode = consumeLoginCode;
+exports.checkLoginCode = checkLoginCode;
 exports.sweepExpiredWebAuth = sweepExpiredWebAuth;
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db/db");
 const userService_1 = require("./userService");
 const SESSION_TTL_MS = 30 * 24 * 60 * 60000; // 30 дней
-const MAX_CODE_TTL_MS = 10 * 60000; // 10 минут — код успевают ввести, но он не живёт вечно
+const LOGIN_CODE_TTL_MS = 10 * 60000; // 10 минут — код успевают ввести, но он не живёт вечно
 function isoIn(ms) {
     return new Date(Date.now() + ms).toISOString();
 }
@@ -35,39 +35,41 @@ function deleteWebSession(token) {
     db_1.db.prepare('DELETE FROM web_sessions WHERE token = ?').run(token);
 }
 /**
- * Генерируем короткий числовой код (его нужно набрать/скопировать в чат
- * с ботом MAX) — на случай коллизии с ещё не истёкшим чужим кодом просто
- * пробуем снова, коллизии крайне редки (обычно живут не больше 10 минут
- * и их считаные единицы одновременно).
+ * Короткий числовой код для входа в браузерной версии: пользователь
+ * получает его на сайте и присылает боту в чат — в Telegram или в MAX,
+ * какой удобнее (оба бота проверяют один и тот же код одинаково, разница
+ * только в том, какой telegram_id к нему привяжется). На случай коллизии
+ * с ещё не истёкшим чужим кодом просто пробуем снова — коллизии крайне
+ * редки (код живёт не больше 10 минут, одновременно их считаные единицы).
  */
-function createMaxLoginCode() {
+function createLoginCode() {
     for (let attempt = 0; attempt < 10; attempt += 1) {
         const code = String(crypto_1.default.randomInt(0, 1000000)).padStart(6, '0');
-        const exists = db_1.db.prepare('SELECT 1 FROM max_login_codes WHERE code = ?').get(code);
+        const exists = db_1.db.prepare('SELECT 1 FROM login_codes WHERE code = ?').get(code);
         if (exists)
             continue;
-        db_1.db.prepare('INSERT INTO max_login_codes (code, expires_at) VALUES (?, ?)').run(code, isoIn(MAX_CODE_TTL_MS));
+        db_1.db.prepare('INSERT INTO login_codes (code, expires_at) VALUES (?, ?)').run(code, isoIn(LOGIN_CODE_TTL_MS));
         return code;
     }
     throw new Error('Не удалось сгенерировать код входа, попробуйте ещё раз');
 }
-/** Привязывает код к пользователю MAX, который прислал его боту. */
-function consumeMaxLoginCode(code, userId) {
+/** Привязывает код к пользователю, который прислал его боту (Telegram или MAX). */
+function consumeLoginCode(code, userId) {
     const result = db_1.db
-        .prepare(`UPDATE max_login_codes SET user_id = ?
+        .prepare(`UPDATE login_codes SET user_id = ?
        WHERE code = ? AND expires_at > datetime('now') AND user_id IS NULL`)
         .run(userId, code);
     return result.changes > 0;
 }
 /** Опрос со страницы браузера: подтверждён ли код и кем. */
-function checkMaxLoginCode(code) {
+function checkLoginCode(code) {
     const row = db_1.db
-        .prepare(`SELECT user_id FROM max_login_codes WHERE code = ? AND expires_at > datetime('now')`)
+        .prepare(`SELECT user_id FROM login_codes WHERE code = ? AND expires_at > datetime('now')`)
         .get(code);
     return row?.user_id ?? null;
 }
 /** Чистит истёкшие сессии и коды — вызывается из периодических задач в index.ts. */
 function sweepExpiredWebAuth() {
     db_1.db.prepare(`DELETE FROM web_sessions WHERE expires_at <= datetime('now')`).run();
-    db_1.db.prepare(`DELETE FROM max_login_codes WHERE expires_at <= datetime('now')`).run();
+    db_1.db.prepare(`DELETE FROM login_codes WHERE expires_at <= datetime('now')`).run();
 }

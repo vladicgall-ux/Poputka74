@@ -1,7 +1,7 @@
 import { Bot, Keyboard, ImageAttachment } from '@maxhub/max-bot-api';
 import { config } from '../config';
 import { upsertMaxUser, setPhoneVerified, setFullName, maxStorageId, getUser } from '../services/userService';
-import { consumeMaxLoginCode } from '../services/webSessionService';
+import { consumeLoginCode } from '../services/webSessionService';
 import { setMaxBotInstance } from './maxNotifier';
 import { notifyAdmins, notifyUser } from './notifier';
 import { createSupportMessage } from '../services/supportService';
@@ -96,7 +96,7 @@ export function createMaxBot(): Bot {
     // получает 6-значный код на сайте и присылает его сюда, боту.
     if (/^\d{6}$/.test(text)) {
       const user = upsertMaxUser({ id: sender.user_id, name: sender.name, username: sender.username });
-      const linked = consumeMaxLoginCode(text, user.telegram_id);
+      const linked = consumeLoginCode(text, user.telegram_id);
       await ctx.reply(
         linked
           ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'

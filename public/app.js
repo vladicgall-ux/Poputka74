@@ -1115,93 +1115,66 @@
   // ---------- Вход в браузерной версии (вне Telegram/MAX Mini App) ----------
   // Внутри Mini App авторизация идёт через initData — снаружи (обычный
   // браузер на ПК/телефоне) initData нет вовсе, и /api/users/me отвечает
-  // 401. Показываем экран входа: Telegram Login Widget или код в чат MAX.
+  // 401. У Telegram классический Login Widget отключён самим Telegram, а
+  // у MAX публичного login-виджета для сторонних сайтов вообще никогда не
+  // было — поэтому вход единый для обеих платформ: код, который
+  // пользователь присылает боту в чат (Telegram или MAX, любой).
   function showBrowserLogin() {
     document.getElementById('app').hidden = true;
     document.querySelector('.tabbar').hidden = true;
     document.getElementById('appGate').hidden = true;
     document.getElementById('browserLoginGate').hidden = false;
-    loadTelegramLoginWidget();
   }
 
-  async function loadTelegramLoginWidget() {
-    const container = document.getElementById('telegramLoginWidget');
-    if (container.dataset.loaded) return;
-    container.dataset.loaded = '1';
+  let loginPollTimer = null;
+
+  document.getElementById('loginCodeStartBtn').addEventListener('click', async () => {
+    const btn = document.getElementById('loginCodeStartBtn');
+    btn.disabled = true;
     try {
       if (!state.botUsername) {
         const res = await fetch('/api/config');
         const data = await res.json();
         state.botUsername = data.botUsername;
       }
-      if (!state.botUsername) return;
-      const script = document.createElement('script');
-      script.src = 'https://telegram.org/js/telegram-widget.js?22';
-      script.async = true;
-      script.setAttribute('data-telegram-login', state.botUsername);
-      script.setAttribute('data-size', 'large');
-      script.setAttribute('data-radius', '10');
-      script.setAttribute('data-onauth', 'onTelegramAuth(user)');
-      script.setAttribute('data-request-access', 'write');
-      container.appendChild(script);
-    } catch (err) {
-      // Кнопка Telegram просто не появится — вход через MAX всё равно доступен.
-    }
-  }
-
-  // Вызывается самим виджетом Telegram после подтверждения пользователем.
-  window.onTelegramAuth = async (user) => {
-    try {
-      const res = await fetch('/api/auth/telegram-widget', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Не удалось войти через Telegram');
-      location.reload();
-    } catch (err) {
-      toast(err.message);
-    }
-  };
-
-  let maxLoginPollTimer = null;
-
-  document.getElementById('maxLoginStartBtn').addEventListener('click', async () => {
-    const btn = document.getElementById('maxLoginStartBtn');
-    btn.disabled = true;
-    try {
-      const res = await fetch('/api/auth/max-code/start', { method: 'POST' });
+      const res = await fetch('/api/auth/login-code/start', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Не удалось получить код');
-      document.getElementById('maxLoginCodeText').textContent = data.code;
-      document.getElementById('maxLoginOpenBotLink').href = MAX_BOT_LINK;
-      document.getElementById('maxLoginStatus').textContent = 'Ожидаем подтверждение…';
-      document.getElementById('maxLoginCodeBox').hidden = false;
-      startMaxLoginPolling(data.code);
+      document.getElementById('loginCodeText').textContent = data.code;
+      const tgLink = document.getElementById('loginOpenTelegramLink');
+      if (state.botUsername) {
+        tgLink.href = `https://t.me/${state.botUsername}`;
+        tgLink.hidden = false;
+      } else {
+        tgLink.hidden = true;
+      }
+      document.getElementById('loginOpenMaxLink').href = MAX_BOT_LINK;
+      document.getElementById('loginCodeStatus').textContent = 'Ожидаем подтверждение…';
+      document.getElementById('loginCodeBox').hidden = false;
+      startLoginPolling(data.code);
     } catch (err) {
       toast(err.message);
       btn.disabled = false;
     }
   });
 
-  function startMaxLoginPolling(code) {
-    clearInterval(maxLoginPollTimer);
+  function startLoginPolling(code) {
+    clearInterval(loginPollTimer);
     let attempts = 0;
-    maxLoginPollTimer = setInterval(async () => {
+    loginPollTimer = setInterval(async () => {
       attempts += 1;
       if (attempts > 200) {
         // ~10 минут при интервале 3с — столько же живёт сам код на сервере.
-        clearInterval(maxLoginPollTimer);
-        document.getElementById('maxLoginStatus').textContent = 'Время истекло — запросите код заново.';
-        document.getElementById('maxLoginStartBtn').disabled = false;
+        clearInterval(loginPollTimer);
+        document.getElementById('loginCodeStatus').textContent = 'Время истекло — запросите код заново.';
+        document.getElementById('loginCodeStartBtn').disabled = false;
         return;
       }
       try {
-        const res = await fetch(`/api/auth/max-code/status?code=${encodeURIComponent(code)}`);
+        const res = await fetch(`/api/auth/login-code/status?code=${encodeURIComponent(code)}`);
         const data = await res.json().catch(() => ({}));
         if (data.ok) {
-          clearInterval(maxLoginPollTimer);
+          clearInterval(loginPollTimer);
           location.reload();
         }
       } catch (err) {

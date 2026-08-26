@@ -87,7 +87,7 @@ function createMaxBot() {
         // получает 6-значный код на сайте и присылает его сюда, боту.
         if (/^\d{6}$/.test(text)) {
             const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
-            const linked = (0, webSessionService_1.consumeMaxLoginCode)(text, user.telegram_id);
+            const linked = (0, webSessionService_1.consumeLoginCode)(text, user.telegram_id);
             await ctx.reply(linked
                 ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'
                 : 'Код не найден или уже устарел. Запросите новый код на сайте и попробуйте снова.');

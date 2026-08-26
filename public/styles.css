@@ -322,33 +322,21 @@ input[type="date"], input[type="datetime-local"] {
   color: var(--hint);
   margin: 14px 0 10px;
 }
-.telegram-login-widget {
-  display: flex;
-  justify-content: center;
-  margin: 8px 0 16px;
-  min-height: 40px;
-}
-.login-divider {
-  color: var(--hint);
-  font-size: 13px;
-  margin: 4px 0 16px;
-}
-#maxLoginBlock .btn {
-  margin-bottom: 0;
-}
-#maxLoginCodeBox {
+#loginCodeBox {
   margin-top: 14px;
 }
-#maxLoginCodeBox p {
+#loginCodeBox p {
   margin: 0 0 8px;
   font-size: 14px;
 }
-#maxLoginOpenBotLink {
+#loginOpenTelegramLink,
+#loginOpenMaxLink {
   display: block;
   text-align: center;
   text-decoration: none;
+  margin-bottom: 8px;
 }
-.max-login-code {
+.login-code-text {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 4px;
@@ -357,7 +345,7 @@ input[type="date"], input[type="datetime-local"] {
   padding: 12px;
   margin-bottom: 12px;
 }
-.max-login-status {
+.login-code-status {
   color: var(--hint);
   font-size: 13px;
   margin: 10px 0 0 !important;

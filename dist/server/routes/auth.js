@@ -2,7 +2,6 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.authRouter = void 0;
 const express_1 = require("express");
-const telegramLoginWidget_1 = require("../../utils/telegramLoginWidget");
 const userService_1 = require("../../services/userService");
 const webSessionService_1 = require("../../services/webSessionService");
 const rateLimit_1 = require("../middleware/rateLimit");
@@ -19,37 +18,19 @@ function setSessionCookie(res, token) {
     });
 }
 /**
- * Вход через браузерную версию сайта (вне Mini App) по официальному
- * Telegram Login Widget: https://core.telegram.org/widgets/login
- * Фронтенд отдаёт сюда объект, который виджет передал в data-onauth.
+ * Вход через браузерную версию сайта (вне Mini App): ни у Telegram (классический
+ * Login Widget отключён самим Telegram), ни у MAX нет рабочего публичного
+ * login-виджета/OAuth для сторонних сайтов — вместо этого выдаём код,
+ * который пользователь присылает боту в чат (Telegram или MAX, любой).
  */
-exports.authRouter.post('/telegram-widget', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (req, res) => {
-    const body = req.body ?? {};
-    const stringified = {};
-    for (const key of ['id', 'first_name', 'last_name', 'username', 'photo_url', 'auth_date', 'hash']) {
-        if (body[key] !== undefined && body[key] !== null) {
-            stringified[key] = String(body[key]);
-        }
-    }
-    const profile = (0, telegramLoginWidget_1.validateLoginWidgetData)(stringified);
-    if (!profile) {
-        res.status(401).json({ error: 'Не удалось подтвердить вход через Telegram' });
-        return;
-    }
-    const user = (0, userService_1.upsertUser)(profile);
-    const token = (0, webSessionService_1.createWebSession)(user.telegram_id);
-    setSessionCookie(res, token);
-    res.json({ user: (0, userService_1.getUser)(user.telegram_id) });
-});
-/** Начало входа через MAX: выдаём код, который пользователь пришлёт боту в чат. */
-exports.authRouter.post('/max-code/start', (0, rateLimit_1.writeLimiter)(10, 10 * 60000), (req, res) => {
-    const code = (0, webSessionService_1.createMaxLoginCode)();
+exports.authRouter.post('/login-code/start', (0, rateLimit_1.writeLimiter)(10, 10 * 60000), (req, res) => {
+    const code = (0, webSessionService_1.createLoginCode)();
     res.json({ code, expiresInSec: 600 });
 });
-/** Фронтенд опрашивает этот эндпоинт, пока пользователь не пришлёт код боту в MAX. */
-exports.authRouter.get('/max-code/status', (req, res) => {
+/** Фронтенд опрашивает этот эндпоинт, пока пользователь не пришлёт код боту. */
+exports.authRouter.get('/login-code/status', (req, res) => {
     const code = typeof req.query.code === 'string' ? req.query.code : '';
-    const userId = code ? (0, webSessionService_1.checkMaxLoginCode)(code) : null;
+    const userId = code ? (0, webSessionService_1.checkLoginCode)(code) : null;
     if (!userId) {
         res.json({ ok: false });
         return;

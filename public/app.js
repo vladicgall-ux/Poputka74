@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '46';
+  const APP_VERSION = '47';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -54,18 +54,39 @@
   } else if (maxApp) {
     maxApp.ready?.();
   }
+  // Telegram передаёт initData не только через window.Telegram.WebApp
+  // (тот заполняется скриптом telegram-web-app.js, который грузится с
+  // telegram.org — а этот домен у части пользователей в РФ недоступен
+  // или медленный), но и прямо в URL, в hash-параметре tgWebAppData —
+  // это встроенный механизм самого Telegram, не зависящий от того,
+  // успел ли загрузиться внешний скрипт. Раньше без загруженного SDK
+  // сессия внутри самого Telegram Mini App ошибочно считалась браузером
+  // без авторизации ("Войдите, чтобы продолжить") — это и чинит эта
+  // функция: initData достаём из hash, если SDK не подключился.
+  function initDataFromUrlHash() {
+    try {
+      if (!location.hash) return '';
+      return new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || '';
+    } catch (err) {
+      return '';
+    }
+  }
   // Читаем initData каждый раз заново, а не один раз при загрузке: у
   // Telegram initData синхронно готов сразу, а у MAX Bridge (судя по
   // тому, что заголовок реально приходит на сервер, но пустой) он
   // заполняется с задержкой — иногда уже после того, как этот скрипт
   // начал выполняться. waitForInitData() ниже ждёт этот момент явно.
   function currentInitData() {
-    return window.Telegram?.WebApp?.initData || window.WebApp?.initData || '';
+    return window.Telegram?.WebApp?.initData || window.WebApp?.initData || initDataFromUrlHash();
   }
   // Какой заголовок нести до бэкенда — тот определяет, каким алгоритмом
-  // проверять подпись (у Telegram и MAX разные секреты бота).
+  // проверять подпись (у Telegram и MAX разные секреты бота). Если у MAX
+  // Bridge нет initData, но он есть в hash из URL — это тоже Telegram
+  // (у MAX такого URL-фолбэка нет), а не MAX.
   function authHeader() {
-    if (window.Telegram?.WebApp?.initData) return { 'X-Telegram-Init-Data': currentInitData() };
+    if (window.Telegram?.WebApp?.initData || (!window.WebApp?.initData && initDataFromUrlHash())) {
+      return { 'X-Telegram-Init-Data': currentInitData() };
+    }
     return { 'X-Max-Init-Data': currentInitData() };
   }
   // window.confirm() внутри WebView Telegram/MAX часто не показывает диалог

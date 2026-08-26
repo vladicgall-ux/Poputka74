@@ -9,6 +9,11 @@ import {
   cancelRide,
   getRideWithDriver,
 } from '../../services/rideService';
+import {
+  createRideTemplate,
+  listTemplatesByDriver,
+  deactivateTemplate,
+} from '../../services/rideTemplateService';
 import { getRidePassengers, BookingError } from '../../services/bookingService';
 import { getDriverStats } from '../../services/statsService';
 import { config, type City } from '../../config';
@@ -33,12 +38,23 @@ function parseRange(req: Request): { from: string; to: string } | undefined {
   return undefined;
 }
 
-/** Поиск активных поездок, опционально по направлению и дате отправления. */
+/** Поиск активных поездок, опционально по направлению, дате, местам и рейтингу водителя. */
 ridesRouter.get('/', (req, res) => {
   const fromCity = isCity(req.query.from) ? req.query.from : undefined;
   const toCity = isCity(req.query.to) ? req.query.to : undefined;
   const date = typeof req.query.date === 'string' && DATE_RE.test(req.query.date) ? req.query.date : undefined;
-  const rides = searchRides({ fromCity, toCity, date, onlyAvailable: req.query.onlyAvailable === '1' });
+  const minSeats = Number(req.query.minSeats);
+  const minRating = Number(req.query.minRating);
+  const sort = req.query.sort === 'price' ? 'price' : 'time';
+  const rides = searchRides({
+    fromCity,
+    toCity,
+    date,
+    onlyAvailable: req.query.onlyAvailable === '1',
+    minSeats: Number.isInteger(minSeats) && minSeats > 0 ? minSeats : undefined,
+    minRating: Number.isFinite(minRating) && minRating > 0 ? minRating : undefined,
+    sort,
+  });
   res.json({ rides });
 });
 
@@ -68,7 +84,7 @@ ridesRouter.post('/', writeLimiter(15, 10 * 60_000), (req, res) => {
     return;
   }
 
-  const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment } = req.body ?? {};
+  const { fromCity, toCity, departureAt, pricePerSeat, seatsTotal, comment, meetingPoint } = req.body ?? {};
   if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
     res.status(400).json({ error: 'Некорректное направление поездки' });
     return;
@@ -97,8 +113,75 @@ ridesRouter.post('/', writeLimiter(15, 10 * 60_000), (req, res) => {
     pricePerSeat: price,
     seatsTotal: seats,
     comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
+    meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
   });
   res.status(201).json({ ride });
+});
+
+/** Шаблоны регулярных поездок текущего водителя. */
+ridesRouter.get('/templates/mine', (req, res) => {
+  const { user } = req as AuthedRequest;
+  res.json({ templates: listTemplatesByDriver(user.telegram_id) });
+});
+
+/** Создание шаблона регулярной поездки — реальные rides генерируются периодической задачей. */
+ridesRouter.post('/templates', writeLimiter(10, 10 * 60_000), (req, res) => {
+  const { user } = req as AuthedRequest;
+  const driverProfile = getDriverProfile(user.telegram_id);
+  if (!driverProfile) {
+    res.status(403).json({ error: 'Сначала зарегистрируйтесь как водитель' });
+    return;
+  }
+
+  const { fromCity, toCity, departureTime, weekdays, pricePerSeat, seatsTotal, comment, meetingPoint } =
+    req.body ?? {};
+  if (!isCity(fromCity) || !isCity(toCity) || fromCity === toCity) {
+    res.status(400).json({ error: 'Некорректное направление поездки' });
+    return;
+  }
+  if (typeof departureTime !== 'string' || !/^\d{2}:\d{2}$/.test(departureTime)) {
+    res.status(400).json({ error: 'Укажите время отправления в формате ЧЧ:ММ' });
+    return;
+  }
+  const weekdaysList = Array.isArray(weekdays) ? weekdays.map(Number).filter((n) => n >= 0 && n <= 6) : [];
+  if (!weekdaysList.length) {
+    res.status(400).json({ error: 'Выберите хотя бы один день недели' });
+    return;
+  }
+  const price = Number(pricePerSeat);
+  const seats = Number(seatsTotal);
+  if (!Number.isInteger(price) || price < 0 || price > 100000) {
+    res.status(400).json({ error: 'Некорректная цена за место' });
+    return;
+  }
+  if (!Number.isInteger(seats) || seats < 1 || seats > 8) {
+    res.status(400).json({ error: 'Количество мест должно быть от 1 до 8' });
+    return;
+  }
+
+  const template = createRideTemplate({
+    driverId: user.telegram_id,
+    fromCity,
+    toCity,
+    departureTime,
+    weekdays: weekdaysList,
+    pricePerSeat: price,
+    seatsTotal: seats,
+    comment: typeof comment === 'string' ? comment.trim().slice(0, 300) : undefined,
+    meetingPoint: typeof meetingPoint === 'string' ? meetingPoint.trim().slice(0, 200) : undefined,
+  });
+  res.status(201).json({ template });
+});
+
+/** Остановка регулярной поездки — уже созданные rides не трогает, только будущую генерацию. */
+ridesRouter.post('/templates/:id/deactivate', (req, res) => {
+  const { user } = req as unknown as AuthedRequest;
+  const ok = deactivateTemplate(Number(req.params.id), user.telegram_id);
+  if (!ok) {
+    res.status(404).json({ error: 'Шаблон не найден' });
+    return;
+  }
+  res.json({ ok: true });
 });
 
 /** Отмена поездки водителем. */

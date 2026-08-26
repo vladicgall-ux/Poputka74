@@ -47,7 +47,22 @@ exports.adminRouter.get('/users/:id', (req, res) => {
     const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(telegramId) : null;
     const bookings = (0, bookingService_1.listBookingsByPassenger)(telegramId);
     const passengerStats = (0, statsService_1.getPassengerAllTimeStats)(telegramId);
-    res.json({ user, driverProfile, rides, driverStats, rating, bookings, passengerStats });
+    const passengerRating = (0, ratingService_1.getPassengerRatingSummary)(telegramId);
+    // Сигнал для модерации: сколько раз пользователь сам отменял брони/поездки.
+    const cancelledBookingsCount = (0, bookingService_1.countCancelledBookingsByPassenger)(telegramId);
+    const cancelledRidesCount = driverProfile ? (0, rideService_1.countCancelledRidesByDriver)(telegramId) : 0;
+    res.json({
+        user,
+        driverProfile,
+        rides,
+        driverStats,
+        rating,
+        bookings,
+        passengerStats,
+        passengerRating,
+        cancelledBookingsCount,
+        cancelledRidesCount,
+    });
 });
 exports.adminRouter.get('/rides', (_req, res) => {
     res.json({ rides: (0, rideService_1.listAllRides)() });

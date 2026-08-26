@@ -14,6 +14,7 @@ const bookingService_1 = require("../services/bookingService");
 const supportService_1 = require("../services/supportService");
 const webSessionService_1 = require("../services/webSessionService");
 const displayName_1 = require("../utils/displayName");
+const dateFormat_1 = require("../utils/dateFormat");
 exports.bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /**
  * Простой лимит на сообщения в поддержку через бота: без него любой
@@ -42,18 +43,6 @@ function dialogRows(text, username, platform) {
     if (!username || platform !== 'telegram')
         return undefined;
     return [[{ text, url: `https://t.me/${username}` }]];
-}
-function formatDate(iso) {
-    // Без явной timeZone Node форматирует по времени сервера (обычно UTC на
-    // хостинге), а не по местному времени Челябинска/Кунашака — из-за этого
-    // в уведомлениях бота показывалось время на 5 часов меньше настоящего.
-    return new Date(iso).toLocaleString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Yekaterinburg',
-    });
 }
 /** Кнопка открытия Mini App — только если известен публичный HTTPS-адрес. */
 function appKeyboard() {
@@ -156,7 +145,7 @@ function createBot() {
             const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
             const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username, info.passenger_platform);
             await ctx.answerCbQuery('Бронирование подтверждено!');
-            await ctx.editMessageText(`✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+            await ctx.editMessageText(`✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
                 `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
                 `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
                 `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`, {
@@ -164,8 +153,9 @@ function createBot() {
                 ...(passengerButtons ? telegraf_1.Markup.inlineKeyboard(passengerButtons) : {}),
             });
             const passengerUser = (0, userService_1.getUser)(info.passenger_id);
-            await (0, notifier_1.notifyUser)(passengerUser, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`);
+            await (0, notifier_1.notifyUser)(passengerUser, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
+                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+                (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : ''));
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -178,8 +168,8 @@ function createBot() {
             const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
             (0, bookingService_1.declineBooking)(bookingId, ctx.from.id);
             await ctx.answerCbQuery('Бронирование отклонено');
-            await ctx.editMessageText(`❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`);
-            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
+            await ctx.editMessageText(`❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\nМесто снова свободно.`);
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${(0, dateFormat_1.formatDate)(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось отклонить бронирование';

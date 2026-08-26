@@ -231,6 +231,7 @@
         </div>
         ${driverLine}
         ${ratingLine}
+        ${ride.meeting_point ? `<div class="comment">📍 ${escapeHtml(ride.meeting_point)}</div>` : ''}
         ${ride.comment ? `<div class="comment">${escapeHtml(ride.comment)}</div>` : ''}
         ${actionHtml}
       </div>`;
@@ -315,6 +316,10 @@
     loadRides();
   });
 
+  document.getElementById('searchSort').addEventListener('change', loadRides);
+  document.getElementById('searchMinSeats').addEventListener('change', loadRides);
+  document.getElementById('searchMinRating').addEventListener('change', loadRides);
+
   function seatOptions(max) {
     let opts = '';
     for (let i = 1; i <= max; i++) opts += `<option value="${i}">${i}</option>`;
@@ -328,6 +333,12 @@
     try {
       const params = new URLSearchParams({ from: state.direction.from, to: state.direction.to });
       if (state.searchDate) params.set('date', state.searchDate);
+      const sort = document.getElementById('searchSort').value;
+      if (sort) params.set('sort', sort);
+      const minSeats = document.getElementById('searchMinSeats').value;
+      if (minSeats && minSeats !== '0') params.set('minSeats', minSeats);
+      const minRating = document.getElementById('searchMinRating').value;
+      if (minRating && minRating !== '0') params.set('minRating', minRating);
       const { rides } = await api(`/rides?${params.toString()}`);
       empty.hidden = rides.length > 0;
       list.innerHTML = rides.map((r) => rideCardHtml(r, {
@@ -387,6 +398,7 @@
         document.getElementById('carPlate').value = driverProfile.car_plate;
         document.getElementById('carExperience').value = driverProfile.experience || '';
         rideForm.hidden = false;
+        loadRideTemplates();
 
         document.getElementById('driverPhotoCard').hidden = false;
         const preview = document.getElementById('driverPhotoPreview');
@@ -457,30 +469,129 @@
     }
   });
 
+  document.getElementById('rideRecurring').addEventListener('change', (e) => {
+    const recurring = e.target.checked;
+    document.getElementById('rideSingleDateBlock').hidden = recurring;
+    document.getElementById('rideRecurringBlock').hidden = !recurring;
+  });
+
+  const selectedWeekdays = new Set();
+  document.getElementById('rideWeekdays').addEventListener('click', (e) => {
+    const btn = e.target.closest('.weekday-btn');
+    if (!btn) return;
+    if (selectedWeekdays.has(btn.dataset.day)) {
+      selectedWeekdays.delete(btn.dataset.day);
+      btn.classList.remove('active');
+    } else {
+      selectedWeekdays.add(btn.dataset.day);
+      btn.classList.add('active');
+    }
+  });
+
   document.getElementById('rideForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const [fromCity, toCity] = document.getElementById('rideDirection').value.split('|');
-    const departureInput = document.getElementById('rideDeparture').value;
-    if (!departureInput) {
-      toast('Укажите дату и время отправления');
-      return;
-    }
+    const pricePerSeat = Number(document.getElementById('ridePrice').value);
+    const seatsTotal = Number(document.getElementById('rideSeats').value);
+    const comment = document.getElementById('rideComment').value;
+    const meetingPoint = document.getElementById('rideMeetingPoint').value;
+    const recurring = document.getElementById('rideRecurring').checked;
+
     try {
-      await api('/rides', {
-        method: 'POST',
-        body: JSON.stringify({
-          fromCity,
-          toCity,
-          departureAt: new Date(departureInput).toISOString(),
-          pricePerSeat: Number(document.getElementById('ridePrice').value),
-          seatsTotal: Number(document.getElementById('rideSeats').value),
-          comment: document.getElementById('rideComment').value,
-        }),
-      });
-      toast('Поездка опубликована!');
+      if (recurring) {
+        const departureTime = document.getElementById('rideRecurringTime').value;
+        if (!departureTime) {
+          toast('Укажите время отправления');
+          return;
+        }
+        if (!selectedWeekdays.size) {
+          toast('Выберите хотя бы один день недели');
+          return;
+        }
+        await api('/rides/templates', {
+          method: 'POST',
+          body: JSON.stringify({
+            fromCity,
+            toCity,
+            departureTime,
+            weekdays: [...selectedWeekdays].map(Number),
+            pricePerSeat,
+            seatsTotal,
+            comment,
+            meetingPoint,
+          }),
+        });
+        toast('Регулярная поездка создана! Ближайшие даты появятся в поиске в течение минуты.');
+        loadRideTemplates();
+      } else {
+        const departureInput = document.getElementById('rideDeparture').value;
+        if (!departureInput) {
+          toast('Укажите дату и время отправления');
+          return;
+        }
+        await api('/rides', {
+          method: 'POST',
+          body: JSON.stringify({
+            fromCity,
+            toCity,
+            departureAt: new Date(departureInput).toISOString(),
+            pricePerSeat,
+            seatsTotal,
+            comment,
+            meetingPoint,
+          }),
+        });
+        toast('Поездка опубликована!');
+      }
+
       e.target.reset();
       document.getElementById('rideSeats').value = 3;
+      document.getElementById('rideSingleDateBlock').hidden = false;
+      document.getElementById('rideRecurringBlock').hidden = true;
+      document.querySelectorAll('#rideWeekdays .weekday-btn').forEach((b) => b.classList.remove('active'));
+      selectedWeekdays.clear();
       showTab('mine');
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+
+  async function loadRideTemplates() {
+    const card = document.getElementById('rideTemplatesCard');
+    const list = document.getElementById('rideTemplatesList');
+    try {
+      const { templates } = await api('/rides/templates/mine');
+      card.hidden = templates.length === 0;
+      const weekdayNames = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+      list.innerHTML = templates
+        .map((t) => {
+          const days = t.weekdays
+            .split(',')
+            .map(Number)
+            .sort()
+            .map((d) => weekdayNames[d])
+            .join(', ');
+          return `
+            <div class="passenger-row">
+              <span>${escapeHtml(t.from_city)} → ${escapeHtml(t.to_city)}, ${escapeHtml(t.departure_time)}<br>${days}</span>
+              <button type="button" class="btn secondary small stop-template-btn" data-template-id="${t.id}">Остановить</button>
+            </div>
+          `;
+        })
+        .join('');
+    } catch (err) {
+      // Не критично для основного экрана — просто не покажем список.
+    }
+  }
+
+  document.getElementById('rideTemplatesList').addEventListener('click', async (e) => {
+    const btn = e.target.closest('.stop-template-btn');
+    if (!btn) return;
+    if (!(await askConfirm('Остановить эту регулярную поездку? Уже созданные поездки останутся.'))) return;
+    try {
+      await api(`/rides/templates/${btn.dataset.templateId}/deactivate`, { method: 'POST' });
+      toast('Регулярная поездка остановлена');
+      loadRideTemplates();
     } catch (err) {
       toast(err.message);
     }
@@ -569,7 +680,7 @@
       ridesList.innerHTML = rides.map((r) => rideCardHtml(r, {
         action: `
           ${r.status === 'active' ? `<button class="btn secondary small cancel-ride-btn" data-ride-id="${r.id}">Отменить поездку</button>` : ''}
-          <button type="button" class="btn small passenger-toggle-btn" data-ride-id="${r.id}">👥 Пассажиры</button>
+          <button type="button" class="btn small passenger-toggle-btn" data-ride-id="${r.id}" data-departure-at="${r.departure_at}">👥 Пассажиры</button>
           <div class="passengers-panel" id="passengers-${r.id}" hidden></div>
         `,
       })).join('');
@@ -661,6 +772,7 @@
     const toggleBtn = e.target.closest('.passenger-toggle-btn');
     if (toggleBtn) {
       const rideId = toggleBtn.dataset.rideId;
+      const departed = new Date(toggleBtn.dataset.departureAt).getTime() < Date.now();
       const panel = document.getElementById(`passengers-${rideId}`);
       if (!panel.hidden) {
         panel.hidden = true;
@@ -674,17 +786,65 @@
           panel.innerHTML = '<p class="empty">Пока никто не забронировал место.</p>';
           return;
         }
-        panel.innerHTML = passengers.map((p) => `
+        panel.innerHTML = passengers.map((p) => {
+          let rateBlock = '';
+          if (departed && p.status === 'confirmed') {
+            rateBlock = p.rated_by_driver
+              ? `<div class="rating-line">Вы уже оценили пассажира ✅</div>`
+              : `
+                <div class="rate-widget" data-ride-id="${rideId}" data-passenger-id="${p.passenger_id}">
+                  ${[1, 2, 3, 4, 5].map((n) => `<button type="button" class="star-btn" data-star="${n}">★</button>`).join('')}
+                  <button type="button" class="btn small rate-passenger-submit-btn" disabled>Оценить</button>
+                </div>`;
+          }
+          return `
           <div class="passenger-row">
             <span>
               ${escapeHtml(p.full_name || p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
               ${phoneLink(p.phone)} · ID ${p.passenger_id}
+              ${p.rating_count ? `<br>${starsHtml(p.avg_rating, p.rating_count)}` : ''}
             </span>
             <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
           </div>
-        `).join('') + `<div class="earnings-total">Заработок с поездки: ${earnings} ₽</div>`;
+          ${rateBlock}
+        `;
+        }).join('') + `<div class="earnings-total">Заработок с поездки: ${earnings} ₽</div>`;
       } catch (err) {
         panel.innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`;
+      }
+      return;
+    }
+
+    const passengerStarBtn = e.target.closest('.rate-widget .star-btn');
+    if (passengerStarBtn) {
+      const widget = passengerStarBtn.closest('.rate-widget');
+      const value = Number(passengerStarBtn.dataset.star);
+      widget.dataset.selected = value;
+      widget.querySelectorAll('.star-btn').forEach((b) => {
+        b.classList.toggle('filled', Number(b.dataset.star) <= value);
+      });
+      widget.querySelector('.rate-passenger-submit-btn').disabled = false;
+      return;
+    }
+    const passengerRateSubmitBtn = e.target.closest('.rate-passenger-submit-btn');
+    if (passengerRateSubmitBtn) {
+      const widget = passengerRateSubmitBtn.closest('.rate-widget');
+      const rating = Number(widget.dataset.selected);
+      passengerRateSubmitBtn.disabled = true;
+      try {
+        await api('/ratings/passenger', {
+          method: 'POST',
+          body: JSON.stringify({
+            rideId: Number(widget.dataset.rideId),
+            passengerId: Number(widget.dataset.passengerId),
+            rating,
+          }),
+        });
+        toast('Спасибо за оценку!');
+        widget.outerHTML = '<div class="rating-line">Вы уже оценили пассажира ✅</div>';
+      } catch (err) {
+        toast(err.message);
+        passengerRateSubmitBtn.disabled = false;
       }
     }
   });
@@ -705,7 +865,7 @@
   // ---------- Profile tab ----------
   async function loadProfileTab() {
     try {
-      const { user, driverProfile, isAdmin, rating } = await api('/users/me');
+      const { user, driverProfile, isAdmin, rating, passengerRating } = await api('/users/me');
       state.me = user;
       document.getElementById('adminTabBtn').hidden = !isAdmin;
       const card = document.getElementById('profileCard');
@@ -714,6 +874,7 @@
         <div class="profile-row"><span class="label">Телефон</span><span>${user.phone_verified ? '✅ подтверждён' : '❌ не подтверждён'}</span></div>
         <div class="profile-row"><span class="label">Водитель</span><span>${driverProfile ? `✅ ${escapeHtml(driverProfile.car_model)}` : '—'}</span></div>
         ${driverProfile ? `<div class="profile-row"><span class="label">Ваш рейтинг</span><span>${starsHtml(rating?.avg, rating?.count)}</span></div>` : ''}
+        ${passengerRating?.count ? `<div class="profile-row"><span class="label">Рейтинг как пассажир</span><span>${starsHtml(passengerRating.avg, passengerRating.count)}</span></div>` : ''}
         <div class="profile-row" style="margin-top:6px;">
           <span class="label">Имя и фамилия</span>
         </div>
@@ -991,7 +1152,17 @@
   });
 
   function userDetailHtml(data) {
-    const { driverProfile, driverStats, rating, rides, bookings, passengerStats } = data;
+    const {
+      driverProfile,
+      driverStats,
+      rating,
+      rides,
+      bookings,
+      passengerStats,
+      passengerRating,
+      cancelledBookingsCount,
+      cancelledRidesCount,
+    } = data;
     const driverBlock = driverProfile
       ? `
         <h4>Как водитель</h4>
@@ -1001,6 +1172,7 @@
           <div class="stat-tile"><div class="value">${driverStats.earnings} ₽</div><div class="label">Заработано</div></div>
         </div>
         ${starsHtml(rating?.avg, rating?.count)}
+        ${cancelledRidesCount ? `<p class="empty">⚠️ Сам отменил поездок: ${cancelledRidesCount}</p>` : ''}
         ${rides.length ? rides.map((r) => `
           <div class="passenger-row">
             <span>${escapeHtml(r.from_city)} → ${escapeHtml(r.to_city)} · ${formatDate(r.departure_at)}</span>
@@ -1015,6 +1187,8 @@
         <div class="stat-tile"><div class="value">${passengerStats.bookingsCount}</div><div class="label">Бронирований</div></div>
         <div class="stat-tile"><div class="value">${passengerStats.totalSpent} ₽</div><div class="label">Потрачено</div></div>
       </div>
+      ${passengerRating?.count ? starsHtml(passengerRating.avg, passengerRating.count) : ''}
+      ${cancelledBookingsCount ? `<p class="empty">⚠️ Сам отменил бронирований: ${cancelledBookingsCount}</p>` : ''}
       ${bookings.length ? bookings.map((b) => `
         <div class="passenger-row">
           <span>${escapeHtml(b.from_city)} → ${escapeHtml(b.to_city)} · ${formatDate(b.departure_at)}</span>

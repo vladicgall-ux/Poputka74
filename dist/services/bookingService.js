@@ -3,12 +3,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BookingError = void 0;
 exports.createBooking = createBooking;
 exports.cancelBooking = cancelBooking;
+exports.countCancelledBookingsByPassenger = countCancelledBookingsByPassenger;
 exports.confirmBooking = confirmBooking;
 exports.declineBooking = declineBooking;
 exports.getBookingWithPeople = getBookingWithPeople;
 exports.listAllBookings = listAllBookings;
 exports.listBookingsByPassenger = listBookingsByPassenger;
 exports.listBookingsForRide = listBookingsForRide;
+exports.listConfirmedPassengerIds = listConfirmedPassengerIds;
 exports.listBookingsDueForRatingReminder = listBookingsDueForRatingReminder;
 exports.markRatingReminderSent = markRatingReminderSent;
 exports.getRidePassengers = getRidePassengers;
@@ -57,9 +59,16 @@ function cancelBooking(bookingId, passengerId) {
     if (!booking || (booking.status !== 'confirmed' && booking.status !== 'pending')) {
         throw new BookingError('Бронирование не найдено');
     }
-    db_1.db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
+    db_1.db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
+}
+/** Сколько броней пассажир отменил сам — сигнал для модерации в админке. */
+function countCancelledBookingsByPassenger(passengerId) {
+    const row = db_1.db
+        .prepare(`SELECT COUNT(*) AS n FROM bookings WHERE passenger_id = ? AND cancelled_at IS NOT NULL`)
+        .get(passengerId);
+    return row.n;
 }
 /** Водитель подтверждает бронь — только для своих поездок и только из статуса 'pending'. */
 function confirmBooking(bookingId, driverId) {
@@ -91,7 +100,7 @@ function declineBooking(bookingId, driverId) {
 /** Полный контекст брони (поездка + пассажир + водитель) для сообщений бота. */
 function getBookingWithPeople(bookingId) {
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
@@ -103,7 +112,7 @@ function getBookingWithPeople(bookingId) {
 }
 function listAllBookings() {
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
@@ -122,7 +131,7 @@ function listBookingsByPassenger(passengerId, range) {
         params.to = range.to;
     }
     return db_1.db
-        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+        .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE ${clauses.join(' AND ')}
@@ -133,6 +142,12 @@ function listBookingsForRide(rideId) {
     return db_1.db
         .prepare(`SELECT * FROM bookings WHERE ride_id = ? AND status IN ('pending', 'confirmed')`)
         .all(rideId);
+}
+/** Пассажиры с подтверждённой бронью на поездку — для напоминания о скором отправлении. */
+function listConfirmedPassengerIds(rideId) {
+    return db_1.db
+        .prepare(`SELECT passenger_id FROM bookings WHERE ride_id = ? AND status = 'confirmed'`)
+        .all(rideId).map((r) => r.passenger_id);
 }
 /**
  * Подтверждённые брони на поездки, которые состоялись более часа назад,
@@ -160,8 +175,15 @@ function getRidePassengers(rideId, driverId) {
         throw new BookingError('Это не ваша поездка');
     }
     const passengers = db_1.db
-        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone
-       FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
+        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone,
+              ROUND(pr.avg_rating, 1) AS avg_rating, COALESCE(pr.rating_count, 0) AS rating_count,
+              EXISTS(SELECT 1 FROM passenger_ratings x WHERE x.ride_id = b.ride_id AND x.passenger_id = b.passenger_id) AS rated_by_driver
+       FROM bookings b
+       JOIN users u ON u.telegram_id = b.passenger_id
+       LEFT JOIN (
+         SELECT passenger_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
+         FROM passenger_ratings GROUP BY passenger_id
+       ) pr ON pr.passenger_id = b.passenger_id
        WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
        ORDER BY b.created_at ASC`)
         .all(rideId);

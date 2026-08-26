@@ -7,6 +7,7 @@ import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } fr
 import { createSupportMessage } from '../services/supportService';
 import { consumeLoginCode } from '../services/webSessionService';
 import { displayName, platformLabel } from '../utils/displayName';
+import { formatDate } from '../utils/dateFormat';
 
 export const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
@@ -38,19 +39,6 @@ function isSupportRateLimited(userId: number): boolean {
 function dialogRows(text: string, username: string | null, platform: string): NotifyButton[][] | undefined {
   if (!username || platform !== 'telegram') return undefined;
   return [[{ text, url: `https://t.me/${username}` }]];
-}
-
-function formatDate(iso: string): string {
-  // Без явной timeZone Node форматирует по времени сервера (обычно UTC на
-  // хостинге), а не по местному времени Челябинска/Кунашака — из-за этого
-  // в уведомлениях бота показывалось время на 5 часов меньше настоящего.
-  return new Date(iso).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Yekaterinburg',
-  });
 }
 
 /** Кнопка открытия Mini App — только если известен публичный HTTPS-адрес. */
@@ -191,7 +179,8 @@ export function createBot(): Telegraf {
       await notifyUser(
         passengerUser,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
+          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+          (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '')
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';

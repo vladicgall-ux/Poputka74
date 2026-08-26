@@ -21,7 +21,8 @@ exports.usersRouter.get('/me', (req, res) => {
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id) ?? null;
     const isAdmin = config_1.config.adminIds.includes(user.telegram_id);
     const rating = driverProfile ? (0, ratingService_1.getDriverRatingSummary)(user.telegram_id) : null;
-    res.json({ user, driverProfile, isAdmin, rating });
+    const passengerRating = (0, ratingService_1.getPassengerRatingSummary)(user.telegram_id);
+    res.json({ user, driverProfile, isAdmin, rating, passengerRating });
 });
 /**
  * Сохраняет настоящее имя и фамилию — не через requireActiveUser, потому что

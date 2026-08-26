@@ -90,3 +90,23 @@ if (bookingsTableSql && !bookingsTableSql.includes("'pending'")) {
     COMMIT;
   `);
 }
+
+if (!columnExists('rides', 'meeting_point')) {
+  db.exec(`ALTER TABLE rides ADD COLUMN meeting_point TEXT`);
+}
+
+if (!columnExists('rides', 'departure_reminder_sent')) {
+  db.exec(`ALTER TABLE rides ADD COLUMN departure_reminder_sent INTEGER NOT NULL DEFAULT 0`);
+}
+
+if (!columnExists('rides', 'template_id')) {
+  db.exec(`ALTER TABLE rides ADD COLUMN template_id INTEGER REFERENCES ride_templates(id)`);
+}
+
+if (!columnExists('rides', 'cancelled_at')) {
+  db.exec(`ALTER TABLE rides ADD COLUMN cancelled_at TEXT`);
+}
+
+if (!columnExists('bookings', 'cancelled_at')) {
+  db.exec(`ALTER TABLE bookings ADD COLUMN cancelled_at TEXT`);
+}

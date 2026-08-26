@@ -1,8 +1,17 @@
 import { config } from '../config';
-import { listBookingsDueForRatingReminder, markRatingReminderSent } from '../services/bookingService';
+import {
+  listBookingsDueForRatingReminder,
+  markRatingReminderSent,
+  listConfirmedPassengerIds,
+} from '../services/bookingService';
+import {
+  listRidesDueForDepartureReminder,
+  markDepartureReminderSent,
+} from '../services/rideService';
 import { notify, notifyUser, type NotifyButton } from '../bot/notifier';
 import { getUser } from '../services/userService';
 import { displayName } from '../utils/displayName';
+import { formatDate } from '../utils/dateFormat';
 
 /**
  * Через час после поездки просит пассажира оценить водителя — если бронь
@@ -30,5 +39,35 @@ export async function sendRatingReminders(): Promise<void> {
       }
     }
     markRatingReminderSent(b.id);
+  }
+}
+
+/**
+ * За час до отправления напоминает водителю и всем пассажирам с
+ * подтверждённой бронью — чтобы поездка не забылась. Одно напоминание на
+ * поездку (флаг на rides), а не на каждого пассажира отдельно.
+ */
+export async function sendDepartureReminders(): Promise<void> {
+  const due = listRidesDueForDepartureReminder();
+  for (const ride of due) {
+    const route = `${ride.from_city} → ${ride.to_city}`;
+    const meetingLine = ride.meeting_point ? `\n📍 Место встречи: ${ride.meeting_point}` : '';
+
+    const driver = getUser(ride.driver_id);
+    if (driver) {
+      await notifyUser(driver, `⏰ Через час у вас поездка ${route} (${formatDate(ride.departure_at)}).${meetingLine}`);
+    }
+
+    for (const passengerId of listConfirmedPassengerIds(ride.ride_id)) {
+      const passenger = getUser(passengerId);
+      if (passenger) {
+        await notifyUser(
+          passenger,
+          `⏰ Через час ваша поездка ${route} (${formatDate(ride.departure_at)}).${meetingLine}`
+        );
+      }
+    }
+
+    markDepartureReminderSent(ride.ride_id);
   }
 }

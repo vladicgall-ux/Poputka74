@@ -10,18 +10,8 @@ const notifier_1 = require("./notifier");
 const supportService_1 = require("../services/supportService");
 const bookingService_1 = require("../services/bookingService");
 const displayName_1 = require("../utils/displayName");
+const dateFormat_1 = require("../utils/dateFormat");
 const bot_1 = require("./bot");
-function formatDate(iso) {
-    // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует
-    // по своему часовому поясу (UTC), а не по времени Челябинска/Кунашака.
-    return new Date(iso).toLocaleString('ru-RU', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'Asia/Yekaterinburg',
-    });
-}
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
 const SUPPORT_LIMIT = 5;
 const SUPPORT_WINDOW_MS = 60000;
@@ -110,14 +100,15 @@ function createMaxBot() {
             const info = (0, bookingService_1.getBookingWithPeople)(bookingId);
             await ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' });
             await ctx.editMessage({
-                text: `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+                text: `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
                     `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
                     `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
                     `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
                 format: 'html',
             });
-            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`);
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
+                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+                (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : ''));
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -132,10 +123,10 @@ function createMaxBot() {
             (0, bookingService_1.declineBooking)(bookingId, driverId);
             await ctx.answerOnCallback({ notification: 'Бронирование отклонено' });
             await ctx.editMessage({
-                text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`,
+                text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\nМесто снова свободно.`,
                 format: 'html',
             });
-            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${formatDate(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
+            await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `❌ Водитель отклонил бронирование на поездку ${info.from_city} → ${info.to_city} (${(0, dateFormat_1.formatDate)(info.departure_at)}).\nПопробуйте забронировать другую поездку в приложении.`);
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось отклонить бронирование';

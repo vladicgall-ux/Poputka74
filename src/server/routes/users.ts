@@ -4,7 +4,7 @@ import path from 'path';
 import { requireTelegramAuth, requireActiveUser, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, getUser } from '../../services/userService';
-import { getDriverRatingSummary } from '../../services/ratingService';
+import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
 
@@ -18,7 +18,8 @@ usersRouter.get('/me', (req, res) => {
   const driverProfile = getDriverProfile(user.telegram_id) ?? null;
   const isAdmin = config.adminIds.includes(user.telegram_id);
   const rating = driverProfile ? getDriverRatingSummary(user.telegram_id) : null;
-  res.json({ user, driverProfile, isAdmin, rating });
+  const passengerRating = getPassengerRatingSummary(user.telegram_id);
+  res.json({ user, driverProfile, isAdmin, rating, passengerRating });
 });
 
 /**

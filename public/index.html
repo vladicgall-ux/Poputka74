@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
-  <link rel="stylesheet" href="styles.css?v=37" />
+  <link rel="stylesheet" href="styles.css?v=38" />
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://st.max.ru/js/max-web-app.js"></script>
 </head>
@@ -61,6 +61,25 @@
         <input type="date" id="searchDate" />
         <button type="button" class="btn secondary small" id="clearDateBtn">Все даты</button>
       </div>
+      <div class="search-filters">
+        <select id="searchSort">
+          <option value="time">Сначала ближайшие</option>
+          <option value="price">Сначала дешевле</option>
+        </select>
+        <select id="searchMinSeats">
+          <option value="0">Мест: любое</option>
+          <option value="1">Мест: от 1</option>
+          <option value="2">Мест: от 2</option>
+          <option value="3">Мест: от 3</option>
+          <option value="4">Мест: от 4</option>
+        </select>
+        <select id="searchMinRating">
+          <option value="0">Рейтинг: любой</option>
+          <option value="3">Рейтинг: от 3★</option>
+          <option value="4">Рейтинг: от 4★</option>
+          <option value="4.5">Рейтинг: от 4.5★</option>
+        </select>
+      </div>
       <div id="ridesList" class="cards"></div>
       <p id="ridesEmpty" class="empty" hidden>Пока нет поездок в этом направлении. Загляните позже или предложите свою 🚗</p>
     </section>
@@ -106,20 +125,53 @@
             <option value="Кунашак|Челябинск">Кунашак → Челябинск</option>
           </select>
         </label>
-        <label>Дата и время отправления
-          <input type="datetime-local" id="rideDeparture" required />
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="rideRecurring" />
+          Повторяющаяся поездка (по дням недели)
         </label>
+
+        <div id="rideSingleDateBlock">
+          <label>Дата и время отправления
+            <input type="datetime-local" id="rideDeparture" />
+          </label>
+        </div>
+
+        <div id="rideRecurringBlock" hidden>
+          <label>Время отправления
+            <input type="time" id="rideRecurringTime" />
+          </label>
+          <label>Дни недели</label>
+          <div class="weekday-picker" id="rideWeekdays">
+            <button type="button" class="weekday-btn" data-day="1">Пн</button>
+            <button type="button" class="weekday-btn" data-day="2">Вт</button>
+            <button type="button" class="weekday-btn" data-day="3">Ср</button>
+            <button type="button" class="weekday-btn" data-day="4">Чт</button>
+            <button type="button" class="weekday-btn" data-day="5">Пт</button>
+            <button type="button" class="weekday-btn" data-day="6">Сб</button>
+            <button type="button" class="weekday-btn" data-day="0">Вс</button>
+          </div>
+        </div>
+
         <label>Цена за место, ₽
           <input type="number" id="ridePrice" min="0" max="100000" required />
         </label>
         <label>Свободных мест
           <input type="number" id="rideSeats" min="1" max="8" value="3" required />
         </label>
+        <label>Место встречи
+          <input type="text" id="rideMeetingPoint" maxlength="200" placeholder="Например, у ТЦ Мегаполис" />
+        </label>
         <label>Комментарий
-          <textarea id="rideComment" maxlength="300" placeholder="Место встречи, багаж, животные и т.д."></textarea>
+          <textarea id="rideComment" maxlength="300" placeholder="Багаж, животные и т.д."></textarea>
         </label>
         <button type="submit" class="btn">Опубликовать поездку</button>
       </form>
+
+      <div class="card" id="rideTemplatesCard" hidden style="margin-top:12px;">
+        <h3>🔁 Ваши регулярные поездки</h3>
+        <div id="rideTemplatesList"></div>
+      </div>
     </section>
 
     <!-- МОИ ПОЕЗДКИ -->
@@ -229,6 +281,6 @@
     <button class="tab-btn" data-tab="admin" id="adminTabBtn" hidden>🛠<span>Админ</span></button>
   </nav>
 
-  <script src="app.js?v=37"></script>
+  <script src="app.js?v=38"></script>
 </body>
 </html>

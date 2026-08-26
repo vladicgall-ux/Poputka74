@@ -8,13 +8,16 @@ exports.getRideWithDriver = getRideWithDriver;
 exports.listAllRides = listAllRides;
 exports.listRidesByDriver = listRidesByDriver;
 exports.cancelRide = cancelRide;
+exports.countCancelledRidesByDriver = countCancelledRidesByDriver;
 exports.decrementSeats = decrementSeats;
 exports.incrementSeats = incrementSeats;
+exports.listRidesDueForDepartureReminder = listRidesDueForDepartureReminder;
+exports.markDepartureReminderSent = markDepartureReminderSent;
 const db_1 = require("../db/db");
 function createRide(input) {
     const info = db_1.db
-        .prepare(`INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment)
-       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment)`)
+        .prepare(`INSERT INTO rides (driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, meeting_point, template_id)
+       VALUES (@driverId, @fromCity, @toCity, @departureAt, @pricePerSeat, @seatsTotal, @seatsTotal, @comment, @meetingPoint, @templateId)`)
         .run({
         driverId: input.driverId,
         fromCity: input.fromCity,
@@ -23,6 +26,8 @@ function createRide(input) {
         pricePerSeat: input.pricePerSeat,
         seatsTotal: input.seatsTotal,
         comment: input.comment ?? null,
+        meetingPoint: input.meetingPoint ?? null,
+        templateId: input.templateId ?? null,
     });
     return getRide(Number(info.lastInsertRowid));
 }
@@ -62,7 +67,16 @@ function searchRides(filter) {
         clauses.push("date(r.departure_at, '+5 hours') = @date");
         params.date = filter.date;
     }
-    const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY r.departure_at ASC`;
+    if (filter.minSeats) {
+        clauses.push('r.seats_available >= @minSeats');
+        params.minSeats = filter.minSeats;
+    }
+    if (filter.minRating) {
+        clauses.push('COALESCE(rt.avg_rating, 0) >= @minRating');
+        params.minRating = filter.minRating;
+    }
+    const orderBy = filter.sort === 'price' ? 'r.price_per_seat ASC, r.departure_at ASC' : 'r.departure_at ASC';
+    const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy}`;
     return db_1.db.prepare(sql).all(params);
 }
 function getRideWithDriver(id) {
@@ -87,9 +101,17 @@ function listRidesByDriver(driverId, range) {
 }
 function cancelRide(id, driverId) {
     const info = db_1.db
-        .prepare(`UPDATE rides SET status = 'cancelled' WHERE id = ? AND driver_id = ? AND status = 'active'`)
+        .prepare(`UPDATE rides SET status = 'cancelled', cancelled_at = datetime('now')
+       WHERE id = ? AND driver_id = ? AND status = 'active'`)
         .run(id, driverId);
     return info.changes > 0;
+}
+/** Сколько поездок водитель отменил сам — сигнал для модерации в админке. */
+function countCancelledRidesByDriver(driverId) {
+    const row = db_1.db
+        .prepare(`SELECT COUNT(*) AS n FROM rides WHERE driver_id = ? AND cancelled_at IS NOT NULL`)
+        .get(driverId);
+    return row.n;
 }
 function decrementSeats(rideId, seats) {
     const info = db_1.db
@@ -125,3 +147,17 @@ exports.sweepExpiredRides = db_1.db.transaction(() => {
      WHERE status = 'active' AND datetime(departure_at) < datetime('now')
        AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.ride_id = rides.id AND b.status = 'confirmed')`).run();
 });
+/** Активные поездки, которые отправляются в течение часа и по которым напоминание ещё не отправлено. */
+function listRidesDueForDepartureReminder() {
+    return db_1.db
+        .prepare(`SELECT id AS ride_id, from_city, to_city, departure_at, meeting_point, driver_id
+       FROM rides
+       WHERE status = 'active'
+         AND departure_reminder_sent = 0
+         AND datetime(departure_at) > datetime('now')
+         AND datetime(departure_at) <= datetime('now', '+1 hour')`)
+        .all();
+}
+function markDepartureReminderSent(rideId) {
+    db_1.db.prepare(`UPDATE rides SET departure_reminder_sent = 1 WHERE id = ?`).run(rideId);
+}

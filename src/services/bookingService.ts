@@ -16,6 +16,7 @@ export interface BookingWithRide extends BookingRecord {
   to_city: string;
   departure_at: string;
   price_per_seat: number;
+  meeting_point: string | null;
   driver_id: number;
   rated: number;
 }
@@ -72,9 +73,17 @@ export function cancelBooking(bookingId: number, passengerId: number): BookingRe
   if (!booking || (booking.status !== 'confirmed' && booking.status !== 'pending')) {
     throw new BookingError('Бронирование не найдено');
   }
-  db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
+  db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
   incrementSeats(booking.ride_id, booking.seats_booked);
   return { ...booking, status: 'cancelled' };
+}
+
+/** Сколько броней пассажир отменил сам — сигнал для модерации в админке. */
+export function countCancelledBookingsByPassenger(passengerId: number): number {
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM bookings WHERE passenger_id = ? AND cancelled_at IS NOT NULL`)
+    .get(passengerId) as { n: number };
+  return row.n;
 }
 
 /** Водитель подтверждает бронь — только для своих поездок и только из статуса 'pending'. */
@@ -127,7 +136,7 @@ export interface BookingWithPeople extends BookingWithRide {
 export function getBookingWithPeople(bookingId: number): BookingWithPeople | undefined {
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone, p.platform AS passenger_platform,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name, drv.phone AS driver_phone, drv.platform AS driver_platform
        FROM bookings b
@@ -142,7 +151,7 @@ export function getBookingWithPeople(bookingId: number): BookingWithPeople | und
 export function listAllBookings(): BookingWithPeople[] {
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
               drv.first_name AS driver_first_name, drv.username AS driver_username, drv.full_name AS driver_full_name
        FROM bookings b
@@ -167,7 +176,7 @@ export function listBookingsByPassenger(
   }
   return db
     .prepare(
-      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.driver_id,
+      `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.driver_id,
               EXISTS(SELECT 1 FROM ratings rt WHERE rt.ride_id = b.ride_id AND rt.passenger_id = b.passenger_id) AS rated
        FROM bookings b JOIN rides r ON r.id = b.ride_id
        WHERE ${clauses.join(' AND ')}
@@ -191,6 +200,22 @@ export interface RidePassenger {
   username: string | null;
   full_name: string | null;
   phone: string | null;
+  avg_rating: number | null;
+  rating_count: number;
+  rated_by_driver: number;
+}
+
+export interface ConfirmedPassenger {
+  passenger_id: number;
+}
+
+/** Пассажиры с подтверждённой бронью на поездку — для напоминания о скором отправлении. */
+export function listConfirmedPassengerIds(rideId: number): number[] {
+  return (
+    db
+      .prepare(`SELECT passenger_id FROM bookings WHERE ride_id = ? AND status = 'confirmed'`)
+      .all(rideId) as ConfirmedPassenger[]
+  ).map((r) => r.passenger_id);
 }
 
 export interface RatingReminder {
@@ -237,8 +262,15 @@ export function getRidePassengers(
   }
   const passengers = db
     .prepare(
-      `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone
-       FROM bookings b JOIN users u ON u.telegram_id = b.passenger_id
+      `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone,
+              ROUND(pr.avg_rating, 1) AS avg_rating, COALESCE(pr.rating_count, 0) AS rating_count,
+              EXISTS(SELECT 1 FROM passenger_ratings x WHERE x.ride_id = b.ride_id AND x.passenger_id = b.passenger_id) AS rated_by_driver
+       FROM bookings b
+       JOIN users u ON u.telegram_id = b.passenger_id
+       LEFT JOIN (
+         SELECT passenger_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
+         FROM passenger_ratings GROUP BY passenger_id
+       ) pr ON pr.passenger_id = b.passenger_id
        WHERE b.ride_id = ? AND b.status IN ('pending', 'confirmed')
        ORDER BY b.created_at ASC`
     )

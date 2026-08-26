@@ -5,11 +5,11 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { uploadBroadcastPhoto } from '../middleware/upload';
 import { config } from '../../config';
 import { listAllUsers, listActiveUserIds, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
-import { listAllRides, listRidesByDriver } from '../../services/rideService';
-import { listAllBookings, listBookingsByPassenger } from '../../services/bookingService';
+import { listAllRides, listRidesByDriver, countCancelledRidesByDriver } from '../../services/rideService';
+import { listAllBookings, listBookingsByPassenger, countCancelledBookingsByPassenger } from '../../services/bookingService';
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
-import { getDriverRatingSummary } from '../../services/ratingService';
+import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { notifyPhoto, notifyUser } from '../../bot/notifier';
 
 export const adminRouter = Router();
@@ -47,7 +47,22 @@ adminRouter.get('/users/:id', (req, res) => {
   const rating = driverProfile ? getDriverRatingSummary(telegramId) : null;
   const bookings = listBookingsByPassenger(telegramId);
   const passengerStats = getPassengerAllTimeStats(telegramId);
-  res.json({ user, driverProfile, rides, driverStats, rating, bookings, passengerStats });
+  const passengerRating = getPassengerRatingSummary(telegramId);
+  // Сигнал для модерации: сколько раз пользователь сам отменял брони/поездки.
+  const cancelledBookingsCount = countCancelledBookingsByPassenger(telegramId);
+  const cancelledRidesCount = driverProfile ? countCancelledRidesByDriver(telegramId) : 0;
+  res.json({
+    user,
+    driverProfile,
+    rides,
+    driverStats,
+    rating,
+    bookings,
+    passengerStats,
+    passengerRating,
+    cancelledBookingsCount,
+    cancelledRidesCount,
+  });
 });
 
 adminRouter.get('/rides', (_req, res) => {

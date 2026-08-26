@@ -24,6 +24,25 @@ CREATE TABLE IF NOT EXISTS driver_profiles (
   created_at    TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Шаблоны регулярных поездок водителя (например, «каждый будний день в 8:00»).
+-- weekdays — дни недели через запятую в формате JS Date.getDay() (0=вс..6=сб).
+-- Реальные строки в rides генерируются периодической задачей на несколько
+-- дней вперёд — сам шаблон не участвует в поиске/бронировании напрямую.
+CREATE TABLE IF NOT EXISTS ride_templates (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  driver_id         INTEGER NOT NULL REFERENCES users(telegram_id),
+  from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак')),
+  to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак')),
+  departure_time    TEXT NOT NULL, -- 'HH:MM', местное время Челябинска/Кунашака
+  weekdays          TEXT NOT NULL, -- '1,2,3,4,5'
+  price_per_seat    INTEGER NOT NULL CHECK (price_per_seat >= 0),
+  seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),
+  comment           TEXT,
+  meeting_point     TEXT,
+  active            INTEGER NOT NULL DEFAULT 1,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Поездки (объявления водителей)
 CREATE TABLE IF NOT EXISTS rides (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -84,6 +103,22 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_ratings_driver ON ratings (driver_id);
+
+-- Оценки пассажиров водителями — зеркало ratings в обратную сторону: помогает
+-- водителю решить, подтверждать ли бронь ненадёжного пассажира. Те же условия:
+-- поездка состоялась, бронь была подтверждена, одна оценка на пару (поездка, пассажир).
+CREATE TABLE IF NOT EXISTS passenger_ratings (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  ride_id       INTEGER NOT NULL REFERENCES rides(id),
+  driver_id     INTEGER NOT NULL REFERENCES users(telegram_id),
+  passenger_id  INTEGER NOT NULL REFERENCES users(telegram_id),
+  rating        INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment       TEXT,
+  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (ride_id, passenger_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_passenger_ratings_passenger ON passenger_ratings (passenger_id);
 
 -- Веб-сессии для входа с ПК/браузера вне Mini App (там нет initData,
 -- поэтому нужен обычный cookie-based сеанс). Выдаются после подтверждения

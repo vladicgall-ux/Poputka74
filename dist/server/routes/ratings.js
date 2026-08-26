@@ -28,3 +28,30 @@ exports.ratingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (
         throw err;
     }
 });
+/** Водитель оценивает конкретного пассажира этой поездки. */
+exports.ratingsRouter.post('/passenger', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (req, res) => {
+    const { user } = req;
+    const rideId = Number(req.body?.rideId);
+    const passengerId = Number(req.body?.passengerId);
+    const rating = Number(req.body?.rating);
+    const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim().slice(0, 300) : undefined;
+    if (!Number.isInteger(rideId) ||
+        !Number.isInteger(passengerId) ||
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5) {
+        res.status(400).json({ error: 'Некорректная оценка' });
+        return;
+    }
+    try {
+        const record = (0, ratingService_1.createPassengerRating)({ rideId, driverId: user.telegram_id, passengerId, rating, comment });
+        res.status(201).json({ rating: record });
+    }
+    catch (err) {
+        if (err instanceof ratingService_1.RatingError) {
+            res.status(400).json({ error: err.message });
+            return;
+        }
+        throw err;
+    }
+});

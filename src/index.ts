@@ -4,8 +4,9 @@ import { createApp } from './server/app';
 import { createBot } from './bot/bot';
 import { createMaxBot } from './bot/maxBot';
 import { sweepExpiredRides } from './services/rideService';
-import { sendRatingReminders } from './jobs/reminders';
+import { sendRatingReminders, sendDepartureReminders } from './jobs/reminders';
 import { sweepExpiredWebAuth } from './services/webSessionService';
+import { generateUpcomingRides } from './services/rideTemplateService';
 
 const SWEEP_INTERVAL_MS = 60_000;
 
@@ -54,10 +55,16 @@ async function main() {
       console.error('Ошибка при обработке истёкших поездок:', err);
     }
     sendRatingReminders().catch((err) => console.error('Ошибка при отправке напоминаний об оценке:', err));
+    sendDepartureReminders().catch((err) => console.error('Ошибка при отправке напоминаний об отправлении:', err));
     try {
       sweepExpiredWebAuth();
     } catch (err) {
       console.error('Ошибка при очистке истёкших веб-сессий:', err);
+    }
+    try {
+      generateUpcomingRides();
+    } catch (err) {
+      console.error('Ошибка при генерации регулярных поездок:', err);
     }
   };
   runPeriodicJobs();

@@ -7,19 +7,8 @@ import { notifyAdmins, notifyUser } from './notifier';
 import { createSupportMessage } from '../services/supportService';
 import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } from '../services/bookingService';
 import { displayName, platformLabel } from '../utils/displayName';
+import { formatDate } from '../utils/dateFormat';
 import { bannerPath } from './bot';
-
-function formatDate(iso: string): string {
-  // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует
-  // по своему часовому поясу (UTC), а не по времени Челябинска/Кунашака.
-  return new Date(iso).toLocaleString('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Yekaterinburg',
-  });
-}
 
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
 const SUPPORT_LIMIT = 5;
@@ -138,7 +127,8 @@ export function createMaxBot(): Bot {
       await notifyUser(
         getUser(info.passenger_id)!,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽`
+          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+          (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '')
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';

@@ -428,6 +428,54 @@ input[type="date"], input[type="datetime-local"] {
   flex: 1;
 }
 
+.search-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.search-filters select {
+  flex: 1;
+  min-width: 120px;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+  font-size: 14px !important;
+}
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+}
+
+.weekday-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.weekday-btn {
+  flex: 1 0 auto;
+  min-width: 40px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 6px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.weekday-btn.active {
+  background: var(--button);
+  color: var(--button-text);
+  border-color: var(--button);
+}
+
 /* Фильтр диапазона (день/неделя/месяц/дата) в "Мои поездки" */
 .range-filter {
   display: flex;

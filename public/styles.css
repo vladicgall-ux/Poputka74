@@ -29,10 +29,25 @@ html, body {
   background: var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
   padding-bottom: 76px;
+  /* На iOS свайп вниз в самом верху страницы даёт "резиновый" отскок, а на
+     Android тот же жест может понять как pull-to-refresh — внутри Mini App
+     оба выглядят как баг, а не как системный жест браузера. */
+  overscroll-behavior-y: contain;
+}
+
+/* Серая вспышка при тапе (стандартная для мобильных браузеров) не нужна —
+   у кнопок/вкладок ниже своё нажатое состояние (:active), это выглядит
+   более "нативно". Плюс touch-action убирает остаточную задержку тапа
+   в некоторых встроенных WebView. */
+button, .dir-btn, .tab-btn, .weekday-btn, a.btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 .banner {
@@ -47,6 +62,11 @@ body {
 
 .gate-screen {
   min-height: calc(100vh - 140px);
+  /* 100vh на iOS Safari считает область за адресной строкой, из-за чего
+     контент обрезается/скачет при её появлении-исчезновении — dvh учитывает
+     реальную видимую высоту. Строка ниже переопределяет предыдущую там, где
+     dvh поддерживается, и просто игнорируется там, где нет. */
+  min-height: calc(100dvh - 140px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -88,6 +108,20 @@ body {
 .dir-btn.active {
   background: var(--button);
   color: var(--button-text);
+}
+.dir-btn:active {
+  opacity: 0.75;
+}
+
+/* В админке 5 вкладок (Пользователи/Поездки/Бронирования/Поддержка/Рассылка)
+   в один ряд с flex:1 не помещаются на узком экране — последняя ("Рассылка")
+   вылезала за пределы рамки .direction-switch. Переносим на 2 колонки. */
+#adminSubSwitch {
+  flex-wrap: wrap;
+}
+#adminSubSwitch .dir-btn {
+  flex: 1 1 calc(50% - 4px);
+  min-width: 0;
 }
 
 .cards {
@@ -182,6 +216,10 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+.btn:not(:disabled):active {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
 .btn.secondary {
   background: transparent;
   color: var(--danger);
@@ -209,7 +247,10 @@ label {
 }
 input, select, textarea {
   font-family: inherit;
-  font-size: 15px;
+  /* iOS Safari/WebView автоматически зумит страницу при фокусе на поле
+     с font-size меньше 16px — это относится ко всем input/select/textarea
+     в файле, даже там, где ниже переопределён более компактный размер. */
+  font-size: 16px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
@@ -293,6 +334,9 @@ input[type="date"], input[type="datetime-local"] {
 }
 .tab-btn.active {
   color: var(--link);
+}
+.tab-btn:active {
+  opacity: 0.7;
 }
 
 .toast {
@@ -447,7 +491,7 @@ input[type="date"], input[type="datetime-local"] {
 .search-filters select {
   flex: 1;
   min-width: 120px;
-  font-size: 13px;
+  font-size: 16px;
   padding: 8px 10px;
 }
 
@@ -485,6 +529,9 @@ input[type="date"], input[type="datetime-local"] {
   color: var(--button-text);
   border-color: var(--button);
 }
+.weekday-btn:active {
+  opacity: 0.75;
+}
 
 /* Фильтр диапазона (день/неделя/месяц/дата) в "Мои поездки" */
 .range-filter {
@@ -508,7 +555,7 @@ input[type="date"], input[type="datetime-local"] {
   border: none;
   border-radius: 9px;
   padding: 8px;
-  font-size: 13px;
+  font-size: 16px;
   /* Здесь фон сам .range-filter уже белый (--secondary-bg) — заливаем
      полем цветом страницы (--bg), иначе белое на белом без рамки
      сливается в одно пятно (та же идея, что и у .range-period-inputs). */
@@ -531,7 +578,7 @@ input[type="date"], input[type="datetime-local"] {
   border: none;
   border-radius: 9px;
   padding: 8px;
-  font-size: 13px;
+  font-size: 16px;
   background: var(--bg);
 }
 .range-period-inputs span {

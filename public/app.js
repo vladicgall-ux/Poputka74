@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '42';
+  const APP_VERSION = '43';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1049,6 +1049,28 @@
       toast(err.message);
     }
   });
+
+  // Кнопки "Написать в Telegram/MAX" в Поддержке — прямой чат с ботом,
+  // в дополнение к форме выше (та уходит администратору как есть).
+  (async () => {
+    if (!state.botUsername) {
+      try {
+        const res = await fetch('/api/config');
+        const data = await res.json();
+        state.botUsername = data.botUsername;
+      } catch (err) {
+        // Форма отправки сообщения выше работает и без этих ссылок.
+      }
+    }
+    if (state.botUsername) {
+      const link = document.getElementById('supportTelegramLink');
+      link.href = `https://t.me/${state.botUsername}`;
+      link.hidden = false;
+    }
+    const maxLink = document.getElementById('supportMaxLink');
+    maxLink.href = MAX_BOT_LINK;
+    maxLink.hidden = false;
+  })();
 
   function switchMineSubTab(target) {
     document.querySelectorAll('#mineSubSwitch .dir-btn').forEach((b) => {

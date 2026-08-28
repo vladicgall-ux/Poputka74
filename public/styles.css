@@ -600,10 +600,12 @@ input[type="date"], input[type="datetime-local"] {
   border-radius: 9px;
   padding: 8px;
   font-size: 13px;
-  /* Здесь фон сам .range-filter уже белый (--secondary-bg) — заливаем
-     полем цветом страницы (--bg), иначе белое на белом без рамки
-     сливается в одно пятно (та же идея, что и у .range-period-inputs). */
-  background: var(--bg);
+  /* Фиксированный светлый цвет, а не var(--bg) — та переменная меняется
+     вместе с темой оформления и в тёмной теме сама становится тёмной,
+     из-за чего поле даты (текст/иконка которого всегда тёмные — см.
+     глобальное правило input[type=date] выше) сливалось бы с фоном
+     точно так же, как раньше сливалось белое на белом в светлой теме. */
+  background: #eef1f6;
 }
 
 .range-period-inputs {
@@ -623,7 +625,8 @@ input[type="date"], input[type="datetime-local"] {
   border-radius: 9px;
   padding: 8px;
   font-size: 13px;
-  background: var(--bg);
+  /* Фиксированный светлый цвет, не var(--bg) — см. комментарий у .range-filter. */
+  background: #eef1f6;
 }
 .range-period-inputs span {
   color: var(--hint);

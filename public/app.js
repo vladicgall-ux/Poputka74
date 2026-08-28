@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '49';
+  const APP_VERSION = '50';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -550,7 +550,13 @@
       }
       return;
     }
-    window.open(MAX_BOT_LINK, '_blank');
+    // window.open() внутри WebView MAX может просто ничего не делать —
+    // у MAX Bridge для этого есть свой метод, как tg.openLink() у Telegram.
+    if (maxApp?.openLink) {
+      maxApp.openLink(MAX_BOT_LINK);
+    } else {
+      window.open(MAX_BOT_LINK, '_blank');
+    }
   }
 
   document.getElementById('openBotFromOffer').addEventListener('click', openBotChat);
@@ -1074,7 +1080,8 @@
         await navigator.clipboard.writeText(`${inviteText}\n${MAX_BOT_LINK}`);
         toast('Ссылка скопирована — отправьте её друзьям в любом чате');
       } catch (err) {
-        window.open(MAX_BOT_LINK, '_blank');
+        if (maxApp?.openLink) maxApp.openLink(MAX_BOT_LINK);
+        else window.open(MAX_BOT_LINK, '_blank');
       }
       return;
     }

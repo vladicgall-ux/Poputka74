@@ -114,6 +114,11 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
         res.status(400).json({ error: 'Добавьте текст или фото' });
         return;
     }
+    if (file && !(0, upload_1.isValidImageFile)(file.path)) {
+        fs_1.default.unlink(file.path, () => { });
+        res.status(400).json({ error: 'Файл повреждён или не является изображением' });
+        return;
+    }
     const recipients = (0, userService_1.listActiveUserIds)();
     let sent = 0;
     for (const telegramId of recipients) {

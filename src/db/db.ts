@@ -126,3 +126,7 @@ if (!columnExists('rides', 'cancellation_reason')) {
 if (!columnExists('users', 'phone_reminder_sent_at')) {
   db.exec(`ALTER TABLE users ADD COLUMN phone_reminder_sent_at TEXT`);
 }
+
+if (!columnExists('login_codes', 'poll_token')) {
+  db.exec(`ALTER TABLE login_codes ADD COLUMN poll_token TEXT`);
+}

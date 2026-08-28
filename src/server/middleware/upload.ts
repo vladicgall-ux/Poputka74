@@ -58,3 +58,34 @@ export const uploadBroadcastPhoto = multer({
     cb(null, true);
   },
 });
+
+/**
+ * `fileFilter` в multer видит только заголовок Content-Type, который
+ * присылает клиент — его легко подделать (например, назвать .php файл
+ * image/jpeg). Здесь уже после записи на диск проверяем настоящую сигнатуру
+ * (magic bytes) файла — это и есть реальная защита от загрузки не-картинки
+ * под видом картинки. Вызывать после multer, до того как файл где-либо
+ * используется (например, отправляется в Telegram/MAX).
+ */
+export function isValidImageFile(filePath: string): boolean {
+  let fd: number;
+  try {
+    fd = fs.openSync(filePath, 'r');
+  } catch {
+    return false;
+  }
+  try {
+    const buf = Buffer.alloc(12);
+    const bytesRead = fs.readSync(fd, buf, 0, 12, 0);
+    if (bytesRead < 4) return false;
+    if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true; // JPEG
+    if (
+      buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47 &&
+      buf[4] === 0x0d && buf[5] === 0x0a && buf[6] === 0x1a && buf[7] === 0x0a
+    ) return true; // PNG
+    if (bytesRead === 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return true; // WebP
+    return false;
+  } finally {
+    fs.closeSync(fd);
+  }
+}

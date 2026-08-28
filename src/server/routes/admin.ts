@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import fs from 'fs';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
-import { uploadBroadcastPhoto } from '../middleware/upload';
+import { uploadBroadcastPhoto, isValidImageFile } from '../middleware/upload';
 import { config } from '../../config';
 import { listAllUsers, listActiveUserIds, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
 import { listAllRides, listRidesByDriver, countCancelledRidesByDriver } from '../../services/rideService';
@@ -123,6 +123,11 @@ adminRouter.post(
 
     if (!message && !file) {
       res.status(400).json({ error: 'Добавьте текст или фото' });
+      return;
+    }
+    if (file && !isValidImageFile(file.path)) {
+      fs.unlink(file.path, () => {});
+      res.status(400).json({ error: 'Файл повреждён или не является изображением' });
       return;
     }
 

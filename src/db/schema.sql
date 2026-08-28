@@ -140,6 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_web_sessions_user ON web_sessions (user_id);
 -- подтверждает код и привязывает к нему свой user_id.
 CREATE TABLE IF NOT EXISTS login_codes (
   code        TEXT PRIMARY KEY,
+  poll_token  TEXT,
   user_id     INTEGER REFERENCES users(telegram_id),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
   expires_at  TEXT NOT NULL

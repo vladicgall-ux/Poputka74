@@ -80,6 +80,11 @@ exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.
         res.status(400).json({ error: 'Файл не получен' });
         return;
     }
+    if (!(0, upload_1.isValidImageFile)(file.path)) {
+        fs_1.default.unlink(file.path, () => { });
+        res.status(400).json({ error: 'Файл повреждён или не является изображением' });
+        return;
+    }
     const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id);
     if (!driverProfile) {
         fs_1.default.unlink(file.path, () => { });

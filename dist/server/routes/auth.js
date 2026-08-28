@@ -24,13 +24,20 @@ function setSessionCookie(res, token) {
  * который пользователь присылает боту в чат (Telegram или MAX, любой).
  */
 exports.authRouter.post('/login-code/start', (0, rateLimit_1.writeLimiter)(10, 10 * 60000), (req, res) => {
-    const code = (0, webSessionService_1.createLoginCode)();
-    res.json({ code, expiresInSec: 600 });
+    const { code, pollToken } = (0, webSessionService_1.createLoginCode)();
+    res.json({ code, pollToken, expiresInSec: 600 });
 });
-/** Фронтенд опрашивает этот эндпоинт, пока пользователь не пришлёт код боту. */
-exports.authRouter.get('/login-code/status', (req, res) => {
+/**
+ * Фронтенд опрашивает этот эндпоинт, пока пользователь не пришлёт код боту.
+ * Лимитер — защита от перебора: без него код всего в 6 цифр можно было бы
+ * перебрать полностью за разумное время. pollToken (см. webSessionService)
+ * закрывает саму возможность перебора по коду, лимитер — на всякий случай,
+ * второй эшелон защиты.
+ */
+exports.authRouter.get('/login-code/status', (0, rateLimit_1.writeLimiter)(240, 10 * 60000), (req, res) => {
     const code = typeof req.query.code === 'string' ? req.query.code : '';
-    const userId = code ? (0, webSessionService_1.checkLoginCode)(code) : null;
+    const pollToken = typeof req.query.pollToken === 'string' ? req.query.pollToken : '';
+    const userId = code && pollToken ? (0, webSessionService_1.checkLoginCode)(code, pollToken) : null;
     if (!userId) {
         res.json({ ok: false });
         return;

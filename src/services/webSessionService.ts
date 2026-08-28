@@ -38,14 +38,27 @@ export function deleteWebSession(token: string): void {
  * только в том, какой telegram_id к нему привяжется). На случай коллизии
  * с ещё не истёкшим чужим кодом просто пробуем снова — коллизии крайне
  * редки (код живёт не больше 10 минут, одновременно их считаные единицы).
+ *
+ * Код всего 6 цифр (1 млн комбинаций) — сам по себе он недостаточно
+ * стойкий против перебора, если бы по нему одному выдавалась сессия.
+ * Поэтому вместе с кодом генерируется длинный случайный pollToken:
+ * он возвращается только этому браузеру (никогда не показывается
+ * пользователю и не отправляется боту) и требуется вместе с кодом
+ * при опросе /login-code/status — угадать оба значения одновременно
+ * уже нереально.
  */
-export function createLoginCode(): string {
+export function createLoginCode(): { code: string; pollToken: string } {
+  const pollToken = crypto.randomBytes(24).toString('hex');
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
     const exists = db.prepare('SELECT 1 FROM login_codes WHERE code = ?').get(code);
     if (exists) continue;
-    db.prepare('INSERT INTO login_codes (code, expires_at) VALUES (?, ?)').run(code, isoIn(LOGIN_CODE_TTL_MS));
-    return code;
+    db.prepare('INSERT INTO login_codes (code, poll_token, expires_at) VALUES (?, ?, ?)').run(
+      code,
+      pollToken,
+      isoIn(LOGIN_CODE_TTL_MS)
+    );
+    return { code, pollToken };
   }
   throw new Error('Не удалось сгенерировать код входа, попробуйте ещё раз');
 }
@@ -61,12 +74,20 @@ export function consumeLoginCode(code: string, userId: number): boolean {
   return result.changes > 0;
 }
 
-/** Опрос со страницы браузера: подтверждён ли код и кем. */
-export function checkLoginCode(code: string): number | null {
+/** Опрос со страницы браузера: подтверждён ли код и кем. Требует pollToken,
+ *  выданный именно этому браузеру при создании кода — см. комментарий выше. */
+export function checkLoginCode(code: string, pollToken: string): number | null {
+  if (!code || !pollToken) return null;
   const row = db
-    .prepare(`SELECT user_id FROM login_codes WHERE code = ? AND expires_at > datetime('now')`)
-    .get(code) as { user_id: number | null } | undefined;
-  return row?.user_id ?? null;
+    .prepare(
+      `SELECT user_id, poll_token FROM login_codes WHERE code = ? AND expires_at > datetime('now')`
+    )
+    .get(code) as { user_id: number | null; poll_token: string | null } | undefined;
+  if (!row || !row.poll_token) return null;
+  const expected = Buffer.from(row.poll_token);
+  const actual = Buffer.from(pollToken);
+  if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) return null;
+  return row.user_id ?? null;
 }
 
 /** Чистит истёкшие сессии и коды — вызывается из периодических задач в index.ts. */

@@ -6,7 +6,7 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, getUser } from '../../services/userService';
 import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
-import { uploadDriverPhoto, uploadsDir } from '../middleware/upload';
+import { uploadDriverPhoto, uploadsDir, isValidImageFile } from '../middleware/upload';
 
 export const usersRouter = Router();
 
@@ -83,6 +83,11 @@ usersRouter.post(
     const file = (req as unknown as { file?: Express.Multer.File }).file;
     if (!file) {
       res.status(400).json({ error: 'Файл не получен' });
+      return;
+    }
+    if (!isValidImageFile(file.path)) {
+      fs.unlink(file.path, () => {});
+      res.status(400).json({ error: 'Файл повреждён или не является изображением' });
       return;
     }
     const driverProfile = getDriverProfile(user.telegram_id);

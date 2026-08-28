@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '54';
+  const APP_VERSION = '55';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1547,6 +1547,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Не удалось получить код');
       document.getElementById('loginCodeText').textContent = data.code;
+      state.loginPollToken = data.pollToken;
       const tgLink = document.getElementById('loginOpenTelegramLink');
       if (state.botUsername) {
         tgLink.href = `https://t.me/${state.botUsername}`;
@@ -1597,7 +1598,8 @@
         return;
       }
       try {
-        const res = await fetch(`/api/auth/login-code/status?code=${encodeURIComponent(code)}`);
+        const pollToken = encodeURIComponent(state.loginPollToken || '');
+        const res = await fetch(`/api/auth/login-code/status?code=${encodeURIComponent(code)}&pollToken=${pollToken}`);
         const data = await res.json().catch(() => ({}));
         if (data.ok) {
           clearInterval(loginPollTimer);

@@ -106,9 +106,9 @@ export function setUserBanned(telegramId: number, banned: boolean): void {
 }
 
 /**
- * Пользователи, кому пора напомнить подтвердить телефон — раз в час, пока
- * не подтвердят. Первое напоминание — через час после регистрации (сразу
- * дублировать /start было бы навязчиво), дальше — через час после
+ * Пользователи, кому пора напомнить подтвердить телефон — раз в 6 часов, пока
+ * не подтвердят. Первое напоминание — через 6 часов после регистрации (сразу
+ * дублировать /start было бы навязчиво), дальше — через 6 часов после
  * предыдущего напоминания. COALESCE позволяет использовать одно условие
  * для обоих случаев (ещё не напоминали vs уже напоминали раньше).
  */
@@ -117,7 +117,7 @@ export function listUsersDueForPhoneReminder(): UserRecord[] {
     .prepare(
       `SELECT * FROM users
        WHERE phone_verified = 0 AND banned = 0
-         AND COALESCE(phone_reminder_sent_at, created_at) <= datetime('now', '-1 hour')`
+         AND COALESCE(phone_reminder_sent_at, created_at) <= datetime('now', '-6 hours')`
     )
     .all() as UserRecord[];
 }

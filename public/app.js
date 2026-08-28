@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '51';
+  const APP_VERSION = '52';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -54,19 +54,32 @@
   } else if (maxApp) {
     maxApp.ready?.();
   }
-  // Telegram передаёт initData не только через window.Telegram.WebApp
-  // (тот заполняется скриптом telegram-web-app.js, который грузится с
-  // telegram.org — а этот домен у части пользователей в РФ недоступен
-  // или медленный), но и прямо в URL, в hash-параметре tgWebAppData —
-  // это встроенный механизм самого Telegram, не зависящий от того,
-  // успел ли загрузиться внешний скрипт. Раньше без загруженного SDK
-  // сессия внутри самого Telegram Mini App ошибочно считалась браузером
-  // без авторизации ("Войдите, чтобы продолжить") — это и чинит эта
-  // функция: initData достаём из hash, если SDK не подключился.
-  function initDataFromUrlHash() {
+  // И Telegram, и MAX передают initData не только через свой JS-мостик
+  // (window.Telegram.WebApp / window.WebApp, которые заполняют внешние
+  // скрипты с telegram.org / st.max.ru — а эти домены у части пользователей
+  // в РФ недоступны или медленные), но и прямо в URL, в hash-фрагменте —
+  // это встроенный механизм самих платформ, не зависящий от того, успел
+  // ли загрузиться внешний скрипт. У Telegram параметр называется
+  // tgWebAppData (задокументировано и проверено). У MAX, по всем
+  // доступным описаниям, аналогично — WebAppData, но точное имя не
+  // подтверждено официальной документацией напрямую (dev.max.ru
+  // недоступен из среды разработки) — поэтому вторым шагом на всякий
+  // случай перебираем все hash-параметры и берём любой, который выглядит
+  // как настоящий initData (после URL-декодирования содержит "hash=" —
+  // обязательное поле подписи и у Telegram, и у MAX).
+  function initDataFromUrlHash(kind) {
     try {
       if (!location.hash) return '';
-      return new URLSearchParams(location.hash.slice(1)).get('tgWebAppData') || '';
+      const params = new URLSearchParams(location.hash.slice(1));
+      if (kind === 'telegram') {
+        return params.get('tgWebAppData') || '';
+      }
+      const direct = params.get('WebAppData');
+      if (direct) return direct;
+      for (const [, value] of params) {
+        if (value && value.includes('hash=')) return value;
+      }
+      return '';
     } catch (err) {
       return '';
     }
@@ -77,14 +90,17 @@
   // заполняется с задержкой — иногда уже после того, как этот скрипт
   // начал выполняться. waitForInitData() ниже ждёт этот момент явно.
   function currentInitData() {
-    return window.Telegram?.WebApp?.initData || window.WebApp?.initData || initDataFromUrlHash();
+    return (
+      window.Telegram?.WebApp?.initData ||
+      window.WebApp?.initData ||
+      initDataFromUrlHash('telegram') ||
+      initDataFromUrlHash('max')
+    );
   }
   // Какой заголовок нести до бэкенда — тот определяет, каким алгоритмом
-  // проверять подпись (у Telegram и MAX разные секреты бота). Если у MAX
-  // Bridge нет initData, но он есть в hash из URL — это тоже Telegram
-  // (у MAX такого URL-фолбэка нет), а не MAX.
+  // проверять подпись (у Telegram и MAX разные секреты бота).
   function authHeader() {
-    if (window.Telegram?.WebApp?.initData || (!window.WebApp?.initData && initDataFromUrlHash())) {
+    if (window.Telegram?.WebApp?.initData || initDataFromUrlHash('telegram')) {
       return { 'X-Telegram-Init-Data': currentInitData() };
     }
     return { 'X-Max-Init-Data': currentInitData() };

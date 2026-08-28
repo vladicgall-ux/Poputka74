@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '53';
+  const APP_VERSION = '54';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1043,7 +1043,7 @@
         <div class="profile-row"><span class="label">Username</span><span>${user.username ? '@' + escapeHtml(user.username) : '—'}</span></div>
         <div class="profile-row"><span class="label">Телефон</span><span>${user.phone_verified ? '✅ подтверждён' : '❌ не подтверждён'}</span></div>
         <div class="profile-row"><span class="label">Водитель</span><span>${driverProfile ? `✅ ${escapeHtml(driverProfile.car_model)}` : '—'}</span></div>
-        ${driverProfile ? `<div class="profile-row"><span class="label">Ваш рейтинг</span><span>${starsHtml(rating?.avg, rating?.count)}</span></div>` : ''}
+        ${driverProfile ? `<div class="profile-row"><span class="label">Рейтинг как водитель</span><span>${starsHtml(rating?.avg, rating?.count)}</span></div>` : ''}
         ${passengerRating?.count ? `<div class="profile-row"><span class="label">Рейтинг как пассажир</span><span>${starsHtml(passengerRating.avg, passengerRating.count)}</span></div>` : ''}
         <div class="profile-row" style="margin-top:6px;">
           <span class="label">Имя и фамилия</span>

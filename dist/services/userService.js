@@ -7,6 +7,8 @@ exports.realMaxUserId = realMaxUserId;
 exports.upsertMaxUser = upsertMaxUser;
 exports.setPhoneVerified = setPhoneVerified;
 exports.setUserBanned = setUserBanned;
+exports.listUsersDueForPhoneReminder = listUsersDueForPhoneReminder;
+exports.markPhoneReminderSent = markPhoneReminderSent;
 exports.setFullName = setFullName;
 exports.listActiveUserIds = listActiveUserIds;
 exports.listAllUsers = listAllUsers;
@@ -63,6 +65,23 @@ function setPhoneVerified(telegramId, phone) {
 }
 function setUserBanned(telegramId, banned) {
     db_1.db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
+}
+/**
+ * Пользователи, кому пора напомнить подтвердить телефон — раз в час, пока
+ * не подтвердят. Первое напоминание — через час после регистрации (сразу
+ * дублировать /start было бы навязчиво), дальше — через час после
+ * предыдущего напоминания. COALESCE позволяет использовать одно условие
+ * для обоих случаев (ещё не напоминали vs уже напоминали раньше).
+ */
+function listUsersDueForPhoneReminder() {
+    return db_1.db
+        .prepare(`SELECT * FROM users
+       WHERE phone_verified = 0 AND banned = 0
+         AND COALESCE(phone_reminder_sent_at, created_at) <= datetime('now', '-1 hour')`)
+        .all();
+}
+function markPhoneReminderSent(telegramId) {
+    db_1.db.prepare(`UPDATE users SET phone_reminder_sent_at = datetime('now') WHERE telegram_id = ?`).run(telegramId);
 }
 /** Настоящее имя и фамилия, которые пользователь вводит сам — в отличие от
  *  first_name/username из Telegram, это может быть любой ник. Показывается

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.setBotInstance = setBotInstance;
 exports.getBotUsername = getBotUsername;
 exports.notify = notify;
+exports.notifyPhoneReminder = notifyPhoneReminder;
 exports.notifyPhoto = notifyPhoto;
 exports.notifyAdmins = notifyAdmins;
 exports.notifyUser = notifyUser;
@@ -43,6 +44,23 @@ async function notify(telegramId, text, buttonRows, pin) {
     }
     catch {
         // пользователь мог заблокировать бота — это не критично
+        return false;
+    }
+}
+/** Напоминание подтвердить телефон — с той же кнопкой "Поделиться номером", что и на /start. */
+async function notifyPhoneReminder(telegramId, text) {
+    if (!botInstance)
+        return false;
+    try {
+        await botInstance.telegram.sendMessage(telegramId, text, {
+            parse_mode: 'HTML',
+            ...telegraf_1.Markup.keyboard([telegraf_1.Markup.button.contactRequest('📱 Подтвердить номер телефона')])
+                .resize()
+                .oneTime(),
+        });
+        return true;
+    }
+    catch {
         return false;
     }
 }

@@ -13,6 +13,7 @@ export interface UserRecord {
   last_seen_at: string | null;
   full_name: string | null;
   platform: Platform;
+  phone_reminder_sent_at: string | null;
   created_at: string;
 }
 
@@ -102,6 +103,27 @@ export function setPhoneVerified(telegramId: number, phone: string): void {
 
 export function setUserBanned(telegramId: number, banned: boolean): void {
   db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
+}
+
+/**
+ * Пользователи, кому пора напомнить подтвердить телефон — раз в час, пока
+ * не подтвердят. Первое напоминание — через час после регистрации (сразу
+ * дублировать /start было бы навязчиво), дальше — через час после
+ * предыдущего напоминания. COALESCE позволяет использовать одно условие
+ * для обоих случаев (ещё не напоминали vs уже напоминали раньше).
+ */
+export function listUsersDueForPhoneReminder(): UserRecord[] {
+  return db
+    .prepare(
+      `SELECT * FROM users
+       WHERE phone_verified = 0 AND banned = 0
+         AND COALESCE(phone_reminder_sent_at, created_at) <= datetime('now', '-1 hour')`
+    )
+    .all() as UserRecord[];
+}
+
+export function markPhoneReminderSent(telegramId: number): void {
+  db.prepare(`UPDATE users SET phone_reminder_sent_at = datetime('now') WHERE telegram_id = ?`).run(telegramId);
 }
 
 /** Настоящее имя и фамилия, которые пользователь вводит сам — в отличие от

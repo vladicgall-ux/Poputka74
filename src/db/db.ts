@@ -122,3 +122,7 @@ if (!columnExists('ride_templates', 'dropoff_point')) {
 if (!columnExists('rides', 'cancellation_reason')) {
   db.exec(`ALTER TABLE rides ADD COLUMN cancellation_reason TEXT`);
 }
+
+if (!columnExists('users', 'phone_reminder_sent_at')) {
+  db.exec(`ALTER TABLE users ADD COLUMN phone_reminder_sent_at TEXT`);
+}

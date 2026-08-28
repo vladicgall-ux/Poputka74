@@ -4,7 +4,7 @@ import { createApp } from './server/app';
 import { createBot } from './bot/bot';
 import { createMaxBot } from './bot/maxBot';
 import { sweepExpiredRides } from './services/rideService';
-import { sendRatingReminders, sendDepartureReminders } from './jobs/reminders';
+import { sendRatingReminders, sendDepartureReminders, sendPhoneVerificationReminders } from './jobs/reminders';
 import { sweepExpiredWebAuth } from './services/webSessionService';
 import { generateUpcomingRides } from './services/rideTemplateService';
 
@@ -69,6 +69,9 @@ async function main() {
     }
     sendRatingReminders().catch((err) => console.error('Ошибка при отправке напоминаний об оценке:', err));
     sendDepartureReminders().catch((err) => console.error('Ошибка при отправке напоминаний об отправлении:', err));
+    sendPhoneVerificationReminders().catch((err) =>
+      console.error('Ошибка при отправке напоминаний о подтверждении телефона:', err)
+    );
     try {
       sweepExpiredWebAuth();
     } catch (err) {

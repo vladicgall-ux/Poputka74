@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setMaxBotInstance = setMaxBotInstance;
+exports.notifyMaxPhoneReminder = notifyMaxPhoneReminder;
 exports.notifyMaxWithLink = notifyMaxWithLink;
 exports.notifyMax = notifyMax;
 const max_bot_api_1 = require("@maxhub/max-bot-api");
@@ -17,6 +18,21 @@ function setMaxBotInstance(bot) {
  * браузер — initData не будет, но приложение уже умеет входить по коду
  * через browserLoginGate, так что это не тупик, а лишний шаг.
  */
+/** Напоминание подтвердить телефон — с той же кнопкой "Поделиться номером", что и на bot_started. */
+async function notifyMaxPhoneReminder(user, text) {
+    if (!maxBotInstance)
+        return false;
+    try {
+        await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
+            format: 'html',
+            attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+}
 async function notifyMaxWithLink(user, text, buttonText, url) {
     if (!maxBotInstance)
         return false;

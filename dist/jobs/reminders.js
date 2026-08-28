@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendRatingReminders = sendRatingReminders;
 exports.sendDepartureReminders = sendDepartureReminders;
+exports.sendPhoneVerificationReminders = sendPhoneVerificationReminders;
 const config_1 = require("../config");
 const bookingService_1 = require("../services/bookingService");
 const rideService_1 = require("../services/rideService");
@@ -68,5 +69,25 @@ async function sendDepartureReminders() {
             }
         }
         (0, rideService_1.markDepartureReminderSent)(ride.ride_id);
+    }
+}
+/**
+ * Раз в час напоминает подтвердить номер телефона тем, кто зарегистрировался
+ * (написал боту), но так и не поделился контактом — с той же кнопкой, что
+ * была на /start. Продолжается, пока пользователь не подтвердит номер, не
+ * будет заблокирован администратором или не перестанет получать сообщения
+ * (заблокирует бота — тогда notify просто вернёт false, без ошибки).
+ */
+async function sendPhoneVerificationReminders() {
+    const due = (0, userService_1.listUsersDueForPhoneReminder)();
+    const text = 'Напоминаем: чтобы бронировать поездки или публиковать свои, нужно подтвердить номер телефона кнопкой ниже.';
+    for (const user of due) {
+        if (user.platform === 'telegram') {
+            await (0, notifier_1.notifyPhoneReminder)(user.telegram_id, text);
+        }
+        else {
+            await (0, maxNotifier_1.notifyMaxPhoneReminder)(user, text);
+        }
+        (0, userService_1.markPhoneReminderSent)(user.telegram_id);
     }
 }

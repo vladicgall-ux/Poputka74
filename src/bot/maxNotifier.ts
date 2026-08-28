@@ -16,6 +16,20 @@ export function setMaxBotInstance(bot: Bot): void {
  * браузер — initData не будет, но приложение уже умеет входить по коду
  * через browserLoginGate, так что это не тупик, а лишний шаг.
  */
+/** Напоминание подтвердить телефон — с той же кнопкой "Поделиться номером", что и на bot_started. */
+export async function notifyMaxPhoneReminder(user: UserRecord, text: string): Promise<boolean> {
+  if (!maxBotInstance) return false;
+  try {
+    await maxBotInstance.api.sendMessageToUser(realMaxUserId(user), text, {
+      format: 'html',
+      attachments: [Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])],
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function notifyMaxWithLink(
   user: UserRecord,
   text: string,

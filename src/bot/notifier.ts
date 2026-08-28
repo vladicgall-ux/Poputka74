@@ -61,6 +61,22 @@ export async function notify(
   }
 }
 
+/** Напоминание подтвердить телефон — с той же кнопкой "Поделиться номером", что и на /start. */
+export async function notifyPhoneReminder(telegramId: number, text: string): Promise<boolean> {
+  if (!botInstance) return false;
+  try {
+    await botInstance.telegram.sendMessage(telegramId, text, {
+      parse_mode: 'HTML',
+      ...Markup.keyboard([Markup.button.contactRequest('📱 Подтвердить номер телефона')])
+        .resize()
+        .oneTime(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Отправляет пользователю фото с подписью; молча игнорирует ошибки (аналогично notify). */
 export async function notifyPhoto(telegramId: number, photoPath: string, caption: string, pin?: boolean): Promise<boolean> {
   if (!botInstance) return false;

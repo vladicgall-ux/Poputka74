@@ -8,9 +8,9 @@ import {
   listRidesDueForDepartureReminder,
   markDepartureReminderSent,
 } from '../services/rideService';
-import { notify, notifyUser, type NotifyButton } from '../bot/notifier';
-import { notifyMaxWithLink } from '../bot/maxNotifier';
-import { getUser } from '../services/userService';
+import { notify, notifyUser, notifyPhoneReminder, type NotifyButton } from '../bot/notifier';
+import { notifyMaxWithLink, notifyMaxPhoneReminder } from '../bot/maxNotifier';
+import { getUser, listUsersDueForPhoneReminder, markPhoneReminderSent } from '../services/userService';
 import { displayName } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
 
@@ -78,5 +78,26 @@ export async function sendDepartureReminders(): Promise<void> {
     }
 
     markDepartureReminderSent(ride.ride_id);
+  }
+}
+
+/**
+ * Раз в час напоминает подтвердить номер телефона тем, кто зарегистрировался
+ * (написал боту), но так и не поделился контактом — с той же кнопкой, что
+ * была на /start. Продолжается, пока пользователь не подтвердит номер, не
+ * будет заблокирован администратором или не перестанет получать сообщения
+ * (заблокирует бота — тогда notify просто вернёт false, без ошибки).
+ */
+export async function sendPhoneVerificationReminders(): Promise<void> {
+  const due = listUsersDueForPhoneReminder();
+  const text =
+    'Напоминаем: чтобы бронировать поездки или публиковать свои, нужно подтвердить номер телефона кнопкой ниже.';
+  for (const user of due) {
+    if (user.platform === 'telegram') {
+      await notifyPhoneReminder(user.telegram_id, text);
+    } else {
+      await notifyMaxPhoneReminder(user, text);
+    }
+    markPhoneReminderSent(user.telegram_id);
   }
 }

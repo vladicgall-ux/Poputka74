@@ -64,6 +64,7 @@ async function main() {
         }
         (0, reminders_1.sendRatingReminders)().catch((err) => console.error('Ошибка при отправке напоминаний об оценке:', err));
         (0, reminders_1.sendDepartureReminders)().catch((err) => console.error('Ошибка при отправке напоминаний об отправлении:', err));
+        (0, reminders_1.sendPhoneVerificationReminders)().catch((err) => console.error('Ошибка при отправке напоминаний о подтверждении телефона:', err));
         try {
             (0, webSessionService_1.sweepExpiredWebAuth)();
         }

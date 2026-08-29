@@ -17,14 +17,13 @@ export interface ValidatedMaxInitData {
  * validateInitData в telegramAuth.ts, только с секретом MAX-бота.
  */
 export function validateMaxInitData(initData: string): ValidatedMaxInitData | null {
-  // ВРЕМЕННАЯ диагностика, пока алгоритм не подтверждён на реальных данных
-  // MAX — убрать после того, как автаризация MAX заработает. Не логируем
-  // ничего, если запроса вообще не было (initData пустая — это норма для
-  // каждого обычного Telegram-запроса, идущего через тот же миддлвар).
-  const log = (reason: string) => console.log(`[maxAuth] отклонено: ${reason}. initData="${initData}"`);
+  // Логируем только короткую причину отказа, без самих данных — initData
+  // содержит персональные данные пользователя MAX (id, имя, username), а
+  // при неверной подписи ещё и посчитанный HMAC незачем писать в лог.
+  const log = (reason: string) => console.log(`[maxAuth] отклонено: ${reason}`);
 
   if (!initData) {
-    log('X-Max-Init-Data пустой или отсутствует — фронтенд не получил initData от MAX Bridge');
+    log('X-Max-Init-Data пустой или отсутствует');
     return null;
   }
   if (!config.maxBotToken) {
@@ -49,13 +48,13 @@ export function validateMaxInitData(initData: string): ValidatedMaxInitData | nu
   const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
 
   if (!timingSafeEqualHex(computedHash, hash)) {
-    log(`подпись не совпала (ожидали ${computedHash}, получили ${hash}, dataCheckString="${dataCheckString}")`);
+    log('подпись не совпала');
     return null;
   }
 
   const authDate = Number(params.get('auth_date') ?? 0);
   if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
-    log(`просрочено или нет auth_date (${params.get('auth_date')})`);
+    log('просрочено или нет auth_date');
     return null;
   }
 

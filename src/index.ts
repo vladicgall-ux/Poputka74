@@ -36,21 +36,56 @@ async function main() {
   // так. bot.start() у MAX SDK так же не резолвится, пока бот не
   // остановлен — запускаем без await, по той же причине, что и Telegram.
   let maxBot: ReturnType<typeof createMaxBot> | undefined;
+  let maxBotShuttingDown = false;
   const MAX_START_RETRY_MS = 30_000;
   if (config.maxBotToken) {
     maxBot = createMaxBot();
-    // API MAX иногда вместо JSON на первый long-poll запрос отвечает HTML-
-    // страницей ошибки (похоже на временный сбой прокси/шлюза на их
-    // стороне) — тогда start() падает с SyntaxError при разборе JSON. Без
-    // повторных попыток бот MAX молча переставал бы отвечать на что-либо
-    // (в т.ч. на нажатия кнопок) до следующего ручного передеплоя.
+    /**
+     * Два бага в @maxhub/max-bot-api (long polling), из-за которых бот MAX
+     * периодически «навсегда замолкал» (не реагировал вообще ни на что —
+     * ни на /start, ни на код входа, ни на кнопки) и оживал только после
+     * ручного передеплоя контейнера:
+     *
+     * 1) Bot.pollingIsStarted выставляется в true ДО await getMyInfo() и
+     *    сбрасывается обратно в false только внутри bot.stop(). Если
+     *    первый вызов start() падает (например, API MAX вместо JSON отдаёт
+     *    HTML-страницу ошибки — типичный сбой их шлюза), наш повторный
+     *    вызов startMaxBot() по таймеру натыкается на
+     *    `if (pollingIsStarted) return;` и молча ничего не делает — то
+     *    есть ВЕСЬ retry-цикл ниже был не более чем красивым логом,
+     *    реальных повторных попыток не происходило.
+     * 2) В самом long-polling цикле (core/network/polling.js) при
+     *    восстановимой ошибке (сеть оборвалась, 429, 5xx) вместо `continue`
+     *    стоит `return` — цикл опроса тихо завершается, а start() при этом
+     *    РЕЗОЛВИТСЯ, как будто всё в порядке. Мы видели в логах «Бот MAX
+     *    запущен» и считали, что всё хорошо, хотя опрос обновлений уже
+     *    остановился навсегда после первого же сетевого сбоя.
+     *
+     * Фикс на нашей стороне (без правки node_modules, чтобы не терять патч
+     * при переустановке зависимостей): и на resolve(), и на reject()
+     * считаем, что опрос остановился и его нужно поднять заново, а перед
+     * каждым повторным start() явно вызываем stop() — это гарантированно
+     * сбрасывает pollingIsStarted независимо от того, в каком состоянии
+     * баг оставил бота.
+     */
     const startMaxBot = () => {
       maxBot!
         .start()
-        .then(() => console.log('Бот MAX запущен (long polling)'))
+        .then(() => {
+          if (maxBotShuttingDown) {
+            console.log('Бот MAX остановлен (штатное завершение).');
+            return;
+          }
+          console.warn(
+            'Бот MAX: long polling неожиданно завершился (известный баг SDK при сетевой ошибке) — перезапускаю...'
+          );
+          maxBot!.stop();
+          startMaxBot();
+        })
         .catch((err) => {
           console.error('Не удалось запустить бота MAX:', err);
           console.log(`Повторная попытка запуска бота MAX через ${MAX_START_RETRY_MS / 1000} секунд...`);
+          maxBot!.stop();
           setTimeout(startMaxBot, MAX_START_RETRY_MS);
         });
     };
@@ -100,6 +135,7 @@ async function main() {
       console.error('Ошибка при остановке Telegram-бота:', err);
     }
     try {
+      maxBotShuttingDown = true;
       maxBot?.stop();
     } catch (err) {
       console.error('Ошибка при остановке бота MAX:', err);

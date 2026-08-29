@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createWebSession = createWebSession;
 exports.getSessionUser = getSessionUser;
 exports.deleteWebSession = deleteWebSession;
+exports.deleteAllWebSessionsForUser = deleteAllWebSessionsForUser;
 exports.createLoginCode = createLoginCode;
 exports.consumeLoginCode = consumeLoginCode;
 exports.checkLoginCode = checkLoginCode;
@@ -33,6 +34,10 @@ function getSessionUser(token) {
 }
 function deleteWebSession(token) {
     db_1.db.prepare('DELETE FROM web_sessions WHERE token = ?').run(token);
+}
+/** Обрывает все веб-сессии пользователя разом — кнопка «Выйти со всех устройств». */
+function deleteAllWebSessionsForUser(userId) {
+    db_1.db.prepare('DELETE FROM web_sessions WHERE user_id = ?').run(userId);
 }
 /**
  * Короткий числовой код для входа в браузерной версии: пользователь

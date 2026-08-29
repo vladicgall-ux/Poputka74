@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '56';
+  const APP_VERSION = '57';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1050,11 +1050,30 @@
         </div>
         <input type="text" id="profileNameInput" placeholder="Имя и фамилия" maxlength="100" value="${escapeHtml(user.full_name || '')}" />
         <button type="button" class="btn small" id="profileNameSaveBtn" style="margin-top:8px;">Сохранить</button>
+        ${
+          // Кнопка нужна только в браузерной версии (вход по коду, cookie-сессия) —
+          // внутри самого Telegram/MAX Mini App выходить не из чего: личность
+          // определяется initData заново на каждый запрос, нет долгоживущей сессии.
+          !currentInitData()
+            ? `<button type="button" class="btn small secondary" id="logoutAllBtn" style="margin-top:8px;">Выйти со всех устройств</button>`
+            : ''
+        }
       `;
     } catch (err) {
       toast(err.message);
     }
   }
+
+  document.getElementById('profileCard').addEventListener('click', async (e) => {
+    if (!e.target.closest('#logoutAllBtn')) return;
+    if (!(await askConfirm('Выйти со всех устройств? Все браузерные сессии будут завершены, включая эту.'))) return;
+    try {
+      await api('/auth/logout-all', { method: 'POST' });
+      location.reload();
+    } catch (err) {
+      toast(err.message);
+    }
+  });
 
   const MAX_BOT_LINK = 'https://max.ru/se14080601_bot';
 

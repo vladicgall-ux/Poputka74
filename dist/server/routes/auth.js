@@ -53,3 +53,15 @@ exports.authRouter.post('/logout', (req, res) => {
     res.clearCookie(auth_1.SESSION_COOKIE_NAME, { path: '/' });
     res.json({ ok: true });
 });
+/**
+ * «Выйти со всех устройств» — обрывает все веб-сессии пользователя (все
+ * браузеры, где он входил по коду в чате с ботом), не только текущую.
+ * Работает и из Mini App (initData), и из браузерной сессии (cookie) —
+ * requireTelegramAuth принимает оба способа и уже определяет user.
+ */
+exports.authRouter.post('/logout-all', auth_1.requireTelegramAuth, (req, res) => {
+    const { user } = req;
+    (0, webSessionService_1.deleteAllWebSessionsForUser)(user.telegram_id);
+    res.clearCookie(auth_1.SESSION_COOKIE_NAME, { path: '/' });
+    res.json({ ok: true });
+});

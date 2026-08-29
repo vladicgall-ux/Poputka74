@@ -3,11 +3,12 @@ import { getUser } from '../../services/userService';
 import {
   createWebSession,
   deleteWebSession,
+  deleteAllWebSessionsForUser,
   createLoginCode,
   checkLoginCode,
 } from '../../services/webSessionService';
 import { writeLimiter } from '../middleware/rateLimit';
-import { readCookie, SESSION_COOKIE_NAME } from '../middleware/auth';
+import { readCookie, requireTelegramAuth, SESSION_COOKIE_NAME, type AuthedRequest } from '../middleware/auth';
 
 export const authRouter = Router();
 
@@ -57,6 +58,19 @@ authRouter.get('/login-code/status', writeLimiter(240, 10 * 60_000), (req, res) 
 authRouter.post('/logout', (req, res) => {
   const token = readCookie(req, SESSION_COOKIE_NAME);
   if (token) deleteWebSession(token);
+  res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
+  res.json({ ok: true });
+});
+
+/**
+ * «Выйти со всех устройств» — обрывает все веб-сессии пользователя (все
+ * браузеры, где он входил по коду в чате с ботом), не только текущую.
+ * Работает и из Mini App (initData), и из браузерной сессии (cookie) —
+ * requireTelegramAuth принимает оба способа и уже определяет user.
+ */
+authRouter.post('/logout-all', requireTelegramAuth, (req, res) => {
+  const { user } = req as AuthedRequest;
+  deleteAllWebSessionsForUser(user.telegram_id);
   res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });
   res.json({ ok: true });
 });

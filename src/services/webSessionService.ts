@@ -31,6 +31,11 @@ export function deleteWebSession(token: string): void {
   db.prepare('DELETE FROM web_sessions WHERE token = ?').run(token);
 }
 
+/** Обрывает все веб-сессии пользователя разом — кнопка «Выйти со всех устройств». */
+export function deleteAllWebSessionsForUser(userId: number): void {
+  db.prepare('DELETE FROM web_sessions WHERE user_id = ?').run(userId);
+}
+
 /**
  * Короткий числовой код для входа в браузерной версии: пользователь
  * получает его на сайте и присылает боту в чат — в Telegram или в MAX,

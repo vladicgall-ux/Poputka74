@@ -29,45 +29,50 @@ export class BookingError extends Error {}
  * бронирования со статусом 'pending' — место удерживается сразу, чтобы
  * его не забрал кто-то другой, но окончательно бронь становится только
  * после того, как водитель подтвердит её кнопкой в чате с ботом.
+ *
+ * Обёрнуто в db.transaction(): better-sqlite3 синхронный, поэтому в рамках
+ * одного вызова гонки между запросами и так исключены (event loop
+ * однопоточный, между шагами нет await) — но без транзакции ошибка на
+ * INSERT (после того как decrementSeats уже отнял места) оставила бы
+ * seats_available уменьшённым без создания брони. Транзакция откатывает
+ * decrementSeats при любом throw ниже по функции.
  */
-export function createBooking(input: {
-  rideId: number;
-  passengerId: number;
-  seats: number;
-}): BookingRecord {
-  const ride = getRide(input.rideId);
-  if (!ride || ride.status !== 'active') {
-    throw new BookingError('Поездка недоступна');
-  }
-  if (new Date(ride.departure_at).getTime() < Date.now()) {
-    throw new BookingError('Поездка уже состоялась');
-  }
-  if (ride.driver_id === input.passengerId) {
-    throw new BookingError('Нельзя забронировать место в собственной поездке');
-  }
+export const createBooking = db.transaction(
+  (input: { rideId: number; passengerId: number; seats: number }): BookingRecord => {
+    const ride = getRide(input.rideId);
+    if (!ride || ride.status !== 'active') {
+      throw new BookingError('Поездка недоступна');
+    }
+    if (new Date(ride.departure_at).getTime() < Date.now()) {
+      throw new BookingError('Поездка уже состоялась');
+    }
+    if (ride.driver_id === input.passengerId) {
+      throw new BookingError('Нельзя забронировать место в собственной поездке');
+    }
 
-  const already = db
-    .prepare(
-      `SELECT COALESCE(SUM(seats_booked), 0) AS total FROM bookings
-       WHERE ride_id = ? AND passenger_id = ? AND status IN ('pending', 'confirmed')`
-    )
-    .get(input.rideId, input.passengerId) as { total: number };
-  if (already.total > 0) {
-    throw new BookingError('Вы уже забронировали место в этой поездке');
+    const already = db
+      .prepare(
+        `SELECT COALESCE(SUM(seats_booked), 0) AS total FROM bookings
+         WHERE ride_id = ? AND passenger_id = ? AND status IN ('pending', 'confirmed')`
+      )
+      .get(input.rideId, input.passengerId) as { total: number };
+    if (already.total > 0) {
+      throw new BookingError('Вы уже забронировали место в этой поездке');
+    }
+
+    const ok = decrementSeats(input.rideId, input.seats);
+    if (!ok) {
+      throw new BookingError('Недостаточно свободных мест');
+    }
+
+    const info = db
+      .prepare(`INSERT INTO bookings (ride_id, passenger_id, seats_booked) VALUES (?, ?, ?)`)
+      .run(input.rideId, input.passengerId, input.seats);
+    return db.prepare('SELECT * FROM bookings WHERE id = ?').get(info.lastInsertRowid) as BookingRecord;
   }
+);
 
-  const ok = decrementSeats(input.rideId, input.seats);
-  if (!ok) {
-    throw new BookingError('Недостаточно свободных мест');
-  }
-
-  const info = db
-    .prepare(`INSERT INTO bookings (ride_id, passenger_id, seats_booked) VALUES (?, ?, ?)`)
-    .run(input.rideId, input.passengerId, input.seats);
-  return db.prepare('SELECT * FROM bookings WHERE id = ?').get(info.lastInsertRowid) as BookingRecord;
-}
-
-export function cancelBooking(bookingId: number, passengerId: number): BookingRecord {
+export const cancelBooking = db.transaction((bookingId: number, passengerId: number): BookingRecord => {
   const booking = db
     .prepare('SELECT * FROM bookings WHERE id = ? AND passenger_id = ?')
     .get(bookingId, passengerId) as BookingRecord | undefined;
@@ -77,7 +82,7 @@ export function cancelBooking(bookingId: number, passengerId: number): BookingRe
   db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
   incrementSeats(booking.ride_id, booking.seats_booked);
   return { ...booking, status: 'cancelled' };
-}
+});
 
 /** Сколько броней пассажир отменил сам — сигнал для модерации в админке. */
 export function countCancelledBookingsByPassenger(passengerId: number): number {
@@ -104,7 +109,7 @@ export function confirmBooking(bookingId: number, driverId: number): BookingReco
 }
 
 /** Водитель отклоняет бронь — место возвращается в число свободных. */
-export function declineBooking(bookingId: number, driverId: number): BookingRecord {
+export const declineBooking = db.transaction((bookingId: number, driverId: number): BookingRecord => {
   const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId) as
     | BookingRecord
     | undefined;
@@ -118,7 +123,7 @@ export function declineBooking(bookingId: number, driverId: number): BookingReco
   db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
   incrementSeats(booking.ride_id, booking.seats_booked);
   return { ...booking, status: 'cancelled' };
-}
+});
 
 export interface BookingWithPeople extends BookingWithRide {
   passenger_first_name: string;

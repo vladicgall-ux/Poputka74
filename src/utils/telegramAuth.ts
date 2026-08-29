@@ -33,16 +33,32 @@ export function validateInitData(initData: string): ValidatedInitData | null {
   }
 
   const authDate = Number(params.get('auth_date') ?? 0);
-  // initData считается просроченной через 24 часа
-  if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
+  const now = Date.now() / 1000;
+  // initData считается просроченной через 24 часа. Верхнюю границу (now + 5
+  // минут) проверяем на случай будущей даты — она бы никогда не устарела.
+  if (!Number.isFinite(authDate) || authDate <= 0 || authDate > now + 300 || now - authDate > 60 * 60 * 24) {
     return null;
   }
 
   const userRaw = params.get('user');
   if (!userRaw) return null;
 
-  const parsed = JSON.parse(userRaw) as TelegramProfile;
-  return { user: parsed, authDate };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(userRaw);
+  } catch {
+    return null;
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    typeof (parsed as { id?: unknown }).id !== 'number' ||
+    typeof (parsed as { first_name?: unknown }).first_name !== 'string'
+  ) {
+    return null;
+  }
+
+  return { user: parsed as TelegramProfile, authDate };
 }
 
 function timingSafeEqualHex(a: string, b: string): boolean {

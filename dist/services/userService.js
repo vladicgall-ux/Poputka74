@@ -16,9 +16,23 @@ exports.getDriverProfile = getDriverProfile;
 exports.upsertDriverProfile = upsertDriverProfile;
 exports.setDriverPhoto = setDriverPhoto;
 const db_1 = require("../db/db");
+const LAST_SEEN_THROTTLE_MS = 5 * 60000;
 function upsertUser(profile) {
-    // last_seen_at обновляется на каждый вызов — upsertUser выполняется
-    // из requireTelegramAuth на любом запросе к API, это и есть метка "онлайн".
+    const existing = getUser(profile.id);
+    const lastName = profile.last_name ?? null;
+    const username = profile.username ?? null;
+    // requireTelegramAuth вызывает upsertUser на КАЖДЫЙ запрос к API — если
+    // пользователь уже есть, профиль не изменился и last_seen_at свежее
+    // 5 минут, пропускаем запись вовсе: незачем на каждый GET дёргать диск
+    // одним и тем же значением last_seen_at.
+    if (existing &&
+        existing.first_name === profile.first_name &&
+        existing.last_name === lastName &&
+        existing.username === username &&
+        existing.last_seen_at &&
+        Date.now() - Date.parse(existing.last_seen_at + 'Z') < LAST_SEEN_THROTTLE_MS) {
+        return existing;
+    }
     db_1.db.prepare(`INSERT INTO users (telegram_id, first_name, last_name, username, last_seen_at)
      VALUES (@id, @first_name, @last_name, @username, datetime('now'))
      ON CONFLICT(telegram_id) DO UPDATE SET
@@ -28,8 +42,8 @@ function upsertUser(profile) {
        last_seen_at = datetime('now')`).run({
         id: profile.id,
         first_name: profile.first_name,
-        last_name: profile.last_name ?? null,
-        username: profile.username ?? null,
+        last_name: lastName,
+        username,
     });
     return getUser(profile.id);
 }
@@ -52,12 +66,22 @@ function realMaxUserId(user) {
 }
 function upsertMaxUser(profile) {
     const storageId = maxStorageId(profile.id);
+    const existing = getUser(storageId);
+    const username = profile.username ?? null;
+    // См. комментарий в upsertUser() — та же троттлинг-логика для MAX.
+    if (existing &&
+        existing.first_name === profile.name &&
+        existing.username === username &&
+        existing.last_seen_at &&
+        Date.now() - Date.parse(existing.last_seen_at + 'Z') < LAST_SEEN_THROTTLE_MS) {
+        return existing;
+    }
     db_1.db.prepare(`INSERT INTO users (telegram_id, platform, first_name, username, last_seen_at)
      VALUES (@id, 'max', @first_name, @username, datetime('now'))
      ON CONFLICT(telegram_id) DO UPDATE SET
        first_name = excluded.first_name,
        username = excluded.username,
-       last_seen_at = datetime('now')`).run({ id: storageId, first_name: profile.name, username: profile.username ?? null });
+       last_seen_at = datetime('now')`).run({ id: storageId, first_name: profile.name, username });
     return getUser(storageId);
 }
 function setPhoneVerified(telegramId, phone) {

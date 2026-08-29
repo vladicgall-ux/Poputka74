@@ -1,6 +1,7 @@
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { config } from '../../config';
 import type { AuthedRequest } from './auth';
 
@@ -87,5 +88,39 @@ export function isValidImageFile(filePath: string): boolean {
     return false;
   } finally {
     fs.closeSync(fd);
+  }
+}
+
+const MAX_IMAGE_DIMENSION = 5000;
+const MAX_IMAGE_PIXELS = 20_000_000;
+
+/**
+ * Небольшой файл может быть JPEG/PNG-«бомбой» — валидные магические байты,
+ * но при декодировании разворачивается в изображение в десятки тысяч
+ * пикселей по стороне, съедая всю память процесса (image bomb). sharp с
+ * limitInputPixels откажется декодировать такое ещё на этапе чтения
+ * заголовка, не выделяя память под сам пиксельный буфер. Заодно
+ * перекодируем файл — это на всякий случай убирает любые встроенные
+ * данные оригинала (EXIF и т.п.), которые не проходят через декодер как
+ * обычные пиксели. Возвращает false, если файл не удалось безопасно
+ * обработать — тогда вызывающий код должен удалить файл и отклонить запрос.
+ */
+export async function processUploadedImage(filePath: string, mimetype: string): Promise<boolean> {
+  try {
+    const probe = sharp(filePath, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: 'error' });
+    const metadata = await probe.metadata();
+    if (!metadata.width || !metadata.height) return false;
+    if (metadata.width > MAX_IMAGE_DIMENSION || metadata.height > MAX_IMAGE_DIMENSION) return false;
+
+    let pipeline = sharp(filePath, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate();
+    if (mimetype === 'image/png') pipeline = pipeline.png();
+    else if (mimetype === 'image/webp') pipeline = pipeline.webp();
+    else pipeline = pipeline.jpeg();
+
+    const buffer = await pipeline.toBuffer();
+    fs.writeFileSync(filePath, buffer);
+    return true;
+  } catch {
+    return false;
   }
 }

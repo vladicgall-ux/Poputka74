@@ -25,11 +25,28 @@ export function createApp() {
       // Mini App должен встраиваться Telegram (в т.ч. в iframe на web.telegram.org) —
       // стандартный X-Frame-Options: SAMEORIGIN это ломает.
       frameguard: false,
-      // Строгий CSP без 'unsafe-inline' сломает существующую вёрстку (inline style=...),
-      // а тестировать реальный Telegram WebView здесь негде — оставляем выключенным,
-      // остальные защитные заголовки helmet (nosniff, HSTS, скрытие X-Powered-By и т.д.)
-      // включены и работают.
-      contentSecurityPolicy: false,
+      // CSP: дефолты helmet уже допускают инлайн-style (style-src включает
+      // 'unsafe-inline' по умолчанию — вёрстка с inline style="..." не
+      // ломается), поэтому здесь переопределяем только три директивы:
+      // - script-src: по умолчанию только 'self', добавляем CDN Telegram и
+      //   MAX — оттуда грузятся мостовые скрипты платформ (<script src=...>
+      //   в index.html). Инлайн-<script> в приложении нет вообще (все
+      //   обработчики через addEventListener в app.js), так что 'self' + эти
+      //   два домена — и никакой сторонний/инжектированный скрипт (например,
+      //   через XSS, если где-то пропущен escapeHtml) выполниться не сможет.
+      // - img-src: по умолчанию 'self' и data: — добавляем blob:, он нужен
+      //   для превью выбранного файла перед загрузкой (URL.createObjectURL).
+      // - frame-ancestors: у helmet по умолчанию 'self', что запретило бы
+      //   Telegram/MAX встраивать Mini App в свой WebView/iframe — убираем
+      //   директиву совсем (null), это то же поведение, что и раньше при
+      //   полностью выключенном CSP.
+      contentSecurityPolicy: {
+        directives: {
+          scriptSrc: ["'self'", 'https://telegram.org', 'https://st.max.ru'],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          frameAncestors: null,
+        },
+      },
       // По умолчанию helmet ставит Referrer-Policy: no-referrer — из-за этого
       // браузер не передаёт заголовок Referer при обращении Telegram Login
       // Widget к oauth.telegram.org, а Telegram сверяет домен именно по нему.

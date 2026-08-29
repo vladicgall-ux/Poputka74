@@ -9,6 +9,7 @@ const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
 const userService_1 = require("../../services/userService");
 const displayName_1 = require("../../utils/displayName");
+const parseId_1 = require("../utils/parseId");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -62,8 +63,13 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
 });
 exports.bookingsRouter.post('/:id/cancel', async (req, res) => {
     const { user } = req;
+    const bookingId = (0, parseId_1.parseId)(req.params.id);
+    if (!bookingId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
     try {
-        const booking = (0, bookingService_1.cancelBooking)(Number(req.params.id), user.telegram_id);
+        const booking = (0, bookingService_1.cancelBooking)(bookingId, user.telegram_id);
         const ride = (0, rideService_1.getRideWithDriver)(booking.ride_id);
         if (ride) {
             const driver = (0, userService_1.getUser)(ride.driver_id);

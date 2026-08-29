@@ -15,6 +15,10 @@ if (!fs_1.default.existsSync(dbDir)) {
 exports.db = new better_sqlite3_1.default(config_1.config.dbPath);
 exports.db.pragma('journal_mode = WAL');
 exports.db.pragma('foreign_keys = ON');
+// Без этого параллельная запись (например, периодическая задача и HTTP-запрос
+// почти одновременно) сразу получила бы SQLITE_BUSY вместо короткого
+// ожидания снятия блокировки другим соединением.
+exports.db.pragma('busy_timeout = 5000');
 const schema = fs_1.default.readFileSync(path_1.default.join(__dirname, 'schema.sql'), 'utf-8');
 exports.db.exec(schema);
 /**
@@ -106,4 +110,7 @@ if (!columnExists('users', 'phone_reminder_sent_at')) {
 }
 if (!columnExists('login_codes', 'poll_token')) {
     exports.db.exec(`ALTER TABLE login_codes ADD COLUMN poll_token TEXT`);
+}
+if (!columnExists('login_codes', 'used_at')) {
+    exports.db.exec(`ALTER TABLE login_codes ADD COLUMN used_at TEXT`);
 }

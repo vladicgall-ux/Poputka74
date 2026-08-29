@@ -1,11 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BookingError = void 0;
-exports.createBooking = createBooking;
-exports.cancelBooking = cancelBooking;
+exports.declineBooking = exports.cancelBooking = exports.createBooking = exports.BookingError = void 0;
 exports.countCancelledBookingsByPassenger = countCancelledBookingsByPassenger;
 exports.confirmBooking = confirmBooking;
-exports.declineBooking = declineBooking;
 exports.getBookingWithPeople = getBookingWithPeople;
 exports.listAllBookings = listAllBookings;
 exports.listBookingsByPassenger = listBookingsByPassenger;
@@ -25,8 +22,15 @@ exports.BookingError = BookingError;
  * бронирования со статусом 'pending' — место удерживается сразу, чтобы
  * его не забрал кто-то другой, но окончательно бронь становится только
  * после того, как водитель подтвердит её кнопкой в чате с ботом.
+ *
+ * Обёрнуто в db.transaction(): better-sqlite3 синхронный, поэтому в рамках
+ * одного вызова гонки между запросами и так исключены (event loop
+ * однопоточный, между шагами нет await) — но без транзакции ошибка на
+ * INSERT (после того как decrementSeats уже отнял места) оставила бы
+ * seats_available уменьшённым без создания брони. Транзакция откатывает
+ * decrementSeats при любом throw ниже по функции.
  */
-function createBooking(input) {
+exports.createBooking = db_1.db.transaction((input) => {
     const ride = (0, rideService_1.getRide)(input.rideId);
     if (!ride || ride.status !== 'active') {
         throw new BookingError('Поездка недоступна');
@@ -39,7 +43,7 @@ function createBooking(input) {
     }
     const already = db_1.db
         .prepare(`SELECT COALESCE(SUM(seats_booked), 0) AS total FROM bookings
-       WHERE ride_id = ? AND passenger_id = ? AND status IN ('pending', 'confirmed')`)
+         WHERE ride_id = ? AND passenger_id = ? AND status IN ('pending', 'confirmed')`)
         .get(input.rideId, input.passengerId);
     if (already.total > 0) {
         throw new BookingError('Вы уже забронировали место в этой поездке');
@@ -52,8 +56,8 @@ function createBooking(input) {
         .prepare(`INSERT INTO bookings (ride_id, passenger_id, seats_booked) VALUES (?, ?, ?)`)
         .run(input.rideId, input.passengerId, input.seats);
     return db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(info.lastInsertRowid);
-}
-function cancelBooking(bookingId, passengerId) {
+});
+exports.cancelBooking = db_1.db.transaction((bookingId, passengerId) => {
     const booking = db_1.db
         .prepare('SELECT * FROM bookings WHERE id = ? AND passenger_id = ?')
         .get(bookingId, passengerId);
@@ -63,7 +67,7 @@ function cancelBooking(bookingId, passengerId) {
     db_1.db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
-}
+});
 /** Сколько броней пассажир отменил сам — сигнал для модерации в админке. */
 function countCancelledBookingsByPassenger(passengerId) {
     const row = db_1.db
@@ -85,7 +89,7 @@ function confirmBooking(bookingId, driverId) {
     return { ...booking, status: 'confirmed' };
 }
 /** Водитель отклоняет бронь — место возвращается в число свободных. */
-function declineBooking(bookingId, driverId) {
+exports.declineBooking = db_1.db.transaction((bookingId, driverId) => {
     const booking = db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
     if (!booking || booking.status !== 'pending') {
         throw new BookingError('Бронирование уже обработано');
@@ -97,7 +101,7 @@ function declineBooking(bookingId, driverId) {
     db_1.db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
-}
+});
 /** Полный контекст брони (поездка + пассажир + водитель) для сообщений бота. */
 function getBookingWithPeople(bookingId) {
     return db_1.db

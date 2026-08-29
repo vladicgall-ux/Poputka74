@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import fs from 'fs';
 import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
-import { uploadBroadcastPhoto, isValidImageFile } from '../middleware/upload';
+import { uploadBroadcastPhoto, isValidImageFile, processUploadedImage } from '../middleware/upload';
 import { config } from '../../config';
 import { listAllUsers, listActiveUserIds, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
 import { listAllRides, listRidesByDriver, countCancelledRidesByDriver } from '../../services/rideService';
@@ -11,6 +11,7 @@ import { listAllSupportMessages, createAdminReply } from '../../services/support
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
 import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { notifyPhoto, notifyUser } from '../../bot/notifier';
+import { parseSignedId } from '../utils/parseId';
 
 export const adminRouter = Router();
 
@@ -35,7 +36,11 @@ adminRouter.get('/users', (_req, res) => {
 
 /** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
 adminRouter.get('/users/:id', (req, res) => {
-  const telegramId = Number(req.params.id);
+  const telegramId = parseSignedId(req.params.id);
+  if (!telegramId) {
+    res.status(400).json({ error: 'Некорректный ID' });
+    return;
+  }
   const user = getUser(telegramId);
   if (!user) {
     res.status(404).json({ error: 'Пользователь не найден' });
@@ -79,7 +84,11 @@ adminRouter.get('/support', (_req, res) => {
 
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
 adminRouter.post('/support/:userId/reply', async (req, res) => {
-  const userId = Number(req.params.userId);
+  const userId = parseSignedId(req.params.userId);
+  if (!userId) {
+    res.status(400).json({ error: 'Некорректный ID' });
+    return;
+  }
   const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
   if (!message) {
     res.status(400).json({ error: 'Введите текст ответа' });
@@ -125,13 +134,27 @@ adminRouter.post(
       res.status(400).json({ error: 'Добавьте текст или фото' });
       return;
     }
-    if (file && !isValidImageFile(file.path)) {
-      fs.unlink(file.path, () => {});
-      res.status(400).json({ error: 'Файл повреждён или не является изображением' });
-      return;
+    if (file) {
+      if (!isValidImageFile(file.path)) {
+        fs.unlink(file.path, () => {});
+        res.status(400).json({ error: 'Файл повреждён или не является изображением' });
+        return;
+      }
+      if (!(await processUploadedImage(file.path, file.mimetype))) {
+        fs.unlink(file.path, () => {});
+        res.status(400).json({ error: 'Не удалось обработать изображение — попробуйте другой файл' });
+        return;
+      }
     }
 
     const recipients = listActiveUserIds();
+    // Отвечаем сразу, не дожидаясь конца рассылки: при сотнях получателей
+    // с паузой 40мс + временем самого запроса к Telegram/MAX это легко
+    // уходит за 30-60 секунд — типичный таймаут реверс-прокси на хостинге,
+    // который просто оборвал бы соединение с клиентом на середине рассылки.
+    // Сама отправка продолжается в фоне уже после ответа.
+    res.json({ accepted: true, total: recipients.length });
+
     let sent = 0;
     for (const telegramId of recipients) {
       const recipient = getUser(telegramId);
@@ -151,13 +174,17 @@ adminRouter.post(
       fs.unlink(file.path, () => {});
     }
 
-    res.json({ sent, total: recipients.length });
+    console.log(`Рассылка завершена: отправлено ${sent} из ${recipients.length}`);
   }
 );
 
 function setBan(banned: boolean) {
   return (req: Request, res: Response) => {
-    const telegramId = Number(req.params.id);
+    const telegramId = parseSignedId(req.params.id);
+    if (!telegramId) {
+      res.status(400).json({ error: 'Некорректный ID' });
+      return;
+    }
     if (config.adminIds.includes(telegramId)) {
       res.status(400).json({ error: 'Нельзя заблокировать администратора' });
       return;

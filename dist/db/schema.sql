@@ -143,5 +143,6 @@ CREATE TABLE IF NOT EXISTS login_codes (
   poll_token  TEXT,
   user_id     INTEGER REFERENCES users(telegram_id),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-  expires_at  TEXT NOT NULL
+  expires_at  TEXT NOT NULL,
+  used_at     TEXT
 );

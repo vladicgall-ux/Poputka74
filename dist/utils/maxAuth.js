@@ -46,8 +46,11 @@ function validateMaxInitData(initData) {
         return null;
     }
     const authDate = Number(params.get('auth_date') ?? 0);
-    if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
-        log('просрочено или нет auth_date');
+    const now = Date.now() / 1000;
+    // Верхнюю границу (now + 5 минут) проверяем на случай будущей даты —
+    // такая initData иначе никогда не считалась бы просроченной.
+    if (!Number.isFinite(authDate) || authDate <= 0 || authDate > now + 300 || now - authDate > 60 * 60 * 24) {
+        log('просрочено, из будущего или нет auth_date');
         return null;
     }
     const userRaw = params.get('user');
@@ -55,11 +58,23 @@ function validateMaxInitData(initData) {
         log('нет поля user');
         return null;
     }
-    const parsed = JSON.parse(userRaw);
+    let parsed;
+    try {
+        parsed = JSON.parse(userRaw);
+    }
+    catch {
+        log('поле user — невалидный JSON');
+        return null;
+    }
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'number') {
+        log('поле user имеет неверную структуру');
+        return null;
+    }
+    const raw = parsed;
     const user = {
-        id: parsed.id,
-        name: parsed.name ?? parsed.first_name ?? 'Пользователь MAX',
-        username: parsed.username ?? null,
+        id: raw.id,
+        name: raw.name ?? raw.first_name ?? 'Пользователь MAX',
+        username: raw.username ?? null,
     };
     return { user, authDate };
 }

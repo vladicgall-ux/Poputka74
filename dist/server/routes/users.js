@@ -73,27 +73,44 @@ exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.
         }
         next();
     });
-}, (req, res) => {
+}, async (req, res) => {
     const { user } = req;
     const file = req.file;
     if (!file) {
         res.status(400).json({ error: 'Файл не получен' });
         return;
     }
-    if (!(0, upload_1.isValidImageFile)(file.path)) {
-        fs_1.default.unlink(file.path, () => { });
-        res.status(400).json({ error: 'Файл повреждён или не является изображением' });
-        return;
+    // Файл только что сохранён multer на диск — если запрос отклонён
+    // на любом шаге ниже (плохой файл, нет анкеты, неожиданная ошибка),
+    // он должен быть удалён, а не оставаться orphan-файлом в uploads.
+    let keepFile = false;
+    try {
+        if (!(0, upload_1.isValidImageFile)(file.path)) {
+            res.status(400).json({ error: 'Файл повреждён или не является изображением' });
+            return;
+        }
+        // Декодирует, проверяет реальные размеры (защита от image bomb) и
+        // перекодирует файл — см. upload.ts. Делает лишним отдельный вызов
+        // isValidImageFile() выше по сути, но тот дешёвый и быстро отсеивает
+        // явный мусор ещё до запуска sharp.
+        if (!(await (0, upload_1.processUploadedImage)(file.path, file.mimetype))) {
+            res.status(400).json({ error: 'Не удалось обработать изображение — попробуйте другой файл' });
+            return;
+        }
+        const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id);
+        if (!driverProfile) {
+            res.status(403).json({ error: 'Сначала сохраните анкету водителя' });
+            return;
+        }
+        if (driverProfile.photo_path) {
+            fs_1.default.unlink(path_1.default.join(upload_1.uploadsDir, path_1.default.basename(driverProfile.photo_path)), () => { });
+        }
+        (0, userService_1.setDriverPhoto)(user.telegram_id, file.filename);
+        keepFile = true;
+        res.json({ photoUrl: `/uploads/${file.filename}` });
     }
-    const driverProfile = (0, userService_1.getDriverProfile)(user.telegram_id);
-    if (!driverProfile) {
-        fs_1.default.unlink(file.path, () => { });
-        res.status(403).json({ error: 'Сначала сохраните анкету водителя' });
-        return;
+    finally {
+        if (!keepFile)
+            fs_1.default.unlink(file.path, () => { });
     }
-    if (driverProfile.photo_path) {
-        fs_1.default.unlink(path_1.default.join(upload_1.uploadsDir, driverProfile.photo_path), () => { });
-    }
-    (0, userService_1.setDriverPhoto)(user.telegram_id, file.filename);
-    res.json({ photoUrl: `/uploads/${file.filename}` });
 });

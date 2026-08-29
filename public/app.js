@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '55';
+  const APP_VERSION = '56';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -1451,7 +1451,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Ошибка рассылки');
-      toast(`Отправлено ${data.sent} из ${data.total}`);
+      toast(`Рассылка запущена — получателей: ${data.total}`);
       messageInput.value = '';
       photoInput.value = '';
       document.getElementById('broadcastPinInput').checked = false;

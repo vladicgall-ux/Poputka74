@@ -17,6 +17,7 @@ const supportService_1 = require("../../services/supportService");
 const statsService_1 = require("../../services/statsService");
 const ratingService_1 = require("../../services/ratingService");
 const notifier_1 = require("../../bot/notifier");
+const parseId_1 = require("../utils/parseId");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
 exports.adminRouter.use((req, res, next) => {
@@ -35,7 +36,11 @@ exports.adminRouter.get('/users', (_req, res) => {
 });
 /** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
 exports.adminRouter.get('/users/:id', (req, res) => {
-    const telegramId = Number(req.params.id);
+    const telegramId = (0, parseId_1.parseSignedId)(req.params.id);
+    if (!telegramId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
     const user = (0, userService_1.getUser)(telegramId);
     if (!user) {
         res.status(404).json({ error: 'Пользователь не найден' });
@@ -75,7 +80,11 @@ exports.adminRouter.get('/support', (_req, res) => {
 });
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
 exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
-    const userId = Number(req.params.userId);
+    const userId = (0, parseId_1.parseSignedId)(req.params.userId);
+    if (!userId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     if (!message) {
         res.status(400).json({ error: 'Введите текст ответа' });
@@ -114,12 +123,25 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
         res.status(400).json({ error: 'Добавьте текст или фото' });
         return;
     }
-    if (file && !(0, upload_1.isValidImageFile)(file.path)) {
-        fs_1.default.unlink(file.path, () => { });
-        res.status(400).json({ error: 'Файл повреждён или не является изображением' });
-        return;
+    if (file) {
+        if (!(0, upload_1.isValidImageFile)(file.path)) {
+            fs_1.default.unlink(file.path, () => { });
+            res.status(400).json({ error: 'Файл повреждён или не является изображением' });
+            return;
+        }
+        if (!(await (0, upload_1.processUploadedImage)(file.path, file.mimetype))) {
+            fs_1.default.unlink(file.path, () => { });
+            res.status(400).json({ error: 'Не удалось обработать изображение — попробуйте другой файл' });
+            return;
+        }
     }
     const recipients = (0, userService_1.listActiveUserIds)();
+    // Отвечаем сразу, не дожидаясь конца рассылки: при сотнях получателей
+    // с паузой 40мс + временем самого запроса к Telegram/MAX это легко
+    // уходит за 30-60 секунд — типичный таймаут реверс-прокси на хостинге,
+    // который просто оборвал бы соединение с клиентом на середине рассылки.
+    // Сама отправка продолжается в фоне уже после ответа.
+    res.json({ accepted: true, total: recipients.length });
     let sent = 0;
     for (const telegramId of recipients) {
         const recipient = (0, userService_1.getUser)(telegramId);
@@ -138,11 +160,15 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
     if (file) {
         fs_1.default.unlink(file.path, () => { });
     }
-    res.json({ sent, total: recipients.length });
+    console.log(`Рассылка завершена: отправлено ${sent} из ${recipients.length}`);
 });
 function setBan(banned) {
     return (req, res) => {
-        const telegramId = Number(req.params.id);
+        const telegramId = (0, parseId_1.parseSignedId)(req.params.id);
+        if (!telegramId) {
+            res.status(400).json({ error: 'Некорректный ID' });
+            return;
+        }
         if (config_1.config.adminIds.includes(telegramId)) {
             res.status(400).json({ error: 'Нельзя заблокировать администратора' });
             return;

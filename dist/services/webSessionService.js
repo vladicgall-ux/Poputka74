@@ -70,21 +70,36 @@ function consumeLoginCode(code, userId) {
         .run(userId, code);
     return result.changes > 0;
 }
-/** Опрос со страницы браузера: подтверждён ли код и кем. Требует pollToken,
- *  выданный именно этому браузеру при создании кода — см. комментарий выше. */
+/**
+ * Опрос со страницы браузера: подтверждён ли код и кем. Требует pollToken,
+ * выданный именно этому браузеру при создании кода — см. комментарий выше.
+ *
+ * Код одноразовый: как только по нему выдана сессия, отмечаем used_at —
+ * иначе повторный опрос (два открытых окна с одним кодом, дублирующийся
+ * тик polling-таймера) мог бы получить ещё одну валидную сессию по тому же
+ * коду. Пометка использованным — отдельный атомарный UPDATE с проверкой
+ * changes > 0, поэтому даже при двух одновременных вызовах сессию получит
+ * только один из них.
+ */
 function checkLoginCode(code, pollToken) {
     if (!code || !pollToken)
         return null;
     const row = db_1.db
-        .prepare(`SELECT user_id, poll_token FROM login_codes WHERE code = ? AND expires_at > datetime('now')`)
+        .prepare(`SELECT user_id, poll_token FROM login_codes
+       WHERE code = ? AND expires_at > datetime('now') AND used_at IS NULL`)
         .get(code);
-    if (!row || !row.poll_token)
+    if (!row || !row.poll_token || row.user_id === null)
         return null;
     const expected = Buffer.from(row.poll_token);
     const actual = Buffer.from(pollToken);
     if (expected.length !== actual.length || !crypto_1.default.timingSafeEqual(expected, actual))
         return null;
-    return row.user_id ?? null;
+    const result = db_1.db
+        .prepare(`UPDATE login_codes SET used_at = datetime('now') WHERE code = ? AND used_at IS NULL`)
+        .run(code);
+    if (result.changes === 0)
+        return null;
+    return row.user_id;
 }
 /** Чистит истёкшие сессии и коды — вызывается из периодических задач в index.ts. */
 function sweepExpiredWebAuth() {

@@ -29,14 +29,28 @@ function validateInitData(initData) {
         return null;
     }
     const authDate = Number(params.get('auth_date') ?? 0);
-    // initData считается просроченной через 24 часа
-    if (!authDate || Date.now() / 1000 - authDate > 60 * 60 * 24) {
+    const now = Date.now() / 1000;
+    // initData считается просроченной через 24 часа. Верхнюю границу (now + 5
+    // минут) проверяем на случай будущей даты — она бы никогда не устарела.
+    if (!Number.isFinite(authDate) || authDate <= 0 || authDate > now + 300 || now - authDate > 60 * 60 * 24) {
         return null;
     }
     const userRaw = params.get('user');
     if (!userRaw)
         return null;
-    const parsed = JSON.parse(userRaw);
+    let parsed;
+    try {
+        parsed = JSON.parse(userRaw);
+    }
+    catch {
+        return null;
+    }
+    if (!parsed ||
+        typeof parsed !== 'object' ||
+        typeof parsed.id !== 'number' ||
+        typeof parsed.first_name !== 'string') {
+        return null;
+    }
     return { user: parsed, authDate };
 }
 function timingSafeEqualHex(a, b) {

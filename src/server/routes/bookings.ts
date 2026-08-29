@@ -6,6 +6,7 @@ import { getRideWithDriver } from '../../services/rideService';
 import { notifyUser, type ActionButton } from '../../bot/notifier';
 import { getUser } from '../../services/userService';
 import { displayName, platformLabel } from '../../utils/displayName';
+import { parseId } from '../utils/parseId';
 
 export const bookingsRouter = Router();
 
@@ -76,8 +77,13 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
 
 bookingsRouter.post('/:id/cancel', async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
+  const bookingId = parseId(req.params.id);
+  if (!bookingId) {
+    res.status(400).json({ error: 'Некорректный ID' });
+    return;
+  }
   try {
-    const booking = cancelBooking(Number(req.params.id), user.telegram_id);
+    const booking = cancelBooking(bookingId, user.telegram_id);
     const ride = getRideWithDriver(booking.ride_id);
     if (ride) {
       const driver = getUser(ride.driver_id);

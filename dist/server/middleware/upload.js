@@ -5,9 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadBroadcastPhoto = exports.uploadDriverPhoto = exports.uploadsDir = void 0;
 exports.isValidImageFile = isValidImageFile;
+exports.processUploadedImage = processUploadedImage;
 const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const sharp_1 = __importDefault(require("sharp"));
 const config_1 = require("../../config");
 exports.uploadsDir = path_1.default.join(path_1.default.dirname(config_1.config.dbPath), 'uploads');
 if (!fs_1.default.existsSync(exports.uploadsDir)) {
@@ -90,5 +92,41 @@ function isValidImageFile(filePath) {
     }
     finally {
         fs_1.default.closeSync(fd);
+    }
+}
+const MAX_IMAGE_DIMENSION = 5000;
+const MAX_IMAGE_PIXELS = 20000000;
+/**
+ * Небольшой файл может быть JPEG/PNG-«бомбой» — валидные магические байты,
+ * но при декодировании разворачивается в изображение в десятки тысяч
+ * пикселей по стороне, съедая всю память процесса (image bomb). sharp с
+ * limitInputPixels откажется декодировать такое ещё на этапе чтения
+ * заголовка, не выделяя память под сам пиксельный буфер. Заодно
+ * перекодируем файл — это на всякий случай убирает любые встроенные
+ * данные оригинала (EXIF и т.п.), которые не проходят через декодер как
+ * обычные пиксели. Возвращает false, если файл не удалось безопасно
+ * обработать — тогда вызывающий код должен удалить файл и отклонить запрос.
+ */
+async function processUploadedImage(filePath, mimetype) {
+    try {
+        const probe = (0, sharp_1.default)(filePath, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: 'error' });
+        const metadata = await probe.metadata();
+        if (!metadata.width || !metadata.height)
+            return false;
+        if (metadata.width > MAX_IMAGE_DIMENSION || metadata.height > MAX_IMAGE_DIMENSION)
+            return false;
+        let pipeline = (0, sharp_1.default)(filePath, { limitInputPixels: MAX_IMAGE_PIXELS }).rotate();
+        if (mimetype === 'image/png')
+            pipeline = pipeline.png();
+        else if (mimetype === 'image/webp')
+            pipeline = pipeline.webp();
+        else
+            pipeline = pipeline.jpeg();
+        const buffer = await pipeline.toBuffer();
+        fs_1.default.writeFileSync(filePath, buffer);
+        return true;
+    }
+    catch {
+        return false;
     }
 }

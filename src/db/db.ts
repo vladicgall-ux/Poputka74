@@ -11,6 +11,10 @@ if (!fs.existsSync(dbDir)) {
 export const db = new Database(config.dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+// Без этого параллельная запись (например, периодическая задача и HTTP-запрос
+// почти одновременно) сразу получила бы SQLITE_BUSY вместо короткого
+// ожидания снятия блокировки другим соединением.
+db.pragma('busy_timeout = 5000');
 
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
 db.exec(schema);
@@ -129,4 +133,8 @@ if (!columnExists('users', 'phone_reminder_sent_at')) {
 
 if (!columnExists('login_codes', 'poll_token')) {
   db.exec(`ALTER TABLE login_codes ADD COLUMN poll_token TEXT`);
+}
+
+if (!columnExists('login_codes', 'used_at')) {
+  db.exec(`ALTER TABLE login_codes ADD COLUMN used_at TEXT`);
 }

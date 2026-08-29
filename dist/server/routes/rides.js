@@ -12,6 +12,7 @@ const statsService_1 = require("../../services/statsService");
 const notifier_1 = require("../../bot/notifier");
 const dateFormat_1 = require("../../utils/dateFormat");
 const config_1 = require("../../config");
+const parseId_1 = require("../utils/parseId");
 exports.ridesRouter = (0, express_1.Router)();
 exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 function isCity(value) {
@@ -156,7 +157,12 @@ exports.ridesRouter.post('/templates', (0, rateLimit_1.writeLimiter)(10, 10 * 60
 /** Остановка регулярной поездки — уже созданные rides не трогает, только будущую генерацию. */
 exports.ridesRouter.post('/templates/:id/deactivate', (req, res) => {
     const { user } = req;
-    const ok = (0, rideTemplateService_1.deactivateTemplate)(Number(req.params.id), user.telegram_id);
+    const id = (0, parseId_1.parseId)(req.params.id);
+    if (!id) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
+    const ok = (0, rideTemplateService_1.deactivateTemplate)(id, user.telegram_id);
     if (!ok) {
         res.status(404).json({ error: 'Шаблон не найден' });
         return;
@@ -166,7 +172,11 @@ exports.ridesRouter.post('/templates/:id/deactivate', (req, res) => {
 /** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
 exports.ridesRouter.post('/:id/cancel', async (req, res) => {
     const { user } = req;
-    const rideId = Number(req.params.id);
+    const rideId = (0, parseId_1.parseId)(req.params.id);
+    if (!rideId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 300) : undefined;
     const ok = (0, rideService_1.cancelRide)(rideId, user.telegram_id, reason);
     if (!ok) {
@@ -187,8 +197,13 @@ exports.ridesRouter.post('/:id/cancel', async (req, res) => {
 /** Пассажиры поездки + заработок — видно только водителю этой поездки. */
 exports.ridesRouter.get('/:id/passengers', (req, res) => {
     const { user } = req;
+    const rideId = (0, parseId_1.parseId)(req.params.id);
+    if (!rideId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
     try {
-        const result = (0, bookingService_1.getRidePassengers)(Number(req.params.id), user.telegram_id);
+        const result = (0, bookingService_1.getRidePassengers)(rideId, user.telegram_id);
         res.json(result);
     }
     catch (err) {
@@ -200,7 +215,12 @@ exports.ridesRouter.get('/:id/passengers', (req, res) => {
     }
 });
 exports.ridesRouter.get('/:id', (req, res) => {
-    const ride = (0, rideService_1.getRideWithDriver)(Number(req.params.id));
+    const rideId = (0, parseId_1.parseId)(req.params.id);
+    if (!rideId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
+    const ride = (0, rideService_1.getRideWithDriver)(rideId);
     if (!ride) {
         res.status(404).json({ error: 'Поездка не найдена' });
         return;

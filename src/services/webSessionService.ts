@@ -90,7 +90,7 @@ export function consumeLoginCode(code: string, userId: number): boolean {
  * changes > 0, поэтому даже при двух одновременных вызовах сессию получит
  * только один из них.
  */
-export function checkLoginCode(code: string, pollToken: string): number | null {
+export const checkLoginCode = db.transaction((code: string, pollToken: string): number | null => {
   if (!code || !pollToken) return null;
   const row = db
     .prepare(
@@ -109,7 +109,7 @@ export function checkLoginCode(code: string, pollToken: string): number | null {
   if (result.changes === 0) return null;
 
   return row.user_id;
-}
+});
 
 /** Чистит истёкшие сессии и коды — вызывается из периодических задач в index.ts. */
 export function sweepExpiredWebAuth(): void {

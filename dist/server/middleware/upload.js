@@ -9,6 +9,7 @@ exports.processUploadedImage = processUploadedImage;
 const multer_1 = __importDefault(require("multer"));
 const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
+const crypto_1 = __importDefault(require("crypto"));
 const sharp_1 = __importDefault(require("sharp"));
 const config_1 = require("../../config");
 exports.uploadsDir = path_1.default.join(path_1.default.dirname(config_1.config.dbPath), 'uploads');
@@ -26,7 +27,7 @@ const storage = multer_1.default.diskStorage({
         // Middleware order guarantees requireTelegramAuth ran first, so req.user is set.
         const telegramId = req.user.telegram_id;
         const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
-        cb(null, `driver-${telegramId}-${Date.now()}${ext}`);
+        cb(null, `driver-${telegramId}-${crypto_1.default.randomUUID()}${ext}`);
     },
 });
 exports.uploadDriverPhoto = (0, multer_1.default)({
@@ -44,7 +45,7 @@ const broadcastStorage = multer_1.default.diskStorage({
     destination: (_req, _file, cb) => cb(null, exports.uploadsDir),
     filename: (_req, file, cb) => {
         const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
-        cb(null, `broadcast-${Date.now()}${ext}`);
+        cb(null, `broadcast-${crypto_1.default.randomUUID()}${ext}`);
     },
 });
 /** Фото для массовой рассылки из админки — не привязано к конкретному водителю,

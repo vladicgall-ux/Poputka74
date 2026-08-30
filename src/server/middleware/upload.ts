@@ -1,6 +1,7 @@
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import sharp from 'sharp';
 import { config } from '../../config';
 import type { AuthedRequest } from './auth';
@@ -22,7 +23,7 @@ const storage = multer.diskStorage({
     // Middleware order guarantees requireTelegramAuth ran first, so req.user is set.
     const telegramId = (req as unknown as AuthedRequest).user.telegram_id;
     const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
-    cb(null, `driver-${telegramId}-${Date.now()}${ext}`);
+    cb(null, `driver-${telegramId}-${crypto.randomUUID()}${ext}`);
   },
 });
 
@@ -42,7 +43,7 @@ const broadcastStorage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadsDir),
   filename: (_req, file, cb) => {
     const ext = ALLOWED_TYPES[file.mimetype] ?? '.jpg';
-    cb(null, `broadcast-${Date.now()}${ext}`);
+    cb(null, `broadcast-${crypto.randomUUID()}${ext}`);
   },
 });
 

@@ -3,13 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.checkLoginCode = void 0;
 exports.createWebSession = createWebSession;
 exports.getSessionUser = getSessionUser;
 exports.deleteWebSession = deleteWebSession;
 exports.deleteAllWebSessionsForUser = deleteAllWebSessionsForUser;
 exports.createLoginCode = createLoginCode;
 exports.consumeLoginCode = consumeLoginCode;
-exports.checkLoginCode = checkLoginCode;
 exports.sweepExpiredWebAuth = sweepExpiredWebAuth;
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db/db");
@@ -86,7 +86,7 @@ function consumeLoginCode(code, userId) {
  * changes > 0, поэтому даже при двух одновременных вызовах сессию получит
  * только один из них.
  */
-function checkLoginCode(code, pollToken) {
+exports.checkLoginCode = db_1.db.transaction((code, pollToken) => {
     if (!code || !pollToken)
         return null;
     const row = db_1.db
@@ -105,7 +105,7 @@ function checkLoginCode(code, pollToken) {
     if (result.changes === 0)
         return null;
     return row.user_id;
-}
+});
 /** Чистит истёкшие сессии и коды — вызывается из периодических задач в index.ts. */
 function sweepExpiredWebAuth() {
     db_1.db.prepare(`DELETE FROM web_sessions WHERE expires_at <= datetime('now')`).run();

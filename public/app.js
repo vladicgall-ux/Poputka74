@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '57';
+  const APP_VERSION = '58';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -325,7 +325,7 @@
           : `<span class="badge ok">${ride.seats_available} мест свободно</span>`;
     const driverLine = ride.driver_first_name
       ? `<div class="driver-row">
-          ${ride.photo_path ? `<img class="driver-avatar" src="/uploads/${ride.photo_path}" alt="" />` : ''}
+          ${ride.photo_path ? `<img class="driver-avatar" src="/uploads/${escapeHtml(ride.photo_path)}" alt="" />` : ''}
           <div class="driver">${escapeHtml(ride.driver_full_name || ride.driver_first_name)} · ${escapeHtml(ride.car_model)}${ride.car_color ? ', ' + escapeHtml(ride.car_color) : ''} · ${escapeHtml(ride.car_plate)}</div>
         </div>`
       : '';

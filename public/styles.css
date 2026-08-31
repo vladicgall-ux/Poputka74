@@ -502,6 +502,22 @@ input[type="date"], input[type="datetime-local"] {
 }
 
 /* Страницы оферты / политики конфиденциальности */
+.legal-back-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--secondary-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+}
+.legal-back-link {
+  display: inline-block;
+  color: var(--link);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+}
 .legal .card {
   line-height: 1.55;
   font-size: 14px;

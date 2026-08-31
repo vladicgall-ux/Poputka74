@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Поехали 74 — попутчики Челябинск ⇄ Кунашак</title>
   <!-- Полный <title> — для вкладки браузера и поиска. Для значка на главном
        экране (iOS/Android "Добавить на экран Домой") ОС берёт отдельные
@@ -18,7 +18,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="styles.css?v=50" />
+  <link rel="stylesheet" href="styles.css?v=51" />
   <script src="https://telegram.org/js/telegram-web-app.js" async></script>
   <script src="https://st.max.ru/js/max-web-app.js" async></script>
 </head>
@@ -258,8 +258,14 @@
       </div>
 
       <div class="card" style="margin-top:12px;">
-        <a href="oferta.html" target="_blank" rel="noopener">Пользовательское соглашение</a><br/>
-        <a href="privacy.html" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;">Политика обработки персональных данных</a>
+        <!-- Без target="_blank": внутри Telegram/MAX WebView новая вкладка не
+             открывается — переход происходит в том же окне, но с чистой
+             историей навигации, из которой некуда вернуться (ни системной
+             кнопки "назад" в мини-приложении, ни истории для history.back()).
+             Открываем в том же окне — тогда работает и history.back(), и
+             есть подстраховка "← Назад" на самой странице оферты/политики. -->
+        <a href="oferta.html">Пользовательское соглашение</a><br/>
+        <a href="privacy.html" style="display:inline-block;margin-top:8px;">Политика обработки персональных данных</a>
       </div>
     </section>
 

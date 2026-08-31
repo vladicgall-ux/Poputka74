@@ -304,6 +304,9 @@ input[type="date"], input[type="datetime-local"] {
   text-align: center;
   padding: 24px 10px;
 }
+.error-state .retry-btn {
+  margin: 10px auto 0;
+}
 
 /* Заглушки-скелетоны на время загрузки списков (поездки/брони) — вместо
    пустого экрана до ответа сервера. */

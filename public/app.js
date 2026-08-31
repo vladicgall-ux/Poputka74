@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '59';
+  const APP_VERSION = '60';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -471,6 +471,16 @@
     return card.repeat(count);
   }
 
+  // Состояние ошибки загрузки списка — вместо пустого экрана после того,
+  // как тост с сообщением (он висит всего ~3с) уже успел исчезнуть, а
+  // пользователь так и не понял, что произошло и что делать дальше.
+  function errorStateHtml(message) {
+    return `<div class="empty error-state">
+      <p>${escapeHtml(message)}</p>
+      <button type="button" class="btn secondary small retry-btn">Повторить</button>
+    </div>`;
+  }
+
   async function loadRides() {
     const list = document.getElementById('ridesList');
     const empty = document.getElementById('ridesEmpty');
@@ -497,12 +507,15 @@
           : '',
       })).join('');
     } catch (err) {
-      list.innerHTML = '';
-      toast(err.message);
+      list.innerHTML = errorStateHtml(err.message);
     }
   }
 
   document.getElementById('ridesList').addEventListener('click', async (e) => {
+    if (e.target.closest('.retry-btn')) {
+      loadRides();
+      return;
+    }
     const btn = e.target.closest('.book-btn');
     if (!btn) return;
     const rideId = Number(btn.dataset.rideId);
@@ -871,8 +884,7 @@
         `,
       })).join('');
     } catch (err) {
-      ridesList.innerHTML = '';
-      toast(err.message);
+      ridesList.innerHTML = errorStateHtml(err.message);
     }
 
     const passengerRange = rangeToDates(state.passengerRange);
@@ -910,12 +922,15 @@
         </div>`;
       }).join('');
     } catch (err) {
-      bookingsList.innerHTML = '';
-      toast(err.message);
+      bookingsList.innerHTML = errorStateHtml(err.message);
     }
   }
 
   document.getElementById('myBookingsList').addEventListener('click', async (e) => {
+    if (e.target.closest('.retry-btn')) {
+      loadMineTab();
+      return;
+    }
     const starBtn = e.target.closest('.star-btn');
     if (starBtn) {
       const widget = starBtn.closest('.rate-widget');
@@ -944,6 +959,10 @@
   });
 
   document.getElementById('myRidesList').addEventListener('click', async (e) => {
+    if (e.target.closest('.retry-btn')) {
+      loadMineTab();
+      return;
+    }
     const cancelBtn = e.target.closest('.cancel-ride-btn');
     if (cancelBtn) {
       const reason = await askCancelReason('Отменить поездку?');

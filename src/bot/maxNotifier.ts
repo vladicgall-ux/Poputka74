@@ -1,6 +1,7 @@
 import { Keyboard, type Bot } from '@maxhub/max-bot-api';
 import { realMaxUserId, type UserRecord } from '../services/userService';
 import type { ActionButton } from './notifier';
+import { withRetry } from '../utils/retry';
 
 let maxBotInstance: Bot | null = null;
 
@@ -20,10 +21,14 @@ export function setMaxBotInstance(bot: Bot): void {
 export async function notifyMaxPhoneReminder(user: UserRecord, text: string): Promise<boolean> {
   if (!maxBotInstance) return false;
   try {
-    await maxBotInstance.api.sendMessageToUser(realMaxUserId(user), text, {
-      format: 'html',
-      attachments: [Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])],
-    });
+    await withRetry(
+      () =>
+        maxBotInstance!.api.sendMessageToUser(realMaxUserId(user), text, {
+          format: 'html',
+          attachments: [Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])],
+        }),
+      'phoneReminder'
+    );
     return true;
   } catch {
     return false;
@@ -38,10 +43,14 @@ export async function notifyMaxWithLink(
 ): Promise<boolean> {
   if (!maxBotInstance) return false;
   try {
-    await maxBotInstance.api.sendMessageToUser(realMaxUserId(user), text, {
-      format: 'html',
-      attachments: [Keyboard.inlineKeyboard([[Keyboard.button.link(buttonText, url)]])],
-    });
+    await withRetry(
+      () =>
+        maxBotInstance!.api.sendMessageToUser(realMaxUserId(user), text, {
+          format: 'html',
+          attachments: [Keyboard.inlineKeyboard([[Keyboard.button.link(buttonText, url)]])],
+        }),
+      'withLink'
+    );
     return true;
   } catch {
     return false;
@@ -57,15 +66,19 @@ export async function notifyMax(
 ): Promise<boolean> {
   if (!maxBotInstance) return false;
   try {
-    const msg = await maxBotInstance.api.sendMessageToUser(realMaxUserId(user), text, {
-      format: 'html',
-      ...(buttonRows
-        ? { attachments: [Keyboard.inlineKeyboard(buttonRows.map((row) => row.map((b) => Keyboard.button.callback(b.text, b.action))))] }
-        : {}),
-    });
+    const msg = await withRetry(
+      () =>
+        maxBotInstance!.api.sendMessageToUser(realMaxUserId(user), text, {
+          format: 'html',
+          ...(buttonRows
+            ? { attachments: [Keyboard.inlineKeyboard(buttonRows.map((row) => row.map((b) => Keyboard.button.callback(b.text, b.action))))] }
+            : {}),
+        }),
+      'notifyMax'
+    );
     if (pin && msg.recipient.chat_id != null) {
       try {
-        await maxBotInstance.api.pinMessage(msg.recipient.chat_id, msg.body.mid, { notify: false });
+        await withRetry(() => maxBotInstance!.api.pinMessage(msg.recipient.chat_id!, msg.body.mid, { notify: false }), 'pin');
       } catch {
         // необязательное дополнение к отправке — не роняем рассылку из-за этого
       }

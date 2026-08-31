@@ -6,6 +6,7 @@ exports.notifyMaxWithLink = notifyMaxWithLink;
 exports.notifyMax = notifyMax;
 const max_bot_api_1 = require("@maxhub/max-bot-api");
 const userService_1 = require("../services/userService");
+const retry_1 = require("../utils/retry");
 let maxBotInstance = null;
 function setMaxBotInstance(bot) {
     maxBotInstance = bot;
@@ -23,10 +24,10 @@ async function notifyMaxPhoneReminder(user, text) {
     if (!maxBotInstance)
         return false;
     try {
-        await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
+        await (0, retry_1.withRetry)(() => maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
             format: 'html',
             attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])],
-        });
+        }), 'phoneReminder');
         return true;
     }
     catch {
@@ -37,10 +38,10 @@ async function notifyMaxWithLink(user, text, buttonText, url) {
     if (!maxBotInstance)
         return false;
     try {
-        await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
+        await (0, retry_1.withRetry)(() => maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
             format: 'html',
             attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.link(buttonText, url)]])],
-        });
+        }), 'withLink');
         return true;
     }
     catch {
@@ -52,15 +53,15 @@ async function notifyMax(user, text, buttonRows, pin) {
     if (!maxBotInstance)
         return false;
     try {
-        const msg = await maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
+        const msg = await (0, retry_1.withRetry)(() => maxBotInstance.api.sendMessageToUser((0, userService_1.realMaxUserId)(user), text, {
             format: 'html',
             ...(buttonRows
                 ? { attachments: [max_bot_api_1.Keyboard.inlineKeyboard(buttonRows.map((row) => row.map((b) => max_bot_api_1.Keyboard.button.callback(b.text, b.action))))] }
                 : {}),
-        });
+        }), 'notifyMax');
         if (pin && msg.recipient.chat_id != null) {
             try {
-                await maxBotInstance.api.pinMessage(msg.recipient.chat_id, msg.body.mid, { notify: false });
+                await (0, retry_1.withRetry)(() => maxBotInstance.api.pinMessage(msg.recipient.chat_id, msg.body.mid, { notify: false }), 'pin');
             }
             catch {
                 // необязательное дополнение к отправке — не роняем рассылку из-за этого

@@ -9,6 +9,7 @@ import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } fr
 import { displayName, platformLabel } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
 import { bannerPath } from './bot';
+import { withRetry } from '../utils/retry';
 
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
 const SUPPORT_LIMIT = 5;
@@ -44,22 +45,26 @@ export function createMaxBot(): Bot {
     upsertMaxUser({ id: ctx.user.user_id, name: ctx.user.name, username: ctx.user.username });
     try {
       const image = await ctx.api.uploadImage({ source: bannerPath });
-      await ctx.reply(
-        '🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\n' +
-          'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
-          'Чтобы бронировать поездки или публиковать свои — подтвердите номер телефона кнопкой ниже.',
-        {
-          attachments: [
-            new ImageAttachment('photos' in image ? { photos: image.photos } : { url: image.url }).toJson(),
-            Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]]),
-          ],
-        }
+      await withRetry(() =>
+        ctx.reply(
+          '🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\n' +
+            'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
+            'Чтобы бронировать поездки или публиковать свои — подтвердите номер телефона кнопкой ниже.',
+          {
+            attachments: [
+              new ImageAttachment('photos' in image ? { photos: image.photos } : { url: image.url }).toJson(),
+              Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]]),
+            ],
+          }
+        )
       );
     } catch (err) {
       console.error('Не удалось отправить баннер в MAX:', err);
-      await ctx.reply(
-        '🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\nПодтвердите номер телефона кнопкой ниже.',
-        { attachments: [Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])] }
+      await withRetry(() =>
+        ctx.reply(
+          '🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\nПодтвердите номер телефона кнопкой ниже.',
+          { attachments: [Keyboard.inlineKeyboard([[Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])] }
+        )
       );
     }
   });
@@ -73,7 +78,7 @@ export function createMaxBot(): Bot {
       const user = upsertMaxUser({ id: sender.user_id, name: sender.name, username: sender.username });
       setPhoneVerified(user.telegram_id, contact.tel);
       if (contact.fullName) setFullName(user.telegram_id, contact.fullName);
-      await ctx.reply('✅ Номер подтверждён! Теперь вам доступны бронирование и публикация поездок.');
+      await withRetry(() => ctx.reply('✅ Номер подтверждён! Теперь вам доступны бронирование и публикация поездок.'));
       return;
     }
 
@@ -86,16 +91,18 @@ export function createMaxBot(): Bot {
     if (/^\d{6}$/.test(text)) {
       const user = upsertMaxUser({ id: sender.user_id, name: sender.name, username: sender.username });
       const linked = consumeLoginCode(text, user.telegram_id);
-      await ctx.reply(
-        linked
-          ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'
-          : 'Код не найден или уже устарел. Запросите новый код на сайте и попробуйте снова.'
+      await withRetry(() =>
+        ctx.reply(
+          linked
+            ? '✅ Вход подтверждён! Вернитесь на сайт — он войдёт автоматически.'
+            : 'Код не найден или уже устарел. Запросите новый код на сайте и попробуйте снова.'
+        )
       );
       return;
     }
 
     if (isSupportRateLimited(sender.user_id)) {
-      await ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.');
+      await withRetry(() => ctx.reply('⏳ Слишком много сообщений подряд. Подождите немного и напишите ещё раз.'));
       return;
     }
 
@@ -104,7 +111,7 @@ export function createMaxBot(): Bot {
     await notifyAdmins(
       `🆘 <b>Сообщение в поддержку (MAX)</b>\nОт: ${sender.name}${sender.username ? ' · @' + sender.username : ''} (ID ${maxStorageId(sender.user_id)})\n\n${text}`
     );
-    await ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
+    await withRetry(() => ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.'));
   });
 
   bot.action(/^confirm_booking:(\d+)$/, async (ctx) => {
@@ -114,15 +121,17 @@ export function createMaxBot(): Bot {
       confirmBooking(bookingId, driverId);
       const info = getBookingWithPeople(bookingId)!;
 
-      await ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' });
-      await ctx.editMessage({
-        text:
-          `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Пассажир (${platformLabel(info.passenger_platform)}): ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
-          `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
-          `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
-        format: 'html',
-      });
+      await withRetry(() => ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' }));
+      await withRetry(() =>
+        ctx.editMessage({
+          text:
+            `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
+            `Пассажир (${platformLabel(info.passenger_platform)}): ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
+            `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+            `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
+          format: 'html',
+        })
+      );
 
       await notifyUser(
         getUser(info.passenger_id)!,
@@ -144,11 +153,13 @@ export function createMaxBot(): Bot {
       const info = getBookingWithPeople(bookingId)!;
       declineBooking(bookingId, driverId);
 
-      await ctx.answerOnCallback({ notification: 'Бронирование отклонено' });
-      await ctx.editMessage({
-        text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`,
-        format: 'html',
-      });
+      await withRetry(() => ctx.answerOnCallback({ notification: 'Бронирование отклонено' }));
+      await withRetry(() =>
+        ctx.editMessage({
+          text: `❌ Вы отклонили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\nМесто снова свободно.`,
+          format: 'html',
+        })
+      );
 
       await notifyUser(
         getUser(info.passenger_id)!,

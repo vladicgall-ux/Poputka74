@@ -50,14 +50,24 @@ button, .dir-btn, .tab-btn, .weekday-btn, a.btn {
   touch-action: manipulation;
 }
 
+/* Высота баннера считается через aspect-ratio на самом контейнере (а не
+   через "width:100%; height:auto" на <img>) — некоторые версии Safari/
+   WebKit на iOS не всегда корректно вычисляют внутреннее соотношение
+   сторон SVG внутри <img>, из-за чего баннер мог растягиваться заметно
+   выше, чем нужно. aspect-ratio + overflow:hidden гарантируют точную
+   высоту чисто через CSS-арифметику, независимо от того, как конкретный
+   браузер решит отрисовать сам SVG внутри. */
 .banner {
   line-height: 0;
   box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  aspect-ratio: 800 / 260;
+  overflow: hidden;
 }
 .banner img {
   width: 100%;
-  height: auto;
+  height: 100%;
   display: block;
+  object-fit: cover;
 }
 
 .gate-screen {

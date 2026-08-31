@@ -23,7 +23,10 @@
   <script src="https://st.max.ru/js/max-web-app.js" async></script>
 </head>
 <body>
-  <div id="toast" class="toast" hidden></div>
+  <!-- Инлайн-стили дублируют .toast из styles.css — если сам styles.css не
+       загрузится (обрыв сети при заходе), сообщение об ошибке всё равно
+       покажется как всплывающая плашка, а не голым текстом поверх страницы. -->
+  <div id="toast" class="toast" hidden style="position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#1f2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:100;max-width:90vw;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,0.25);"></div>
 
   <header class="banner">
     <img src="assets/banner.svg" alt="Поехали 74 — Челябинск и Кунашак" />
@@ -329,6 +332,6 @@
     </button>
   </nav>
 
-  <script src="app.js?v=58" defer></script>
+  <script src="app.js?v=59" defer></script>
 </body>
 </html>

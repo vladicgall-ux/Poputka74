@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '58';
+  const APP_VERSION = '59';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -235,15 +235,37 @@
   }
 
   // ---------- API helper ----------
+  // Обёртка над fetch() для мест, которые не проходят через api() ниже
+  // (запросы вне /api или с нестандартными опциями) — та же нормализация
+  // сетевых ошибок в понятное сообщение вместо "Load failed"/"Failed to
+  // fetch" и т.п. внутренних формулировок браузера.
+  async function safeFetch(url, options) {
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      throw new Error('Нет соединения с сервером. Проверьте интернет и попробуйте ещё раз.');
+    }
+  }
+
   async function api(path, options = {}) {
-    const res = await fetch(`/api${path}`, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeader(),
-        ...(options.headers || {}),
-      },
-    });
+    let res;
+    try {
+      res = await fetch(`/api${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeader(),
+          ...(options.headers || {}),
+        },
+      });
+    } catch (err) {
+      // fetch() сам бросает исключение при обрыве сети/DNS/таймауте — это
+      // происходит ДО получения ответа сервера, поэтому res.ok здесь ни при
+      // чём. Текст такой ошибки — внутренняя формулировка браузера ("Load
+      // failed" в Safari, "Failed to fetch" в Chrome и т.д.), пользователю
+      // она ничего не скажет — подменяем на понятное сообщение.
+      throw new Error('Нет соединения с сервером. Проверьте интернет и попробуйте ещё раз.');
+    }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const err = new Error(data.error || 'Ошибка запроса');
@@ -608,7 +630,7 @@
     const formData = new FormData();
     formData.append('photo', file);
     try {
-      const res = await fetch('/api/users/me/photo', {
+      const res = await safeFetch('/api/users/me/photo', {
         method: 'POST',
         headers: authHeader(),
         body: formData,
@@ -1463,7 +1485,7 @@
       if (message) formData.append('message', message);
       if (file) formData.append('photo', file);
       if (document.getElementById('broadcastPinInput').checked) formData.append('pin', 'true');
-      const res = await fetch('/api/admin/broadcast', {
+      const res = await safeFetch('/api/admin/broadcast', {
         method: 'POST',
         headers: authHeader(),
         body: formData,
@@ -1558,11 +1580,11 @@
     btn.disabled = true;
     try {
       if (!state.botUsername) {
-        const res = await fetch('/api/config');
+        const res = await safeFetch('/api/config');
         const data = await res.json();
         state.botUsername = data.botUsername;
       }
-      const res = await fetch('/api/auth/login-code/start', { method: 'POST' });
+      const res = await safeFetch('/api/auth/login-code/start', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Не удалось получить код');
       document.getElementById('loginCodeText').textContent = data.code;

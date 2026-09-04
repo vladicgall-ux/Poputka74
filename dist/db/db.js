@@ -125,6 +125,12 @@ if (!columnExists('login_codes', 'used_at')) {
  */
 const ridesTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rides'`).get()?.sql;
 if (ridesTableSql && !ridesTableSql.includes('Аргаяш')) {
+    // Переименование ride_templates заставляет SQLite переписать FK-ссылку в
+    // ещё не тронутой таблице rides на ride_templates_old, и последующий DROP
+    // TABLE ride_templates_old с включёнными foreign_keys падает с
+    // SQLITE_CONSTRAINT_FOREIGNKEY. PRAGMA foreign_keys — no-op внутри
+    // транзакции, поэтому переключаем её отдельными вызовами до и после.
+    exports.db.pragma('foreign_keys = OFF');
     exports.db.exec(`
     BEGIN TRANSACTION;
 
@@ -180,4 +186,9 @@ if (ridesTableSql && !ridesTableSql.includes('Аргаяш')) {
 
     COMMIT;
   `);
+    exports.db.pragma('foreign_keys = ON');
+    const orphans = exports.db.prepare(`PRAGMA foreign_key_check`).all();
+    if (orphans.length > 0) {
+        throw new Error(`Миграция Аргаяш оставила осиротевшие внешние ключи: ${JSON.stringify(orphans)}`);
+    }
 }

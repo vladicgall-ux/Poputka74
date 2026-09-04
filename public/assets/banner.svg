@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" width="800" height="260" role="img" aria-label="Поехали 74 — Челябинск и Кунашак">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" width="800" height="260" role="img" aria-label="Поехали 74 — Челябинск, Кунашак и Аргаяш">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#2b86ff"/>
@@ -52,5 +52,6 @@
   </g>
 
   <text x="40" y="70" font-family="Verdana, Arial, sans-serif" font-size="34" font-weight="bold" fill="#ffffff">Поехали 74</text>
-  <text x="40" y="98" font-family="Verdana, Arial, sans-serif" font-size="18" fill="#eaf3ff">Челябинск ⇄ Кунашак — попутчики без фейков</text>
+  <text x="40" y="96" font-family="Verdana, Arial, sans-serif" font-size="16" fill="#eaf3ff">Челябинск ⇄ Кунашак ⇄ Аргаяш</text>
+  <text x="40" y="118" font-family="Verdana, Arial, sans-serif" font-size="16" fill="#eaf3ff">попутчики без фейков</text>
 </svg>

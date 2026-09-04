@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '60';
+  const APP_VERSION = '61';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -322,7 +322,11 @@
   document.getElementById('directionSwitch').addEventListener('click', (e) => {
     const btn = e.target.closest('.dir-btn');
     if (!btn) return;
-    document.querySelectorAll('.dir-btn').forEach((b) => b.classList.remove('active'));
+    // Раньше здесь был global document.querySelectorAll('.dir-btn') — этот
+    // класс используют ещё 3 других переключателя на странице (mineSubSwitch,
+    // adminSubSwitch, adminUsersPlatformFilter), так что клик по направлению
+    // поиска попутно снимал active и с них тоже. Скоупим на сам переключатель.
+    document.querySelectorAll('#directionSwitch .dir-btn').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     state.direction = { from: btn.dataset.from, to: btn.dataset.to };
     loadRides();

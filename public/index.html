@@ -18,7 +18,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <link rel="stylesheet" href="styles.css?v=52" />
+  <link rel="stylesheet" href="styles.css?v=53" />
   <script src="https://telegram.org/js/telegram-web-app.js" async></script>
   <script src="https://st.max.ru/js/max-web-app.js" async></script>
 </head>
@@ -29,7 +29,7 @@
   <div id="toast" class="toast" hidden style="position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#1f2430;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:100;max-width:90vw;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,0.25);"></div>
 
   <header class="banner">
-    <img src="assets/banner.svg" alt="Поехали 74 — Челябинск и Кунашак" />
+    <img src="assets/banner.svg" alt="Поехали 74 — Челябинск, Кунашак и Аргаяш" />
   </header>
 
   <div id="appGate" class="gate-screen" hidden>
@@ -76,6 +76,8 @@
       <div class="direction-switch" id="directionSwitch">
         <button class="dir-btn active" data-from="Челябинск" data-to="Кунашак">Челябинск → Кунашак</button>
         <button class="dir-btn" data-from="Кунашак" data-to="Челябинск">Кунашак → Челябинск</button>
+        <button class="dir-btn" data-from="Челябинск" data-to="Аргаяш">Челябинск → Аргаяш</button>
+        <button class="dir-btn" data-from="Аргаяш" data-to="Челябинск">Аргаяш → Челябинск</button>
       </div>
       <div class="date-filter">
         <input type="date" id="searchDate" />
@@ -143,6 +145,8 @@
           <select id="rideDirection">
             <option value="Челябинск|Кунашак">Челябинск → Кунашак</option>
             <option value="Кунашак|Челябинск">Кунашак → Челябинск</option>
+            <option value="Челябинск|Аргаяш">Челябинск → Аргаяш</option>
+            <option value="Аргаяш|Челябинск">Аргаяш → Челябинск</option>
           </select>
         </label>
 
@@ -332,6 +336,6 @@
     </button>
   </nav>
 
-  <script src="app.js?v=60" defer></script>
+  <script src="app.js?v=61" defer></script>
 </body>
 </html>

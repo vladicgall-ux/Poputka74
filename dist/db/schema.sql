@@ -31,9 +31,9 @@ CREATE TABLE IF NOT EXISTS driver_profiles (
 CREATE TABLE IF NOT EXISTS ride_templates (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   driver_id         INTEGER NOT NULL REFERENCES users(telegram_id),
-  from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак')),
-  to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак')),
-  departure_time    TEXT NOT NULL, -- 'HH:MM', местное время Челябинска/Кунашака
+  from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак','Аргаяш')),
+  to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак','Аргаяш')),
+  departure_time    TEXT NOT NULL, -- 'HH:MM', местное время Челябинска/Кунашака/Аргаяша
   weekdays          TEXT NOT NULL, -- '1,2,3,4,5'
   price_per_seat    INTEGER NOT NULL CHECK (price_per_seat >= 0),
   seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),
@@ -48,8 +48,8 @@ CREATE TABLE IF NOT EXISTS ride_templates (
 CREATE TABLE IF NOT EXISTS rides (
   id                INTEGER PRIMARY KEY AUTOINCREMENT,
   driver_id         INTEGER NOT NULL REFERENCES users(telegram_id),
-  from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак')),
-  to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак')),
+  from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак','Аргаяш')),
+  to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак','Аргаяш')),
   departure_at      TEXT NOT NULL,          -- ISO datetime
   price_per_seat    INTEGER NOT NULL CHECK (price_per_seat >= 0),
   seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),

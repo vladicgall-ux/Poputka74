@@ -114,3 +114,70 @@ if (!columnExists('login_codes', 'poll_token')) {
 if (!columnExists('login_codes', 'used_at')) {
     exports.db.exec(`ALTER TABLE login_codes ADD COLUMN used_at TEXT`);
 }
+/**
+ * Добавление нового города (Аргаяш) требует пересоздания rides и
+ * ride_templates — SQLite не умеет менять CHECK-ограничение через ALTER
+ * TABLE, только через пересоздание таблицы (тот же приём, что и для
+ * bookings.status выше). Колонки перечислены явно по имени (а не SELECT *)
+ * — так порядок колонок в старой таблице не важен, важны только имена.
+ * ride_templates пересобирается первым, потому что rides.template_id
+ * ссылается на неё внешним ключом.
+ */
+const ridesTableSql = exports.db.prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'rides'`).get()?.sql;
+if (ridesTableSql && !ridesTableSql.includes('Аргаяш')) {
+    exports.db.exec(`
+    BEGIN TRANSACTION;
+
+    ALTER TABLE ride_templates RENAME TO ride_templates_old;
+    CREATE TABLE ride_templates (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      driver_id         INTEGER NOT NULL REFERENCES users(telegram_id),
+      from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак','Аргаяш')),
+      to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак','Аргаяш')),
+      departure_time    TEXT NOT NULL,
+      weekdays          TEXT NOT NULL,
+      price_per_seat    INTEGER NOT NULL CHECK (price_per_seat >= 0),
+      seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),
+      comment           TEXT,
+      meeting_point     TEXT,
+      dropoff_point     TEXT,
+      active            INTEGER NOT NULL DEFAULT 1,
+      created_at        TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO ride_templates
+      (id, driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point, dropoff_point, active, created_at)
+      SELECT id, driver_id, from_city, to_city, departure_time, weekdays, price_per_seat, seats_total, comment, meeting_point, dropoff_point, active, created_at
+      FROM ride_templates_old;
+    DROP TABLE ride_templates_old;
+
+    ALTER TABLE rides RENAME TO rides_old;
+    CREATE TABLE rides (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      driver_id         INTEGER NOT NULL REFERENCES users(telegram_id),
+      from_city         TEXT NOT NULL CHECK (from_city IN ('Челябинск','Кунашак','Аргаяш')),
+      to_city           TEXT NOT NULL CHECK (to_city IN ('Челябинск','Кунашак','Аргаяш')),
+      departure_at      TEXT NOT NULL,
+      price_per_seat    INTEGER NOT NULL CHECK (price_per_seat >= 0),
+      seats_total       INTEGER NOT NULL CHECK (seats_total BETWEEN 1 AND 8),
+      seats_available   INTEGER NOT NULL,
+      comment           TEXT,
+      status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','cancelled','completed')),
+      created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+      meeting_point     TEXT,
+      departure_reminder_sent INTEGER NOT NULL DEFAULT 0,
+      template_id       INTEGER REFERENCES ride_templates(id),
+      cancelled_at      TEXT,
+      dropoff_point     TEXT,
+      cancellation_reason TEXT
+    );
+    INSERT INTO rides
+      (id, driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, status, created_at, meeting_point, departure_reminder_sent, template_id, cancelled_at, dropoff_point, cancellation_reason)
+      SELECT id, driver_id, from_city, to_city, departure_at, price_per_seat, seats_total, seats_available, comment, status, created_at, meeting_point, departure_reminder_sent, template_id, cancelled_at, dropoff_point, cancellation_reason
+      FROM rides_old;
+    DROP TABLE rides_old;
+
+    CREATE INDEX IF NOT EXISTS idx_rides_search ON rides (status, from_city, to_city, departure_at);
+
+    COMMIT;
+  `);
+}

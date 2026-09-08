@@ -5,7 +5,7 @@
   // версию с сервером при каждом запуске и один раз перезагружаем страницу,
   // если сервер уже новее — без этого часть пользователей годами видит
   // старую сломанную версию, даже если баг давно исправлен и задеплоен.
-  const APP_VERSION = '61';
+  const APP_VERSION = '62';
   fetch('/api/config', { cache: 'no-store' })
     .then((r) => r.json())
     .then((data) => {
@@ -721,8 +721,9 @@
         toast('Регулярная поездка создана! Ближайшие даты появятся в поиске в течение минуты.');
         loadRideTemplates();
       } else {
-        const departureInput = document.getElementById('rideDeparture').value;
-        if (!departureInput) {
+        const departureDate = document.getElementById('rideDepartureDate').value;
+        const departureTime = document.getElementById('rideDepartureTime').value;
+        if (!departureDate || !departureTime) {
           toast('Укажите дату и время отправления');
           return;
         }
@@ -731,7 +732,7 @@
           body: JSON.stringify({
             fromCity,
             toCity,
-            departureAt: new Date(departureInput).toISOString(),
+            departureAt: new Date(`${departureDate}T${departureTime}`).toISOString(),
             pricePerSeat,
             seatsTotal,
             comment,

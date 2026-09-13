@@ -43,7 +43,7 @@ function createMaxBot() {
         (0, userService_1.upsertMaxUser)({ id: ctx.user.user_id, name: ctx.user.name, username: ctx.user.username });
         try {
             const image = await ctx.api.uploadImage({ source: bot_1.bannerPath });
-            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\n' +
+            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак ⇄ Аргаяш\n\n' +
                 'Здесь водители публикуют поездки, а пассажиры бронируют места без звонков и лишних сообщений.\n\n' +
                 'Чтобы бронировать поездки или публиковать свои — подтвердите номер телефона кнопкой ниже.', {
                 attachments: [
@@ -54,7 +54,7 @@ function createMaxBot() {
         }
         catch (err) {
             console.error('Не удалось отправить баннер в MAX:', err);
-            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак\n\nПодтвердите номер телефона кнопкой ниже.', { attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])] }));
+            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак ⇄ Аргаяш\n\nПодтвердите номер телефона кнопкой ниже.', { attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])] }));
         }
     });
     bot.on('message_created', async (ctx) => {

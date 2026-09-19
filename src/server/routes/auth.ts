@@ -42,9 +42,27 @@ authRouter.post('/login-code/start', writeLimiter(10, 10 * 60_000), (req, res) =
  * закрывает саму возможность перебора по коду, лимитер — на всякий случай,
  * второй эшелон защиты.
  */
-authRouter.get('/login-code/status', writeLimiter(240, 10 * 60_000), (req, res) => {
-  const code = typeof req.query.code === 'string' ? req.query.code : '';
-  const pollToken = typeof req.query.pollToken === 'string' ? req.query.pollToken : '';
+authRouter.post('/login-code/status', writeLimiter(240, 10 * 60_000), (req, res) => {
+  // POST, а не GET, и с проверкой источника запроса. Этот эндпоинт не
+  // просто читает состояние: он гасит код (used_at), заводит сессию и
+  // ставит cookie. Пока это был GET с параметрами в строке запроса, на
+  // него можно было завести жертву обычной ссылкой — и её браузер получал
+  // cookie сессии ЧУЖОГО аккаунта (атакующий заранее подтверждал свой код
+  // со своего аккаунта). Дальше жертва в полной уверенности, что она у
+  // себя, вводила своё настоящее имя, бронировала поездки и писала в
+  // поддержку — всё это попадало в аккаунт атакующего.
+  //
+  // SameSite=Lax тут не спасал: он ограничивает ОТПРАВКУ cookie, а здесь
+  // cookie именно устанавливается. Sec-Fetch-Site шлют все актуальные
+  // браузеры; если заголовка нет вовсе (совсем старый клиент), не
+  // блокируем — POST + отсутствие CORS уже отсекают основной сценарий.
+  const site = req.header('Sec-Fetch-Site');
+  if (site && site !== 'same-origin' && site !== 'none') {
+    res.status(403).json({ error: 'Запрос отклонён: вход должен начинаться на этом же сайте' });
+    return;
+  }
+  const code = typeof req.body?.code === 'string' ? req.body.code : '';
+  const pollToken = typeof req.body?.pollToken === 'string' ? req.body.pollToken : '';
   const userId = code && pollToken ? checkLoginCode(code, pollToken) : null;
   if (!userId) {
     res.json({ ok: false });

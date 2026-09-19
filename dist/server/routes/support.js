@@ -8,13 +8,14 @@ const supportService_1 = require("../../services/supportService");
 const notifier_1 = require("../../bot/notifier");
 const displayName_1 = require("../../utils/displayName");
 const escapeHtml_1 = require("../../utils/escapeHtml");
+const asyncHandler_1 = require("../utils/asyncHandler");
 exports.supportRouter = (0, express_1.Router)();
 // Специально без requireActiveUser: даже забаненный или неверифицированный
 // пользователь должен иметь возможность написать в поддержку и разобраться в ситуации.
 exports.supportRouter.use(auth_1.requireTelegramAuth);
 // Отдельный, более жёсткий лимит — иначе пользователь может засыпать
 // администратора сообщениями и раздуть таблицу support_messages.
-exports.supportRouter.post('/', (0, rateLimit_1.writeLimiter)(8, 5 * 60000), async (req, res) => {
+exports.supportRouter.post('/', (0, rateLimit_1.writeLimiter)(8, 5 * 60000), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     if (!message) {
@@ -27,4 +28,4 @@ exports.supportRouter.post('/', (0, rateLimit_1.writeLimiter)(8, 5 * 60000), asy
         .join(' '));
     await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${user.telegram_id})${user.phone ? `, ${(0, escapeHtml_1.escapeTgHtml)(user.phone)}` : ''}\n\n${(0, escapeHtml_1.escapeTgHtml)(message)}`);
     res.status(201).json({ message: record });
-});
+}));

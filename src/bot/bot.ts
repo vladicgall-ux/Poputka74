@@ -31,6 +31,26 @@ function isSupportRateLimited(userId: number): boolean {
 }
 
 /**
+ * Отдельный лимит на ввод кода входа. Ветка с кодом стоит РАНЬШЕ проверки
+ * лимита поддержки (и раньше исключения админов), поэтому без своего
+ * счётчика попытки ввода кода не ограничивались вообще ничем: можно было
+ * слать боту шестизначные числа подряд и подбирать чужой ожидающий код,
+ * чтобы привязать к нему свой аккаунт — тогда чужой браузер входил бы не
+ * в свой аккаунт, а в аккаунт подбиравшего.
+ */
+const LOGIN_CODE_LIMIT = 5;
+const LOGIN_CODE_WINDOW_MS = 10 * 60_000;
+const loginCodeHits = new Map<number, number[]>();
+
+export function isLoginCodeRateLimited(userId: number): boolean {
+  const now = Date.now();
+  const hits = (loginCodeHits.get(userId) ?? []).filter((t) => now - t < LOGIN_CODE_WINDOW_MS);
+  hits.push(now);
+  loginCodeHits.set(userId, hits);
+  return hits.length > LOGIN_CODE_LIMIT;
+}
+
+/**
  * Ряд с кнопкой, открывающей личный чат с собеседником — только если у
  * него есть username И он тоже в Telegram: ссылка t.me/username не имеет
  * смысла для пользователя MAX (это два разных пространства ников). Если
@@ -224,6 +244,10 @@ export function createBot(): Telegraf {
     // сайте и присылает его сюда, боту. Проверяем это раньше исключения
     // админов ниже — админу тоже может понадобиться войти через браузер.
     if (/^\d{6}$/.test(text)) {
+      if (isLoginCodeRateLimited(ctx.from.id)) {
+        ctx.reply('⏳ Слишком много попыток ввода кода. Подождите немного и запросите новый код на сайте.');
+        return;
+      }
       upsertUser({
         id: ctx.from.id,
         first_name: ctx.from.first_name,

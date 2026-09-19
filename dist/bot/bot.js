@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.bannerPath = void 0;
+exports.isLoginCodeRateLimited = isLoginCodeRateLimited;
 exports.createBot = createBot;
 const telegraf_1 = require("telegraf");
 const path_1 = __importDefault(require("path"));
@@ -32,6 +33,24 @@ function isSupportRateLimited(userId) {
     hits.push(now);
     supportHits.set(userId, hits);
     return hits.length > SUPPORT_LIMIT;
+}
+/**
+ * Отдельный лимит на ввод кода входа. Ветка с кодом стоит РАНЬШЕ проверки
+ * лимита поддержки (и раньше исключения админов), поэтому без своего
+ * счётчика попытки ввода кода не ограничивались вообще ничем: можно было
+ * слать боту шестизначные числа подряд и подбирать чужой ожидающий код,
+ * чтобы привязать к нему свой аккаунт — тогда чужой браузер входил бы не
+ * в свой аккаунт, а в аккаунт подбиравшего.
+ */
+const LOGIN_CODE_LIMIT = 5;
+const LOGIN_CODE_WINDOW_MS = 10 * 60000;
+const loginCodeHits = new Map();
+function isLoginCodeRateLimited(userId) {
+    const now = Date.now();
+    const hits = (loginCodeHits.get(userId) ?? []).filter((t) => now - t < LOGIN_CODE_WINDOW_MS);
+    hits.push(now);
+    loginCodeHits.set(userId, hits);
+    return hits.length > LOGIN_CODE_LIMIT;
 }
 /**
  * Ряд с кнопкой, открывающей личный чат с собеседником — только если у
@@ -191,6 +210,10 @@ function createBot() {
         // сайте и присылает его сюда, боту. Проверяем это раньше исключения
         // админов ниже — админу тоже может понадобиться войти через браузер.
         if (/^\d{6}$/.test(text)) {
+            if (isLoginCodeRateLimited(ctx.from.id)) {
+                ctx.reply('⏳ Слишком много попыток ввода кода. Подождите немного и запросите новый код на сайте.');
+                return;
+            }
             (0, userService_1.upsertUser)({
                 id: ctx.from.id,
                 first_name: ctx.from.first_name,

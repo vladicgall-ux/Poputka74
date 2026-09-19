@@ -11,6 +11,7 @@ const userService_1 = require("../../services/userService");
 const displayName_1 = require("../../utils/displayName");
 const escapeHtml_1 = require("../../utils/escapeHtml");
 const parseId_1 = require("../utils/parseId");
+const asyncHandler_1 = require("../utils/asyncHandler");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -27,7 +28,7 @@ exports.bookingsRouter.get('/mine', (req, res) => {
  * фейковых броней. Место резервируется сразу, но бронь остаётся 'pending',
  * пока водитель не подтвердит её кнопкой в чате с ботом.
  */
-exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), async (req, res) => {
+exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const rideId = Number(req.body?.rideId);
     const seats = Number(req.body?.seats ?? 1);
@@ -61,8 +62,8 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
         }
         throw err;
     }
-});
-exports.bookingsRouter.post('/:id/cancel', async (req, res) => {
+}));
+exports.bookingsRouter.post('/:id/cancel', (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const bookingId = (0, parseId_1.parseId)(req.params.id);
     if (!bookingId) {
@@ -87,7 +88,7 @@ exports.bookingsRouter.post('/:id/cancel', async (req, res) => {
         }
         throw err;
     }
-});
+}));
 function formatDate(iso) {
     // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует
     // по своему часовому поясу (UTC), а не по времени Челябинска/Кунашака.

@@ -8,6 +8,7 @@ import { getUser } from '../../services/userService';
 import { displayName, platformLabel } from '../../utils/displayName';
 import { escapeTgHtml } from '../../utils/escapeHtml';
 import { parseId } from '../utils/parseId';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export const bookingsRouter = Router();
 
@@ -30,7 +31,7 @@ bookingsRouter.get('/mine', (req, res) => {
  * фейковых броней. Место резервируется сразу, но бронь остаётся 'pending',
  * пока водитель не подтвердит её кнопкой в чате с ботом.
  */
-bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
+bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), asyncHandler(async (req, res) => {
   const { user } = req as AuthedRequest;
   const rideId = Number(req.body?.rideId);
   const seats = Number(req.body?.seats ?? 1);
@@ -76,9 +77,9 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
     }
     throw err;
   }
-});
+}));
 
-bookingsRouter.post('/:id/cancel', async (req, res) => {
+bookingsRouter.post('/:id/cancel', asyncHandler(async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const bookingId = parseId(req.params.id);
   if (!bookingId) {
@@ -105,7 +106,7 @@ bookingsRouter.post('/:id/cancel', async (req, res) => {
     }
     throw err;
   }
-});
+}));
 
 function formatDate(iso: string): string {
   // См. комментарий в bot.ts::formatDate — без timeZone сервер форматирует

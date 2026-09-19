@@ -13,6 +13,7 @@ import { getDriverRatingSummary, getPassengerRatingSummary } from '../../service
 import { notifyPhoto, notifyUser } from '../../bot/notifier';
 import { escapeTgHtml } from '../../utils/escapeHtml';
 import { parseSignedId } from '../utils/parseId';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export const adminRouter = Router();
 
@@ -84,7 +85,7 @@ adminRouter.get('/support', (_req, res) => {
 });
 
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
-adminRouter.post('/support/:userId/reply', async (req, res) => {
+adminRouter.post('/support/:userId/reply', asyncHandler(async (req, res) => {
   const userId = parseSignedId(req.params.userId);
   if (!userId) {
     res.status(400).json({ error: 'Некорректный ID' });
@@ -103,7 +104,7 @@ adminRouter.post('/support/:userId/reply', async (req, res) => {
   const record = createAdminReply(userId, message);
   await notifyUser(target, `✉️ <b>Ответ поддержки</b>\n\n${escapeTgHtml(message)}`);
   res.status(201).json({ message: record });
-});
+}));
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -125,7 +126,7 @@ adminRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     const file = (req as unknown as { file?: Express.Multer.File }).file;
     // multipart/form-data — значения всегда строки, не булевы.
@@ -176,7 +177,7 @@ adminRouter.post(
     }
 
     console.log(`Рассылка завершена: отправлено ${sent} из ${recipients.length}`);
-  }
+  })
 );
 
 function setBan(banned: boolean) {

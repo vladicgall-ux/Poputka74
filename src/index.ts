@@ -10,6 +10,26 @@ import { generateUpcomingRides } from './services/rideTemplateService';
 
 const SWEEP_INTERVAL_MS = 60_000;
 
+/**
+ * Страховочная сетка на весь процесс. Начиная с Node 15 необработанный
+ * reject завершает процесс — а здесь в одном процессе живут HTTP-сервер,
+ * Telegram-бот, бот MAX и периодические задачи, то есть одна незамеченная
+ * ошибка в любом из них гасила вообще всё, и хостинг видел цикл рестартов.
+ *
+ * Основная защита — asyncHandler на роутах и .catch() на фоновых задачах;
+ * это на случай, если где-то всё же осталась незакрытая ветка.
+ * uncaughtException оставляем фатальным (после него состояние процесса
+ * ненадёжно), но с явным логом и кодом выхода, чтобы хостинг перезапустил
+ * контейнер штатно.
+ */
+process.on('unhandledRejection', (reason) => {
+  console.error('Необработанный reject (процесс продолжает работу):', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Необработанное исключение, завершаю процесс:', err);
+  process.exit(1);
+});
+
 async function main() {
   console.log(
     `NODE_EXTRA_CA_CERTS=${process.env.NODE_EXTRA_CA_CERTS ?? '(не задан)'}`,

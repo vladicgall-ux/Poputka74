@@ -26,6 +26,31 @@ function isSupportRateLimited(userId) {
     return hits.length > SUPPORT_LIMIT;
 }
 /**
+ * Принадлежит ли присланная контактная карточка самому отправителю.
+ *
+ * Сырое вложение 'contact' несёт payload.tam_info — пользователя MAX, чей
+ * это контакт (типы SDK: core/network/api/types/attachment.d.ts). Именно
+ * его сверяем с отправителем — это аналог проверки contact.user_id ===
+ * ctx.from.id в Telegram-ветке (bot.ts).
+ *
+ * Если tam_info нет вовсе, значит карточка не привязана к аккаунту MAX
+ * (произвольная vCard из адресной книги) — такую не принимаем: телефон
+ * в ней может быть чей угодно.
+ */
+function isOwnContact(attachments, senderUserId) {
+    if (!Array.isArray(attachments))
+        return false;
+    for (const attachment of attachments) {
+        if (!attachment || typeof attachment !== 'object')
+            continue;
+        const typed = attachment;
+        if (typed.type !== 'contact')
+            continue;
+        return typed.payload?.tam_info?.user_id === senderUserId;
+    }
+    return false;
+}
+/**
  * Бот MAX — параллельно с Telegram-ботом, полностью опционален (не создаётся,
  * если MAX_BOT_TOKEN не задан). Пока умеет только регистрацию + подтверждение
  * телефона + пересылку сообщений в поддержку — как первый шаг перед тем, как
@@ -64,6 +89,22 @@ function createMaxBot() {
             return;
         const contact = ctx.contactInfo;
         if (contact?.tel) {
+            // ctx.contactInfo — это просто распарсенная vCard из вложения (см.
+            // context.js::getContactInfo в SDK): телефон берётся из карточки,
+            // которую пользователь приложил, а приложить он может ЛЮБОЙ контакт
+            // из своей адресной книги. Без проверки ниже любой пользователь MAX
+            // получал phone_verified на чужой номер — то есть обходил главный
+            // барьер от фейковых анкет, да ещё и подставлял чужой телефон,
+            // который потом показывается водителю/пассажиру как его контакт.
+            // Telegram-ветка в bot.ts такую проверку делает (contact.user_id !==
+            // ctx.from.id), и у MAX для неё тоже есть поле: сырое вложение несёт
+            // payload.tam_info — пользователя MAX, которому принадлежит карточка
+            // (типы: core/network/api/types/attachment.d.ts::ContactAttachment).
+            // Удобный геттер его просто не отдаёт, поэтому читаем вложение сами.
+            if (!isOwnContact(ctx.message.body.attachments, sender.user_id)) {
+                await (0, retry_1.withRetry)(() => ctx.reply('Пожалуйста, отправьте свой собственный номер телефона кнопкой «Подтвердить номер телефона».'));
+                return;
+            }
             const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
             (0, userService_1.setPhoneVerified)(user.telegram_id, contact.tel);
             if (contact.fullName)
@@ -78,6 +119,12 @@ function createMaxBot() {
         // публичного login-виджета для сторонних сайтов, поэтому пользователь
         // получает 6-значный код на сайте и присылает его сюда, боту.
         if (/^\d{6}$/.test(text)) {
+            // См. комментарий к isLoginCodeRateLimited в bot.ts — ветка с кодом
+            // идёт раньше лимита поддержки, поэтому нужен свой счётчик.
+            if ((0, bot_1.isLoginCodeRateLimited)((0, userService_1.maxStorageId)(sender.user_id))) {
+                await (0, retry_1.withRetry)(() => ctx.reply('⏳ Слишком много попыток ввода кода. Подождите немного и запросите новый код на сайте.'));
+                return;
+            }
             const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
             const linked = (0, webSessionService_1.consumeLoginCode)(text, user.telegram_id);
             await (0, retry_1.withRetry)(() => ctx.reply(linked

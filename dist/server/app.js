@@ -39,14 +39,17 @@ function createApp() {
         // - img-src: по умолчанию 'self' и data: — добавляем blob:, он нужен
         //   для превью выбранного файла перед загрузкой (URL.createObjectURL).
         // - frame-ancestors: у helmet по умолчанию 'self', что запретило бы
-        //   Telegram/MAX встраивать Mini App в свой WebView/iframe — убираем
-        //   директиву совсем (null), это то же поведение, что и раньше при
-        //   полностью выключенном CSP.
+        //   Telegram/MAX встраивать Mini App в свой WebView/iframe. Раньше
+        //   директива убиралась совсем (null) — то есть страницу мог
+        //   встроить в iframe вообще любой сайт. Для задачи это избыточно:
+        //   достаточно перечислить те площадки, которым встраивание нужно.
+        //   frame-ancestors не наследуется от default-src, поэтому её надо
+        //   задавать явно, иначе она просто исчезает из заголовка.
         contentSecurityPolicy: {
             directives: {
                 scriptSrc: ["'self'", 'https://telegram.org', 'https://st.max.ru'],
                 imgSrc: ["'self'", 'data:', 'blob:'],
-                frameAncestors: null,
+                frameAncestors: ["'self'", 'https://*.telegram.org', 'https://*.max.ru', 'https://*.oneme.ru'],
             },
         },
         // По умолчанию helmet ставит Referrer-Policy: no-referrer — из-за этого
@@ -115,6 +118,16 @@ function createApp() {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     app.use((err, _req, res, _next) => {
         console.error(err);
+        // Часть обработчиков отвечает клиенту раньше, чем заканчивает работу
+        // (рассылка в admin.ts отвечает сразу и рассылает в фоне) — если такой
+        // обработчик упадёт уже после ответа, писать в res нельзя: заголовки
+        // отправлены, и попытка ответить бросит ERR_HTTP_HEADERS_SENT прямо
+        // здесь, в обработчике ошибок. Ошибка уже залогирована выше — просто
+        // закрываем соединение.
+        if (res.headersSent) {
+            res.end();
+            return;
+        }
         // body-parser и подобные middleware кладут осмысленный статус (напр. 413
         // при превышении лимита размера тела) в err.status/err.statusCode —
         // уважаем его вместо того, чтобы всегда отвечать 500.

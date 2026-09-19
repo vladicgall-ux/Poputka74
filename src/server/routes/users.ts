@@ -7,6 +7,7 @@ import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, get
 import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
 import { uploadDriverPhoto, uploadsDir, isValidImageFile, processUploadedImage } from '../middleware/upload';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export const usersRouter = Router();
 
@@ -78,7 +79,7 @@ usersRouter.post(
       next();
     });
   },
-  async (req, res) => {
+  asyncHandler(async (req, res) => {
     const { user } = req as AuthedRequest;
     const file = (req as unknown as { file?: Express.Multer.File }).file;
     if (!file) {
@@ -116,5 +117,5 @@ usersRouter.post(
     } finally {
       if (!keepFile) fs.unlink(file.path, () => {});
     }
-  }
+  })
 );

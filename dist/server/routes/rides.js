@@ -14,6 +14,7 @@ const dateFormat_1 = require("../../utils/dateFormat");
 const escapeHtml_1 = require("../../utils/escapeHtml");
 const config_1 = require("../../config");
 const parseId_1 = require("../utils/parseId");
+const asyncHandler_1 = require("../utils/asyncHandler");
 exports.ridesRouter = (0, express_1.Router)();
 exports.ridesRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
 function isCity(value) {
@@ -171,7 +172,7 @@ exports.ridesRouter.post('/templates/:id/deactivate', (req, res) => {
     res.json({ ok: true });
 });
 /** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
-exports.ridesRouter.post('/:id/cancel', async (req, res) => {
+exports.ridesRouter.post('/:id/cancel', (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const rideId = (0, parseId_1.parseId)(req.params.id);
     if (!rideId) {
@@ -194,7 +195,7 @@ exports.ridesRouter.post('/:id/cancel', async (req, res) => {
         }
     }
     res.json({ ok: true });
-});
+}));
 /** Пассажиры поездки + заработок — видно только водителю этой поездки. */
 exports.ridesRouter.get('/:id/passengers', (req, res) => {
     const { user } = req;

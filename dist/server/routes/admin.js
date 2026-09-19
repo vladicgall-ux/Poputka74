@@ -19,6 +19,7 @@ const ratingService_1 = require("../../services/ratingService");
 const notifier_1 = require("../../bot/notifier");
 const escapeHtml_1 = require("../../utils/escapeHtml");
 const parseId_1 = require("../utils/parseId");
+const asyncHandler_1 = require("../utils/asyncHandler");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
 exports.adminRouter.use((req, res, next) => {
@@ -80,7 +81,7 @@ exports.adminRouter.get('/support', (_req, res) => {
     res.json({ messages: (0, supportService_1.listAllSupportMessages)() });
 });
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
-exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
+exports.adminRouter.post('/support/:userId/reply', (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const userId = (0, parseId_1.parseSignedId)(req.params.userId);
     if (!userId) {
         res.status(400).json({ error: 'Некорректный ID' });
@@ -99,7 +100,7 @@ exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
     const record = (0, supportService_1.createAdminReply)(userId, message);
     await (0, notifier_1.notifyUser)(target, `✉️ <b>Ответ поддержки</b>\n\n${(0, escapeHtml_1.escapeTgHtml)(message)}`);
     res.status(201).json({ message: record });
-});
+}));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 /**
  * Массовая рассылка всем незаблокированным пользователям от имени бота
@@ -115,7 +116,7 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
         }
         next();
     });
-}, async (req, res) => {
+}, (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
     const file = req.file;
     // multipart/form-data — значения всегда строки, не булевы.
@@ -162,7 +163,7 @@ exports.adminRouter.post('/broadcast', (0, rateLimit_1.writeLimiter)(5, 60 * 600
         fs_1.default.unlink(file.path, () => { });
     }
     console.log(`Рассылка завершена: отправлено ${sent} из ${recipients.length}`);
-});
+}));
 function setBan(banned) {
     return (req, res) => {
         const telegramId = (0, parseId_1.parseSignedId)(req.params.id);

@@ -5,6 +5,7 @@ import { createSupportMessage } from '../../services/supportService';
 import { notifyAdmins } from '../../bot/notifier';
 import { displayName } from '../../utils/displayName';
 import { escapeTgHtml } from '../../utils/escapeHtml';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export const supportRouter = Router();
 
@@ -14,7 +15,7 @@ supportRouter.use(requireTelegramAuth);
 
 // Отдельный, более жёсткий лимит — иначе пользователь может засыпать
 // администратора сообщениями и раздуть таблицу support_messages.
-supportRouter.post('/', writeLimiter(8, 5 * 60_000), async (req, res) => {
+supportRouter.post('/', writeLimiter(8, 5 * 60_000), asyncHandler(async (req, res) => {
   const { user } = req as AuthedRequest;
   const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 1000) : '';
   if (!message) {
@@ -34,4 +35,4 @@ supportRouter.post('/', writeLimiter(8, 5 * 60_000), async (req, res) => {
   );
 
   res.status(201).json({ message: record });
-});
+}));

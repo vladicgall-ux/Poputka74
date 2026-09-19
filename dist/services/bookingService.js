@@ -64,6 +64,13 @@ exports.cancelBooking = db_1.db.transaction((bookingId, passengerId) => {
     if (!booking || (booking.status !== 'confirmed' && booking.status !== 'pending')) {
         throw new BookingError('Бронирование не найдено');
     }
+    // Отменять уже состоявшуюся поездку нельзя: incrementSeats ниже вернул бы
+    // места в прошлое (поездка бы «ожила» с лишними свободными местами), а
+    // сама отмена задним числом смысла не имеет — ехать уже съездили.
+    const ride = (0, rideService_1.getRide)(booking.ride_id);
+    if (ride && new Date(ride.departure_at).getTime() < Date.now()) {
+        throw new BookingError('Поездка уже состоялась — отменить бронирование нельзя');
+    }
     db_1.db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
@@ -193,7 +200,17 @@ function getRidePassengers(rideId, driverId) {
         throw new BookingError('Это не ваша поездка');
     }
     const passengers = db_1.db
-        .prepare(`SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name, u.phone,
+        .prepare(
+    // Телефон отдаём только по подтверждённой броне. Модель обмена
+    // контактами в продукте именно такая — водителю в чат приходит
+    // «Нажмите «Подтверждаю», … и вы получили его контакт» (bot.ts), и
+    // сам контакт раскрывается в момент подтверждения. Пока бронь в
+    // 'pending', пассажир ещё ничего не раскрыл, и отдавать номер здесь
+    // нельзя: иначе достаточно опубликовать поездку и ничего не
+    // подтверждать, чтобы собрать подтверждённые номера всех, кто
+    // забронировал.
+    `SELECT b.id, b.passenger_id, b.seats_booked, b.status, u.first_name, u.username, u.full_name,
+              CASE WHEN b.status = 'confirmed' THEN u.phone END AS phone,
               ROUND(pr.avg_rating, 1) AS avg_rating, COALESCE(pr.rating_count, 0) AS rating_count,
               EXISTS(SELECT 1 FROM passenger_ratings x WHERE x.ride_id = b.ride_id AND x.passenger_id = b.passenger_id) AS rated_by_driver
        FROM bookings b

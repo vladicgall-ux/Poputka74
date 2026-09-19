@@ -9,7 +9,7 @@ import { confirmBooking, declineBooking, getBookingWithPeople, BookingError } fr
 import { displayName, platformLabel } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
 import { escapeTgHtml } from '../utils/escapeHtml';
-import { bannerPath } from './bot';
+import { bannerPath, isLoginCodeRateLimited } from './bot';
 import { withRetry } from '../utils/retry';
 
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
@@ -131,6 +131,14 @@ export function createMaxBot(): Bot {
     // публичного login-виджета для сторонних сайтов, поэтому пользователь
     // получает 6-значный код на сайте и присылает его сюда, боту.
     if (/^\d{6}$/.test(text)) {
+      // См. комментарий к isLoginCodeRateLimited в bot.ts — ветка с кодом
+      // идёт раньше лимита поддержки, поэтому нужен свой счётчик.
+      if (isLoginCodeRateLimited(maxStorageId(sender.user_id))) {
+        await withRetry(() =>
+          ctx.reply('⏳ Слишком много попыток ввода кода. Подождите немного и запросите новый код на сайте.')
+        );
+        return;
+      }
       const user = upsertMaxUser({ id: sender.user_id, name: sender.name, username: sender.username });
       const linked = consumeLoginCode(text, user.telegram_id);
       await withRetry(() =>

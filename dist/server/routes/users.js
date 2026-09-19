@@ -13,6 +13,7 @@ const userService_1 = require("../../services/userService");
 const ratingService_1 = require("../../services/ratingService");
 const config_1 = require("../../config");
 const upload_1 = require("../middleware/upload");
+const asyncHandler_1 = require("../utils/asyncHandler");
 exports.usersRouter = (0, express_1.Router)();
 exports.usersRouter.use(auth_1.requireTelegramAuth);
 /** Профиль текущего пользователя: данные аккаунта + анкета водителя (если есть). */
@@ -73,7 +74,7 @@ exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.
         }
         next();
     });
-}, async (req, res) => {
+}, (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const file = req.file;
     if (!file) {
@@ -113,4 +114,4 @@ exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.
         if (!keepFile)
             fs_1.default.unlink(file.path, () => { });
     }
-});
+}));

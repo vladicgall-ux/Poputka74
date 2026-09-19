@@ -22,6 +22,7 @@ import { formatDate } from '../../utils/dateFormat';
 import { escapeTgHtml } from '../../utils/escapeHtml';
 import { config, type City } from '../../config';
 import { parseId } from '../utils/parseId';
+import { asyncHandler } from '../utils/asyncHandler';
 
 export const ridesRouter = Router();
 
@@ -198,7 +199,7 @@ ridesRouter.post('/templates/:id/deactivate', (req, res) => {
 });
 
 /** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
-ridesRouter.post('/:id/cancel', async (req, res) => {
+ridesRouter.post('/:id/cancel', asyncHandler(async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const rideId = parseId(req.params.id);
   if (!rideId) {
@@ -227,7 +228,7 @@ ridesRouter.post('/:id/cancel', async (req, res) => {
   }
 
   res.json({ ok: true });
-});
+}));
 
 /** Пассажиры поездки + заработок — видно только водителю этой поездки. */
 ridesRouter.get('/:id/passengers', (req, res) => {

@@ -67,22 +67,35 @@
   // случай перебираем все hash-параметры и берём любой, который выглядит
   // как настоящий initData (после URL-декодирования содержит "hash=" —
   // обязательное поле подписи и у Telegram, и у MAX).
-  function initDataFromUrlHash(kind) {
+  // initData из фрагмента читаем ОДИН раз при загрузке и сразу убираем
+  // фрагмент из адресной строки (replaceState). Причина: пока значение
+  // висит в URL, его можно переслать, оно попадает в историю браузера и в
+  // «поделиться ссылкой» — а это полноценный ключ доступа к аккаунту на
+  // сутки (столько живёт initData по auth_date).
+  //
+  // Берём только штатные имена параметров, которые ставят сами платформы.
+  // Раньше здесь был ещё перебор ВСЕХ параметров фрагмента с выбором
+  // любого, где встречается "hash=", — слишком широко: подходил любой
+  // параметр с любым именем.
+  var cachedHashInitData = (function readHashInitData() {
     try {
-      if (!location.hash) return '';
+      if (!location.hash) return { telegram: '', max: '' };
       const params = new URLSearchParams(location.hash.slice(1));
-      if (kind === 'telegram') {
-        return params.get('tgWebAppData') || '';
+      const found = {
+        telegram: params.get('tgWebAppData') || '',
+        max: params.get('WebAppData') || '',
+      };
+      if (found.telegram || found.max) {
+        history.replaceState(null, '', location.pathname + location.search);
       }
-      const direct = params.get('WebAppData');
-      if (direct) return direct;
-      for (const [, value] of params) {
-        if (value && value.includes('hash=')) return value;
-      }
-      return '';
+      return found;
     } catch (err) {
-      return '';
+      return { telegram: '', max: '' };
     }
+  })();
+
+  function initDataFromUrlHash(kind) {
+    return (kind === 'telegram' ? cachedHashInitData.telegram : cachedHashInitData.max) || '';
   }
   // Читаем initData каждый раз заново, а не один раз при загрузке: у
   // Telegram initData синхронно готов сразу, а у MAX Bridge (судя по
@@ -1017,7 +1030,7 @@
           <div class="passenger-row">
             <span>
               ${escapeHtml(p.full_name || p.first_name || 'Без имени')}${p.username ? ' · @' + escapeHtml(p.username) : ''}<br>
-              ${phoneLink(p.phone)} · ID ${p.passenger_id}
+              ${p.status === 'confirmed' ? phoneLink(p.phone) : 'телефон — после подтверждения'} · ID ${p.passenger_id}
               ${p.rating_count ? `<br>${starsHtml(p.avg_rating, p.rating_count)}` : ''}
             </span>
             <span>${p.seats_booked} мест · ${p.status === 'confirmed' ? '✅ подтверждено' : '⏳ ждёт'}</span>
@@ -1663,8 +1676,15 @@
         return;
       }
       try {
-        const pollToken = encodeURIComponent(state.loginPollToken || '');
-        const res = await fetch(`/api/auth/login-code/status?code=${encodeURIComponent(code)}&pollToken=${pollToken}`);
+        // POST с телом, а не GET с параметрами в URL: эндпоинт заводит
+        // сессию и ставит cookie, поэтому его нельзя запускать переходом
+        // по ссылке (см. комментарий в server/routes/auth.ts). Заодно
+        // pollToken перестаёт светиться в строке запроса и в логах прокси.
+        const res = await fetch('/api/auth/login-code/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, pollToken: state.loginPollToken || '' }),
+        });
         const data = await res.json().catch(() => ({}));
         if (data.ok) {
           clearInterval(loginPollTimer);

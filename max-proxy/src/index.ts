@@ -36,9 +36,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  const forwardedFor = [req.socket.remoteAddress, req.headers['x-forwarded-for']]
-    .filter(Boolean)
-    .join(', ');
+  // ВАЖНО: клиентский X-Forwarded-For не дописываем, а полностью заменяем
+  // на реальный адрес соединения. Раньше заголовок собирался как
+  // [remoteAddress, клиентский X-Forwarded-For] — то есть значение,
+  // присланное клиентом, оказывалось в цепочке ПОСЛЕДНИМ. Основной сервер
+  // стоит с trust proxy = 1 и берёт как раз последний элемент, поэтому
+  // req.ip там становился любым адресом, какой клиент захочет прислать:
+  // IP-лимитеры считали по выдуманным адресам (каждый запрос — новая
+  // корзина), а в логи попадал не тот, кто пришёл. Единственный адрес,
+  // которому здесь можно верить, — это адрес сокета.
+  //
+  // Заодно вычищаем остальные x-forwarded-*, присланные клиентом: их
+  // значения точно так же ничем не подтверждены.
+  const incoming = { ...req.headers };
+  delete incoming['x-forwarded-for'];
+  delete incoming['x-forwarded-proto'];
+  delete incoming['x-forwarded-host'];
+  delete incoming['x-forwarded-port'];
+  delete incoming['forwarded'];
 
   const proxyReq = https.request(
     {
@@ -47,9 +62,9 @@ const server = http.createServer((req, res) => {
       path: req.url,
       method: req.method,
       headers: {
-        ...req.headers,
+        ...incoming,
         host: upstream.host,
-        'x-forwarded-for': forwardedFor,
+        'x-forwarded-for': req.socket.remoteAddress ?? '',
         'x-forwarded-proto': 'https',
       },
     },

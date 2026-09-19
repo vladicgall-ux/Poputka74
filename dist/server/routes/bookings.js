@@ -9,6 +9,7 @@ const rideService_1 = require("../../services/rideService");
 const notifier_1 = require("../../bot/notifier");
 const userService_1 = require("../../services/userService");
 const displayName_1 = require("../../utils/displayName");
+const escapeHtml_1 = require("../../utils/escapeHtml");
 const parseId_1 = require("../utils/parseId");
 exports.bookingsRouter = (0, express_1.Router)();
 exports.bookingsRouter.use(auth_1.requireTelegramAuth, auth_1.requireActiveUser);
@@ -37,9 +38,9 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
     try {
         const booking = (0, bookingService_1.createBooking)({ rideId, passengerId: user.telegram_id, seats });
         const ride = (0, rideService_1.getRideWithDriver)(rideId);
-        const passengerName = [(0, displayName_1.displayName)(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
+        const passengerName = (0, escapeHtml_1.escapeTgHtml)([(0, displayName_1.displayName)(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
             .filter(Boolean)
-            .join(' ');
+            .join(' '));
         const driverButtons = [
             [
                 { text: '✅ Подтверждаю бронирование', action: `confirm_booking:${booking.id}` },
@@ -50,7 +51,7 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
         if (driver) {
             await (0, notifier_1.notifyUser)(driver, `🚗 Новая заявка на бронирование!\n${passengerName} (${(0, displayName_1.platformLabel)(user.platform)}) хочет забронировать ${seats} мест. на поездку ${ride.from_city} → ${ride.to_city} (${formatDate(ride.departure_at)}).\nНажмите «Подтверждаю», чтобы место закрепилось за пассажиром и вы получили его контакт.`, driverButtons);
         }
-        await (0, notifier_1.notifyUser)(user, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}${driver ? ` (${(0, displayName_1.platformLabel)(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
+        await (0, notifier_1.notifyUser)(user, `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${(0, escapeHtml_1.escapeTgHtml)(ride.driver_first_name)}${driver ? ` (${(0, displayName_1.platformLabel)(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`);
         res.status(201).json({ booking });
     }
     catch (err) {

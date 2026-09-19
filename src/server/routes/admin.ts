@@ -11,6 +11,7 @@ import { listAllSupportMessages, createAdminReply } from '../../services/support
 import { getAdminStats, getDriverAllTimeStats, getPassengerAllTimeStats } from '../../services/statsService';
 import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { notifyPhoto, notifyUser } from '../../bot/notifier';
+import { escapeTgHtml } from '../../utils/escapeHtml';
 import { parseSignedId } from '../utils/parseId';
 
 export const adminRouter = Router();
@@ -100,7 +101,7 @@ adminRouter.post('/support/:userId/reply', async (req, res) => {
     return;
   }
   const record = createAdminReply(userId, message);
-  await notifyUser(target, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
+  await notifyUser(target, `✉️ <b>Ответ поддержки</b>\n\n${escapeTgHtml(message)}`);
   res.status(201).json({ message: record });
 });
 

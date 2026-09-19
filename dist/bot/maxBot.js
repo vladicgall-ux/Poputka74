@@ -11,6 +11,7 @@ const supportService_1 = require("../services/supportService");
 const bookingService_1 = require("../services/bookingService");
 const displayName_1 = require("../utils/displayName");
 const dateFormat_1 = require("../utils/dateFormat");
+const escapeHtml_1 = require("../utils/escapeHtml");
 const bot_1 = require("./bot");
 const retry_1 = require("../utils/retry");
 /** Тот же принцип, что и лимит поддержки в bot.ts — не даёт заваливать БД/админов текстом. */
@@ -90,7 +91,7 @@ function createMaxBot() {
         }
         const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
         (0, supportService_1.createSupportMessage)(user.telegram_id, text.slice(0, 1000));
-        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку (MAX)</b>\nОт: ${sender.name}${sender.username ? ' · @' + sender.username : ''} (ID ${(0, userService_1.maxStorageId)(sender.user_id)})\n\n${text}`);
+        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку (MAX)</b>\nОт: ${(0, escapeHtml_1.escapeTgHtml)(sender.name)}${sender.username ? ' · @' + (0, escapeHtml_1.escapeTgHtml)(sender.username) : ''} (ID ${(0, userService_1.maxStorageId)(sender.user_id)})\n\n${(0, escapeHtml_1.escapeTgHtml)(text.slice(0, 1000))}`);
         await (0, retry_1.withRetry)(() => ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.'));
     });
     bot.action(/^confirm_booking:(\d+)$/, async (ctx) => {
@@ -102,15 +103,15 @@ function createMaxBot() {
             await (0, retry_1.withRetry)(() => ctx.answerOnCallback({ notification: 'Бронирование подтверждено!' }));
             await (0, retry_1.withRetry)(() => ctx.editMessage({
                 text: `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
-                    `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
-                    `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+                    `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, escapeHtml_1.escapeTgHtml)((0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name))}${info.passenger_username ? ' (@' + (0, escapeHtml_1.escapeTgHtml)(info.passenger_username) + ')' : ''}\n` +
+                    `Телефон: ${info.passenger_phone ? (0, escapeHtml_1.escapeTgHtml)(info.passenger_phone) : 'не указан'}\n` +
                     `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
                 format: 'html',
             }));
             await (0, notifier_1.notifyUser)((0, userService_1.getUser)(info.passenger_id), `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
-                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
-                (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '') +
-                (info.dropoff_point ? `\n🏁 Конечная точка: ${info.dropoff_point}` : ''));
+                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, escapeHtml_1.escapeTgHtml)((0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name))}\nТелефон: ${info.driver_phone ? (0, escapeHtml_1.escapeTgHtml)(info.driver_phone) : 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+                (info.meeting_point ? `\n📍 Место встречи: ${(0, escapeHtml_1.escapeTgHtml)(info.meeting_point)}` : '') +
+                (info.dropoff_point ? `\n🏁 Конечная точка: ${(0, escapeHtml_1.escapeTgHtml)(info.dropoff_point)}` : ''));
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';

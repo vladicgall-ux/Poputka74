@@ -15,6 +15,7 @@ const supportService_1 = require("../services/supportService");
 const webSessionService_1 = require("../services/webSessionService");
 const displayName_1 = require("../utils/displayName");
 const dateFormat_1 = require("../utils/dateFormat");
+const escapeHtml_1 = require("../utils/escapeHtml");
 exports.bannerPath = path_1.default.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 /**
  * Простой лимит на сообщения в поддержку через бота: без него любой
@@ -146,17 +147,17 @@ function createBot() {
             const passengerButtons = dialogRows('💬 Написать пассажиру', info.passenger_username, info.passenger_platform);
             await ctx.answerCbQuery('Бронирование подтверждено!');
             await ctx.editMessageText(`✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
-                `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
-                `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+                `Пассажир (${(0, displayName_1.platformLabel)(info.passenger_platform)}): ${(0, escapeHtml_1.escapeTgHtml)((0, displayName_1.displayName)(info.passenger_full_name, info.passenger_first_name))}${info.passenger_username ? ' (@' + (0, escapeHtml_1.escapeTgHtml)(info.passenger_username) + ')' : ''}\n` +
+                `Телефон: ${info.passenger_phone ? (0, escapeHtml_1.escapeTgHtml)(info.passenger_phone) : 'не указан'}\n` +
                 `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`, {
                 parse_mode: 'HTML',
                 ...(passengerButtons ? telegraf_1.Markup.inlineKeyboard(passengerButtons) : {}),
             });
             const passengerUser = (0, userService_1.getUser)(info.passenger_id);
             await (0, notifier_1.notifyUser)(passengerUser, `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${(0, dateFormat_1.formatDate)(info.departure_at)}\n` +
-                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
-                (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '') +
-                (info.dropoff_point ? `\n🏁 Конечная точка: ${info.dropoff_point}` : ''));
+                `Водитель (${(0, displayName_1.platformLabel)(info.driver_platform)}): ${(0, escapeHtml_1.escapeTgHtml)((0, displayName_1.displayName)(info.driver_full_name, info.driver_first_name))}\nТелефон: ${info.driver_phone ? (0, escapeHtml_1.escapeTgHtml)(info.driver_phone) : 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+                (info.meeting_point ? `\n📍 Место встречи: ${(0, escapeHtml_1.escapeTgHtml)(info.meeting_point)}` : '') +
+                (info.dropoff_point ? `\n🏁 Конечная точка: ${(0, escapeHtml_1.escapeTgHtml)(info.dropoff_point)}` : ''));
         }
         catch (err) {
             const message = err instanceof bookingService_1.BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -216,13 +217,13 @@ function createBot() {
         });
         (0, supportService_1.createSupportMessage)(ctx.from.id, text.slice(0, 1000));
         const user = (0, userService_1.getUser)(ctx.from.id);
-        const senderName = [
+        const senderName = (0, escapeHtml_1.escapeTgHtml)([
             (0, displayName_1.displayName)(user?.full_name, ctx.from.first_name),
             ctx.from.username ? `@${ctx.from.username}` : null,
         ]
             .filter(Boolean)
-            .join(' ');
-        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null, 'telegram'));
+            .join(' '));
+        await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${(0, escapeHtml_1.escapeTgHtml)(user.phone)}` : ''}\n\n${(0, escapeHtml_1.escapeTgHtml)(text.slice(0, 1000))}`, dialogRows('💬 Написать в ответ', ctx.from.username ?? null, 'telegram'));
         ctx.reply('✅ Сообщение отправлено в поддержку. Мы ответим вам здесь, в этом чате.');
     });
     bot.catch((err) => {

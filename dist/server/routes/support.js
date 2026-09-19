@@ -7,6 +7,7 @@ const rateLimit_1 = require("../middleware/rateLimit");
 const supportService_1 = require("../../services/supportService");
 const notifier_1 = require("../../bot/notifier");
 const displayName_1 = require("../../utils/displayName");
+const escapeHtml_1 = require("../../utils/escapeHtml");
 exports.supportRouter = (0, express_1.Router)();
 // Специально без requireActiveUser: даже забаненный или неверифицированный
 // пользователь должен иметь возможность написать в поддержку и разобраться в ситуации.
@@ -21,9 +22,9 @@ exports.supportRouter.post('/', (0, rateLimit_1.writeLimiter)(8, 5 * 60000), asy
         return;
     }
     const record = (0, supportService_1.createSupportMessage)(user.telegram_id, message);
-    const senderName = [(0, displayName_1.displayName)(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
+    const senderName = (0, escapeHtml_1.escapeTgHtml)([(0, displayName_1.displayName)(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
         .filter(Boolean)
-        .join(' ');
-    await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${user.telegram_id})${user.phone ? `, ${user.phone}` : ''}\n\n${message}`);
+        .join(' '));
+    await (0, notifier_1.notifyAdmins)(`🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${user.telegram_id})${user.phone ? `, ${(0, escapeHtml_1.escapeTgHtml)(user.phone)}` : ''}\n\n${(0, escapeHtml_1.escapeTgHtml)(message)}`);
     res.status(201).json({ message: record });
 });

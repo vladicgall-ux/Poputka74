@@ -17,6 +17,7 @@ const supportService_1 = require("../../services/supportService");
 const statsService_1 = require("../../services/statsService");
 const ratingService_1 = require("../../services/ratingService");
 const notifier_1 = require("../../bot/notifier");
+const escapeHtml_1 = require("../../utils/escapeHtml");
 const parseId_1 = require("../utils/parseId");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
@@ -96,7 +97,7 @@ exports.adminRouter.post('/support/:userId/reply', async (req, res) => {
         return;
     }
     const record = (0, supportService_1.createAdminReply)(userId, message);
-    await (0, notifier_1.notifyUser)(target, `✉️ <b>Ответ поддержки</b>\n\n${message}`);
+    await (0, notifier_1.notifyUser)(target, `✉️ <b>Ответ поддержки</b>\n\n${(0, escapeHtml_1.escapeTgHtml)(message)}`);
     res.status(201).json({ message: record });
 });
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

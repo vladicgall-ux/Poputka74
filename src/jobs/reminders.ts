@@ -13,6 +13,7 @@ import { notifyMaxWithLink, notifyMaxPhoneReminder } from '../bot/maxNotifier';
 import { getUser, listUsersDueForPhoneReminder, markPhoneReminderSent } from '../services/userService';
 import { displayName } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
+import { escapeTgHtml } from '../utils/escapeHtml';
 
 /**
  * Через час после поездки просит пассажира оценить водителя — если бронь
@@ -32,7 +33,7 @@ export async function sendRatingReminders(): Promise<void> {
   for (const b of due) {
     const passenger = getUser(b.passenger_id);
     if (passenger) {
-      const text = `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${displayName(b.driver_full_name, b.driver_first_name)}?\nОцените поездку в приложении — это поможет другим пассажирам.`;
+      const text = `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${escapeTgHtml(displayName(b.driver_full_name, b.driver_first_name))}?\nОцените поездку в приложении — это поможет другим пассажирам.`;
       const deepLink = config.webappUrl ? `${config.webappUrl}?tab=mine` : undefined;
       if (passenger.platform === 'telegram') {
         const buttons: NotifyButton[][] | undefined = deepLink
@@ -59,8 +60,8 @@ export async function sendDepartureReminders(): Promise<void> {
   for (const ride of due) {
     const route = `${ride.from_city} → ${ride.to_city}`;
     const meetingLine =
-      (ride.meeting_point ? `\n📍 Место встречи: ${ride.meeting_point}` : '') +
-      (ride.dropoff_point ? `\n🏁 Конечная точка: ${ride.dropoff_point}` : '');
+      (ride.meeting_point ? `\n📍 Место встречи: ${escapeTgHtml(ride.meeting_point)}` : '') +
+      (ride.dropoff_point ? `\n🏁 Конечная точка: ${escapeTgHtml(ride.dropoff_point)}` : '');
 
     const driver = getUser(ride.driver_id);
     if (driver) {

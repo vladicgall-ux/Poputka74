@@ -19,6 +19,7 @@ import { getRidePassengers, cancelBookingsForRide, BookingError } from '../../se
 import { getDriverStats } from '../../services/statsService';
 import { notifyUser } from '../../bot/notifier';
 import { formatDate } from '../../utils/dateFormat';
+import { escapeTgHtml } from '../../utils/escapeHtml';
 import { config, type City } from '../../config';
 import { parseId } from '../utils/parseId';
 
@@ -214,7 +215,7 @@ ridesRouter.post('/:id/cancel', async (req, res) => {
 
   const ride = getRide(rideId)!;
   const affected = cancelBookingsForRide(rideId);
-  const reasonLine = reason ? `\nПричина: ${reason}` : '';
+  const reasonLine = reason ? `\nПричина: ${escapeTgHtml(reason)}` : '';
   for (const booking of affected) {
     const passenger = getUser(booking.passenger_id);
     if (passenger) {

@@ -11,6 +11,7 @@ const bookingService_1 = require("../../services/bookingService");
 const statsService_1 = require("../../services/statsService");
 const notifier_1 = require("../../bot/notifier");
 const dateFormat_1 = require("../../utils/dateFormat");
+const escapeHtml_1 = require("../../utils/escapeHtml");
 const config_1 = require("../../config");
 const parseId_1 = require("../utils/parseId");
 exports.ridesRouter = (0, express_1.Router)();
@@ -185,7 +186,7 @@ exports.ridesRouter.post('/:id/cancel', async (req, res) => {
     }
     const ride = (0, rideService_1.getRide)(rideId);
     const affected = (0, bookingService_1.cancelBookingsForRide)(rideId);
-    const reasonLine = reason ? `\nПричина: ${reason}` : '';
+    const reasonLine = reason ? `\nПричина: ${(0, escapeHtml_1.escapeTgHtml)(reason)}` : '';
     for (const booking of affected) {
         const passenger = (0, userService_1.getUser)(booking.passenger_id);
         if (passenger) {

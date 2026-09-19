@@ -8,6 +8,7 @@ import { createSupportMessage } from '../services/supportService';
 import { consumeLoginCode } from '../services/webSessionService';
 import { displayName, platformLabel } from '../utils/displayName';
 import { formatDate } from '../utils/dateFormat';
+import { escapeTgHtml } from '../utils/escapeHtml';
 
 export const bannerPath = path.join(__dirname, '..', '..', 'public', 'assets', 'banner.png');
 
@@ -166,8 +167,8 @@ export function createBot(): Telegraf {
       await ctx.answerCbQuery('Бронирование подтверждено!');
       await ctx.editMessageText(
         `✅ Вы подтвердили бронирование.\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Пассажир (${platformLabel(info.passenger_platform)}): ${displayName(info.passenger_full_name, info.passenger_first_name)}${info.passenger_username ? ' (@' + info.passenger_username + ')' : ''}\n` +
-          `Телефон: ${info.passenger_phone ?? 'не указан'}\n` +
+          `Пассажир (${platformLabel(info.passenger_platform)}): ${escapeTgHtml(displayName(info.passenger_full_name, info.passenger_first_name))}${info.passenger_username ? ' (@' + escapeTgHtml(info.passenger_username) + ')' : ''}\n` +
+          `Телефон: ${info.passenger_phone ? escapeTgHtml(info.passenger_phone) : 'не указан'}\n` +
           `Мест: ${info.seats_booked} · Сумма: ${info.price_per_seat * info.seats_booked} ₽`,
         {
           parse_mode: 'HTML',
@@ -179,9 +180,9 @@ export function createBot(): Telegraf {
       await notifyUser(
         passengerUser,
         `✅ Водитель подтвердил бронирование!\n${info.from_city} → ${info.to_city}, ${formatDate(info.departure_at)}\n` +
-          `Водитель (${platformLabel(info.driver_platform)}): ${displayName(info.driver_full_name, info.driver_first_name)}\nТелефон: ${info.driver_phone ?? 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
-          (info.meeting_point ? `\n📍 Место встречи: ${info.meeting_point}` : '') +
-          (info.dropoff_point ? `\n🏁 Конечная точка: ${info.dropoff_point}` : '')
+          `Водитель (${platformLabel(info.driver_platform)}): ${escapeTgHtml(displayName(info.driver_full_name, info.driver_first_name))}\nТелефон: ${info.driver_phone ? escapeTgHtml(info.driver_phone) : 'не указан'}\nСумма: ${info.price_per_seat * info.seats_booked} ₽` +
+          (info.meeting_point ? `\n📍 Место встречи: ${escapeTgHtml(info.meeting_point)}` : '') +
+          (info.dropoff_point ? `\n🏁 Конечная точка: ${escapeTgHtml(info.dropoff_point)}` : '')
       );
     } catch (err) {
       const message = err instanceof BookingError ? err.message : 'Не удалось подтвердить бронирование';
@@ -254,14 +255,16 @@ export function createBot(): Telegraf {
     createSupportMessage(ctx.from.id, text.slice(0, 1000));
 
     const user = getUser(ctx.from.id);
-    const senderName = [
-      displayName(user?.full_name, ctx.from.first_name),
-      ctx.from.username ? `@${ctx.from.username}` : null,
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const senderName = escapeTgHtml(
+      [
+        displayName(user?.full_name, ctx.from.first_name),
+        ctx.from.username ? `@${ctx.from.username}` : null,
+      ]
+        .filter(Boolean)
+        .join(' ')
+    );
     await notifyAdmins(
-      `🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${user.phone}` : ''}\n\n${text}`,
+      `🆘 <b>Сообщение в поддержку</b>\nОт: ${senderName} (ID ${ctx.from.id})${user?.phone ? `, ${escapeTgHtml(user.phone)}` : ''}\n\n${escapeTgHtml(text.slice(0, 1000))}`,
       dialogRows('💬 Написать в ответ', ctx.from.username ?? null, 'telegram')
     );
 

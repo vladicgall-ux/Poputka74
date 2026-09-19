@@ -11,6 +11,7 @@ const maxNotifier_1 = require("../bot/maxNotifier");
 const userService_1 = require("../services/userService");
 const displayName_1 = require("../utils/displayName");
 const dateFormat_1 = require("../utils/dateFormat");
+const escapeHtml_1 = require("../utils/escapeHtml");
 /**
  * Через час после поездки просит пассажира оценить водителя — если бронь
  * подтверждена и оценки ещё нет. Отмечает бронь как «напоминание отправлено»
@@ -29,7 +30,7 @@ async function sendRatingReminders() {
     for (const b of due) {
         const passenger = (0, userService_1.getUser)(b.passenger_id);
         if (passenger) {
-            const text = `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${(0, displayName_1.displayName)(b.driver_full_name, b.driver_first_name)}?\nОцените поездку в приложении — это поможет другим пассажирам.`;
+            const text = `🌟 Как прошла поездка ${b.from_city} → ${b.to_city} с водителем ${(0, escapeHtml_1.escapeTgHtml)((0, displayName_1.displayName)(b.driver_full_name, b.driver_first_name))}?\nОцените поездку в приложении — это поможет другим пассажирам.`;
             const deepLink = config_1.config.webappUrl ? `${config_1.config.webappUrl}?tab=mine` : undefined;
             if (passenger.platform === 'telegram') {
                 const buttons = deepLink
@@ -56,8 +57,8 @@ async function sendDepartureReminders() {
     const due = (0, rideService_1.listRidesDueForDepartureReminder)();
     for (const ride of due) {
         const route = `${ride.from_city} → ${ride.to_city}`;
-        const meetingLine = (ride.meeting_point ? `\n📍 Место встречи: ${ride.meeting_point}` : '') +
-            (ride.dropoff_point ? `\n🏁 Конечная точка: ${ride.dropoff_point}` : '');
+        const meetingLine = (ride.meeting_point ? `\n📍 Место встречи: ${(0, escapeHtml_1.escapeTgHtml)(ride.meeting_point)}` : '') +
+            (ride.dropoff_point ? `\n🏁 Конечная точка: ${(0, escapeHtml_1.escapeTgHtml)(ride.dropoff_point)}` : '');
         const driver = (0, userService_1.getUser)(ride.driver_id);
         if (driver) {
             await (0, notifier_1.notifyUser)(driver, `⏰ Через час у вас поездка ${route} (${(0, dateFormat_1.formatDate)(ride.departure_at)}).${meetingLine}`);

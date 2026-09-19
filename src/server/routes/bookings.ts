@@ -6,6 +6,7 @@ import { getRideWithDriver } from '../../services/rideService';
 import { notifyUser, type ActionButton } from '../../bot/notifier';
 import { getUser } from '../../services/userService';
 import { displayName, platformLabel } from '../../utils/displayName';
+import { escapeTgHtml } from '../../utils/escapeHtml';
 import { parseId } from '../utils/parseId';
 
 export const bookingsRouter = Router();
@@ -42,9 +43,11 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
     const booking = createBooking({ rideId, passengerId: user.telegram_id, seats });
     const ride = getRideWithDriver(rideId)!;
 
-    const passengerName = [displayName(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
-      .filter(Boolean)
-      .join(' ');
+    const passengerName = escapeTgHtml(
+      [displayName(user.full_name, user.first_name), user.username ? `@${user.username}` : null]
+        .filter(Boolean)
+        .join(' ')
+    );
 
     const driverButtons: ActionButton[][] = [
       [
@@ -62,7 +65,7 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), async (req, res) => {
     }
     await notifyUser(
       user,
-      `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${ride.driver_first_name}${driver ? ` (${platformLabel(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`
+      `⏳ Заявка отправлена водителю!\n${ride.from_city} → ${ride.to_city}, ${formatDate(ride.departure_at)}\nВодитель: ${escapeTgHtml(ride.driver_first_name)}${driver ? ` (${platformLabel(driver.platform)})` : ''}\nЖдём подтверждения — как только водитель подтвердит, вы получите его контакт.`
     );
 
     res.status(201).json({ booking });

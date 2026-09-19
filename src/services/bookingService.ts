@@ -99,8 +99,13 @@ export function countCancelledBookingsByPassenger(passengerId: number): number {
   return row.n;
 }
 
-/** Водитель подтверждает бронь — только для своих поездок и только из статуса 'pending'. */
-export function confirmBooking(bookingId: number, driverId: number): BookingRecord {
+/**
+ * Водитель подтверждает бронь — только для своих поездок и только из
+ * статуса 'pending'. В транзакции, как и declineBooking рядом: проверки и
+ * запись должны быть одной неделимой операцией, иначе симметрия двух
+ * парных функций держится лишь на том, что better-sqlite3 синхронный.
+ */
+export const confirmBooking = db.transaction((bookingId: number, driverId: number): BookingRecord => {
   const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId) as
     | BookingRecord
     | undefined;
@@ -113,7 +118,7 @@ export function confirmBooking(bookingId: number, driverId: number): BookingReco
   }
   db.prepare(`UPDATE bookings SET status = 'confirmed' WHERE id = ?`).run(bookingId);
   return { ...booking, status: 'confirmed' };
-}
+});
 
 /** Водитель отклоняет бронь — место возвращается в число свободных. */
 export const declineBooking = db.transaction((bookingId: number, driverId: number): BookingRecord => {

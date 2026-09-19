@@ -37,7 +37,7 @@ function isSupportRateLimited(userId: number): boolean {
  * (произвольная vCard из адресной книги) — такую не принимаем: телефон
  * в ней может быть чей угодно.
  */
-function isOwnContact(attachments: unknown, senderUserId: number): boolean {
+export function isOwnContact(attachments: unknown, senderUserId: number): boolean {
   if (!Array.isArray(attachments)) return false;
   for (const attachment of attachments) {
     if (!attachment || typeof attachment !== 'object') continue;

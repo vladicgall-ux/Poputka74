@@ -12,6 +12,7 @@ import { authRouter } from './routes/auth';
 import { uploadsDir } from './middleware/upload';
 import { getBotUsername } from '../bot/notifier';
 import { config } from '../config';
+import { db } from '../db/db';
 
 export function createApp() {
   const app = express();
@@ -92,6 +93,21 @@ export function createApp() {
       legacyHeaders: false,
     })
   );
+
+  // Проверка живости для хостинга и мониторинга. Отвечает 200, только
+  // если БД реально отвечает на запрос: процесс может быть жив, а файл
+  // базы при этом оказаться недоступен (диск заполнен, том не
+  // примонтирован) — тогда приложение внешне «работает», а на деле не
+  // обслуживает ни одного запроса. Ничего приватного не отдаёт.
+  app.get('/healthz', (_req, res) => {
+    try {
+      db.prepare('SELECT 1').get();
+      res.json({ ok: true, version: config.appVersion });
+    } catch (err) {
+      console.error('Health-check: БД не отвечает:', err);
+      res.status(503).json({ ok: false, error: 'База данных недоступна' });
+    }
+  });
 
   // Публичный, без авторизации — нужен фронтенду только чтобы собрать
   // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.

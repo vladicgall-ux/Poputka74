@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.declineBooking = exports.cancelBooking = exports.createBooking = exports.BookingError = void 0;
+exports.declineBooking = exports.confirmBooking = exports.cancelBooking = exports.createBooking = exports.BookingError = void 0;
 exports.countCancelledBookingsByPassenger = countCancelledBookingsByPassenger;
-exports.confirmBooking = confirmBooking;
 exports.getBookingWithPeople = getBookingWithPeople;
 exports.listAllBookings = listAllBookings;
 exports.listBookingsByPassenger = listBookingsByPassenger;
@@ -82,8 +81,13 @@ function countCancelledBookingsByPassenger(passengerId) {
         .get(passengerId);
     return row.n;
 }
-/** Водитель подтверждает бронь — только для своих поездок и только из статуса 'pending'. */
-function confirmBooking(bookingId, driverId) {
+/**
+ * Водитель подтверждает бронь — только для своих поездок и только из
+ * статуса 'pending'. В транзакции, как и declineBooking рядом: проверки и
+ * запись должны быть одной неделимой операцией, иначе симметрия двух
+ * парных функций держится лишь на том, что better-sqlite3 синхронный.
+ */
+exports.confirmBooking = db_1.db.transaction((bookingId, driverId) => {
     const booking = db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
     if (!booking || booking.status !== 'pending') {
         throw new BookingError('Бронирование уже обработано');
@@ -94,7 +98,7 @@ function confirmBooking(bookingId, driverId) {
     }
     db_1.db.prepare(`UPDATE bookings SET status = 'confirmed' WHERE id = ?`).run(bookingId);
     return { ...booking, status: 'confirmed' };
-}
+});
 /** Водитель отклоняет бронь — место возвращается в число свободных. */
 exports.declineBooking = db_1.db.transaction((bookingId, driverId) => {
     const booking = db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);

@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isOwnContact = isOwnContact;
 exports.createMaxBot = createMaxBot;
 const max_bot_api_1 = require("@maxhub/max-bot-api");
 const config_1 = require("../config");

@@ -13,7 +13,9 @@ ratingsRouter.post('/', writeLimiter(20, 10 * 60_000), (req, res) => {
   const rating = Number(req.body?.rating);
   const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim().slice(0, 300) : undefined;
 
-  if (!Number.isInteger(rideId) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+  // См. комментарий в bookings.ts — Number.isInteger пропускает 0 и
+  // отрицательные, а id поездки положительный.
+  if (!Number.isSafeInteger(rideId) || rideId <= 0 || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     res.status(400).json({ error: 'Некорректная оценка' });
     return;
   }
@@ -39,8 +41,12 @@ ratingsRouter.post('/passenger', writeLimiter(20, 10 * 60_000), (req, res) => {
   const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim().slice(0, 300) : undefined;
 
   if (
-    !Number.isInteger(rideId) ||
-    !Number.isInteger(passengerId) ||
+    !Number.isSafeInteger(rideId) ||
+    rideId <= 0 ||
+    // passengerId может быть отрицательным: так в БД хранятся пользователи
+    // MAX (см. maxStorageId в userService) — поэтому здесь только !== 0.
+    !Number.isSafeInteger(passengerId) ||
+    passengerId === 0 ||
     !Number.isInteger(rating) ||
     rating < 1 ||
     rating > 5

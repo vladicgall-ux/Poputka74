@@ -18,6 +18,7 @@ const auth_1 = require("./routes/auth");
 const upload_1 = require("./middleware/upload");
 const notifier_1 = require("../bot/notifier");
 const config_1 = require("../config");
+const db_1 = require("../db/db");
 function createApp() {
     const app = (0, express_1.default)();
     // bothost и подобные PaaS обычно ставят приложение за обратный прокси —
@@ -85,6 +86,21 @@ function createApp() {
         standardHeaders: true,
         legacyHeaders: false,
     }));
+    // Проверка живости для хостинга и мониторинга. Отвечает 200, только
+    // если БД реально отвечает на запрос: процесс может быть жив, а файл
+    // базы при этом оказаться недоступен (диск заполнен, том не
+    // примонтирован) — тогда приложение внешне «работает», а на деле не
+    // обслуживает ни одного запроса. Ничего приватного не отдаёт.
+    app.get('/healthz', (_req, res) => {
+        try {
+            db_1.db.prepare('SELECT 1').get();
+            res.json({ ok: true, version: config_1.config.appVersion });
+        }
+        catch (err) {
+            console.error('Health-check: БД не отвечает:', err);
+            res.status(503).json({ ok: false, error: 'База данных недоступна' });
+        }
+    });
     // Публичный, без авторизации — нужен фронтенду только чтобы собрать
     // ссылку-приглашение t.me/<бот>, никаких приватных данных не отдаёт.
     app.get('/api/config', (_req, res) => {

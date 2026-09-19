@@ -35,7 +35,10 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), asyncHandler(async (req,
   const { user } = req as AuthedRequest;
   const rideId = Number(req.body?.rideId);
   const seats = Number(req.body?.seats ?? 1);
-  if (!Number.isInteger(rideId) || !Number.isInteger(seats) || seats < 1 || seats > 8) {
+  // Number.isInteger пропускает 0, отрицательные и 2^53 — id поездки таким
+  // быть не может. Те же требования, что у parseId для параметров пути,
+  // просто вход здесь из тела запроса, а не из :id.
+  if (!Number.isSafeInteger(rideId) || rideId <= 0 || !Number.isInteger(seats) || seats < 1 || seats > 8) {
     res.status(400).json({ error: 'Некорректный запрос на бронирование' });
     return;
   }

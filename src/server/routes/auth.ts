@@ -8,21 +8,16 @@ import {
   checkLoginCode,
 } from '../../services/webSessionService';
 import { writeLimiter } from '../middleware/rateLimit';
-import { readCookie, requireTelegramAuth, SESSION_COOKIE_NAME, type AuthedRequest } from '../middleware/auth';
+import {
+  readCookie,
+  requireTelegramAuth,
+  setSessionCookie,
+  SESSION_COOKIE_NAME,
+  type AuthedRequest,
+} from '../middleware/auth';
 
 export const authRouter = Router();
 
-const COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60_000; // держим в шаге с TTL сессии в webSessionService
-
-function setSessionCookie(res: import('express').Response, token: string) {
-  res.cookie(SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'lax',
-    maxAge: COOKIE_MAX_AGE_MS,
-    path: '/',
-  });
-}
 
 /**
  * Вход через браузерную версию сайта (вне Mini App): ни у Telegram (классический
@@ -68,6 +63,10 @@ authRouter.post('/login-code/status', writeLimiter(240, 10 * 60_000), (req, res)
     res.json({ ok: false });
     return;
   }
+  // Гасим токен, который был у этого браузера до входа: иначе он
+  // остался бы действительным в БД и дальше (защита от фиксации сессии).
+  const previous = readCookie(req, SESSION_COOKIE_NAME);
+  if (previous) deleteWebSession(previous);
   const token = createWebSession(userId);
   setSessionCookie(res, token);
   res.json({ ok: true, user: getUser(userId) });

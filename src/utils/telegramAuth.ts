@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { config } from '../config';
+import { parseInitData } from './initDataParser';
 import type { TelegramProfile } from '../services/userService';
 
 export interface ValidatedInitData {
@@ -11,54 +12,45 @@ export interface ValidatedInitData {
  * Проверяет подпись initData, которую Telegram Mini App передаёт на бэкенд.
  * Алгоритм из официальной документации Telegram (валидация Web App данных):
  * https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
+ *
+ * Разбор строки вынесен в initDataParser: там же проверяются размер,
+ * кодировка, обязательные поля, дубликаты security-критичных параметров и
+ * срок годности auth_date — всё это до вычисления HMAC, чтобы подпись
+ * считалась только по данным заведомо понятной структуры.
+ *
+ * initData — не сессия. После успешной проверки вызывающий код выдаёт
+ * серверную сессию (server/middleware/auth.ts), а окно годности самой
+ * initData ограничено config.initDataMaxAgeSec.
  */
 export function validateInitData(initData: string): ValidatedInitData | null {
-  if (!initData) return null;
-
-  const params = new URLSearchParams(initData);
-  const hash = params.get('hash');
-  if (!hash) return null;
-  params.delete('hash');
-
-  const dataCheckString = [...params.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+  const parsed = parseInitData(initData, config.initDataMaxAgeSec);
+  if (!parsed.ok) return null;
 
   const secretKey = crypto.createHmac('sha256', 'WebAppData').update(config.botToken).digest();
-  const computedHash = crypto.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
+  const computedHash = crypto.createHmac('sha256', secretKey).update(parsed.dataCheckString).digest('hex');
 
-  if (!timingSafeEqualHex(computedHash, hash)) {
+  if (!timingSafeEqualHex(computedHash, parsed.hash)) {
     return null;
   }
 
-  const authDate = Number(params.get('auth_date') ?? 0);
-  const now = Date.now() / 1000;
-  // initData считается просроченной через 24 часа. Верхнюю границу (now + 5
-  // минут) проверяем на случай будущей даты — она бы никогда не устарела.
-  if (!Number.isFinite(authDate) || authDate <= 0 || authDate > now + 300 || now - authDate > 60 * 60 * 24) {
-    return null;
-  }
-
-  const userRaw = params.get('user');
-  if (!userRaw) return null;
-
-  let parsed: unknown;
+  let profile: unknown;
   try {
-    parsed = JSON.parse(userRaw);
+    profile = JSON.parse(parsed.userRaw);
   } catch {
     return null;
   }
   if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    typeof (parsed as { id?: unknown }).id !== 'number' ||
-    typeof (parsed as { first_name?: unknown }).first_name !== 'string'
+    !profile ||
+    typeof profile !== 'object' ||
+    typeof (profile as { id?: unknown }).id !== 'number' ||
+    !Number.isSafeInteger((profile as { id: number }).id) ||
+    (profile as { id: number }).id <= 0 ||
+    typeof (profile as { first_name?: unknown }).first_name !== 'string'
   ) {
     return null;
   }
 
-  return { user: parsed as TelegramProfile, authDate };
+  return { user: profile as TelegramProfile, authDate: parsed.authDate };
 }
 
 function timingSafeEqualHex(a: string, b: string): boolean {

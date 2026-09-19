@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateMaxInitData = validateMaxInitData;
 const crypto_1 = __importDefault(require("crypto"));
 const config_1 = require("../config");
+const initDataParser_1 = require("./initDataParser");
 /**
  * Проверяет подпись initData из MAX Mini App.
  *
@@ -13,7 +14,14 @@ const config_1 = require("../config");
  * webapps/validation): та же схема, что и у Telegram Mini Apps —
  * HMAC-SHA256 от отсортированной data-check-string, ключ —
  * HMAC-SHA256('WebAppData', токен бота). Реализация ниже совпадает с
- * validateInitData в telegramAuth.ts, только с секретом MAX-бота.
+ * validateInitData в telegramAuth.ts, только с секретом MAX-бота, и
+ * использует тот же строгий разбор (initDataParser): размер, кодировка,
+ * обязательные поля, дубликаты security-критичных параметров, срок
+ * годности auth_date и допуск на расхождение часов.
+ *
+ * Launch-параметры MAX — не постоянный API-токен: после успешной проверки
+ * выдаётся серверная сессия в HttpOnly-куке (server/middleware/auth.ts),
+ * а сами параметры живут не дольше config.initDataMaxAgeSec.
  */
 function validateMaxInitData(initData) {
     // Логируем только короткую причину отказа, без самих данных — initData
@@ -26,8 +34,7 @@ function validateMaxInitData(initData) {
     // проверка, — а это в том числе и весь трафик браузерной версии сайта
     // (вход по коду, там нет ни Telegram, ни MAX initData вообще), и запросы
     // ботов/краулеров без какого-либо игрового контекста. Логировать здесь
-    // значило бы писать в лог фактически на каждый обычный запрос сайта —
-    // раньше так и было, отсюда стена одинаковых строк в логах хостинга.
+    // значило бы писать в лог фактически на каждый обычный запрос сайта.
     if (!initData) {
         return null;
     }
@@ -35,55 +42,40 @@ function validateMaxInitData(initData) {
         log('MAX_BOT_TOKEN не задан на сервере');
         return null;
     }
-    const params = new URLSearchParams(initData);
-    const hash = params.get('hash');
-    if (!hash) {
-        log('нет поля hash');
+    const parsed = (0, initDataParser_1.parseInitData)(initData, config_1.config.initDataMaxAgeSec);
+    if (!parsed.ok) {
+        log(parsed.reason);
         return null;
     }
-    params.delete('hash');
-    const dataCheckString = [...params.entries()]
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, value]) => `${key}=${value}`)
-        .join('\n');
     const secretKey = crypto_1.default.createHmac('sha256', 'WebAppData').update(config_1.config.maxBotToken).digest();
-    const computedHash = crypto_1.default.createHmac('sha256', secretKey).update(dataCheckString).digest('hex');
-    if (!timingSafeEqualHex(computedHash, hash)) {
+    const computedHash = crypto_1.default.createHmac('sha256', secretKey).update(parsed.dataCheckString).digest('hex');
+    if (!timingSafeEqualHex(computedHash, parsed.hash)) {
         log('подпись не совпала');
         return null;
     }
-    const authDate = Number(params.get('auth_date') ?? 0);
-    const now = Date.now() / 1000;
-    // Верхнюю границу (now + 5 минут) проверяем на случай будущей даты —
-    // такая initData иначе никогда не считалась бы просроченной.
-    if (!Number.isFinite(authDate) || authDate <= 0 || authDate > now + 300 || now - authDate > 60 * 60 * 24) {
-        log('просрочено, из будущего или нет auth_date');
-        return null;
-    }
-    const userRaw = params.get('user');
-    if (!userRaw) {
-        log('нет поля user');
-        return null;
-    }
-    let parsed;
+    let profile;
     try {
-        parsed = JSON.parse(userRaw);
+        profile = JSON.parse(parsed.userRaw);
     }
     catch {
         log('поле user — невалидный JSON');
         return null;
     }
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'number') {
+    if (!profile ||
+        typeof profile !== 'object' ||
+        typeof profile.id !== 'number' ||
+        !Number.isSafeInteger(profile.id) ||
+        profile.id <= 0) {
         log('поле user имеет неверную структуру');
         return null;
     }
-    const raw = parsed;
+    const raw = profile;
     const user = {
         id: raw.id,
         name: raw.name ?? raw.first_name ?? 'Пользователь MAX',
         username: raw.username ?? null,
     };
-    return { user, authDate };
+    return { user, authDate: parsed.authDate };
 }
 function timingSafeEqualHex(a, b) {
     const bufA = Buffer.from(a, 'hex');

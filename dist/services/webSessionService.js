@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkLoginCode = void 0;
+exports.checkLoginCode = exports.rotateWebSession = exports.SESSION_TTL_MS = void 0;
 exports.createWebSession = createWebSession;
 exports.getSessionUser = getSessionUser;
 exports.deleteWebSession = deleteWebSession;
@@ -13,17 +13,33 @@ exports.consumeLoginCode = consumeLoginCode;
 exports.sweepExpiredWebAuth = sweepExpiredWebAuth;
 const crypto_1 = __importDefault(require("crypto"));
 const db_1 = require("../db/db");
+const config_1 = require("../config");
 const userService_1 = require("./userService");
-const SESSION_TTL_MS = 30 * 24 * 60 * 60000; // 30 дней
+exports.SESSION_TTL_MS = config_1.config.sessionTtlDays * 24 * 60 * 60000;
 const LOGIN_CODE_TTL_MS = 10 * 60000; // 10 минут — код успевают ввести, но он не живёт вечно
 function isoIn(ms) {
     return new Date(Date.now() + ms).toISOString();
 }
 function createWebSession(userId) {
     const token = crypto_1.default.randomBytes(32).toString('hex');
-    db_1.db.prepare('INSERT INTO web_sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, isoIn(SESSION_TTL_MS));
+    db_1.db.prepare('INSERT INTO web_sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(token, userId, isoIn(exports.SESSION_TTL_MS));
     return token;
 }
+/**
+ * Выдаёт новый токен взамен указанного и гасит старый — одной
+ * транзакцией, чтобы не осталось ни двух живых сессий, ни нуля.
+ *
+ * Нужно против фиксации сессии: идентификатор, который был у клиента ДО
+ * авторизации, не должен оставаться действительным ПОСЛЕ неё. Иначе тот,
+ * кто сумел заранее подсунуть браузеру жертвы известный ему токен,
+ * продолжал бы владеть уже авторизованной сессией.
+ */
+exports.rotateWebSession = db_1.db.transaction((oldToken, userId) => {
+    const fresh = crypto_1.default.randomBytes(32).toString('hex');
+    db_1.db.prepare('INSERT INTO web_sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(fresh, userId, isoIn(exports.SESSION_TTL_MS));
+    db_1.db.prepare('DELETE FROM web_sessions WHERE token = ?').run(oldToken);
+    return fresh;
+});
 function getSessionUser(token) {
     if (!token)
         return undefined;

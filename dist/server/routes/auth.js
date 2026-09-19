@@ -7,16 +7,6 @@ const webSessionService_1 = require("../../services/webSessionService");
 const rateLimit_1 = require("../middleware/rateLimit");
 const auth_1 = require("../middleware/auth");
 exports.authRouter = (0, express_1.Router)();
-const COOKIE_MAX_AGE_MS = 30 * 24 * 60 * 60000; // держим в шаге с TTL сессии в webSessionService
-function setSessionCookie(res, token) {
-    res.cookie(auth_1.SESSION_COOKIE_NAME, token, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: COOKIE_MAX_AGE_MS,
-        path: '/',
-    });
-}
 /**
  * Вход через браузерную версию сайта (вне Mini App): ни у Telegram (классический
  * Login Widget отключён самим Telegram), ни у MAX нет рабочего публичного
@@ -60,8 +50,13 @@ exports.authRouter.post('/login-code/status', (0, rateLimit_1.writeLimiter)(240,
         res.json({ ok: false });
         return;
     }
+    // Гасим токен, который был у этого браузера до входа: иначе он
+    // остался бы действительным в БД и дальше (защита от фиксации сессии).
+    const previous = (0, auth_1.readCookie)(req, auth_1.SESSION_COOKIE_NAME);
+    if (previous)
+        (0, webSessionService_1.deleteWebSession)(previous);
     const token = (0, webSessionService_1.createWebSession)(userId);
-    setSessionCookie(res, token);
+    (0, auth_1.setSessionCookie)(res, token);
     res.json({ ok: true, user: (0, userService_1.getUser)(userId) });
 });
 exports.authRouter.post('/logout', (req, res) => {

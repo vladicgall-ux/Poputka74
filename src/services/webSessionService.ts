@@ -1,8 +1,9 @@
 import crypto from 'crypto';
 import { db } from '../db/db';
+import { config } from '../config';
 import { getUser, type UserRecord } from './userService';
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60_000; // 30 дней
+export const SESSION_TTL_MS = config.sessionTtlDays * 24 * 60 * 60_000;
 const LOGIN_CODE_TTL_MS = 10 * 60_000; // 10 минут — код успевают ввести, но он не живёт вечно
 
 function isoIn(ms: number): string {
@@ -18,6 +19,26 @@ export function createWebSession(userId: number): string {
   );
   return token;
 }
+
+/**
+ * Выдаёт новый токен взамен указанного и гасит старый — одной
+ * транзакцией, чтобы не осталось ни двух живых сессий, ни нуля.
+ *
+ * Нужно против фиксации сессии: идентификатор, который был у клиента ДО
+ * авторизации, не должен оставаться действительным ПОСЛЕ неё. Иначе тот,
+ * кто сумел заранее подсунуть браузеру жертвы известный ему токен,
+ * продолжал бы владеть уже авторизованной сессией.
+ */
+export const rotateWebSession = db.transaction((oldToken: string, userId: number): string => {
+  const fresh = crypto.randomBytes(32).toString('hex');
+  db.prepare('INSERT INTO web_sessions (token, user_id, expires_at) VALUES (?, ?, ?)').run(
+    fresh,
+    userId,
+    isoIn(SESSION_TTL_MS)
+  );
+  db.prepare('DELETE FROM web_sessions WHERE token = ?').run(oldToken);
+  return fresh;
+});
 
 export function getSessionUser(token: string): UserRecord | undefined {
   if (!token) return undefined;

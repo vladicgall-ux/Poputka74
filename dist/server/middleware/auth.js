@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SESSION_COOKIE_NAME = void 0;
+exports.setSessionCookie = setSessionCookie;
 exports.readCookie = readCookie;
 exports.requireTelegramAuth = requireTelegramAuth;
 exports.requireActiveUser = requireActiveUser;
@@ -10,6 +11,46 @@ const userService_1 = require("../../services/userService");
 const webSessionService_1 = require("../../services/webSessionService");
 const config_1 = require("../../config");
 exports.SESSION_COOKIE_NAME = 'web_session';
+/**
+ * Ставит cookie сессии. HttpOnly — токен недоступен из JS, поэтому его
+ * не может прочитать ни сторонний скрипт, ни наш собственный код на
+ * фронте (секрет сессии там и не нужен). Secure — только по HTTPS.
+ * SameSite=Lax — браузер не пошлёт куку в кросс-сайтовых POST-запросах.
+ */
+function setSessionCookie(res, token) {
+    res.cookie(exports.SESSION_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'lax',
+        maxAge: webSessionService_1.SESSION_TTL_MS,
+        path: '/',
+    });
+}
+/**
+ * Обмен initData на серверную сессию.
+ *
+ * initData — это подписанный слепок «кто запустил Mini App», а не сессия:
+ * он один и тот же на всё время работы приложения и действует ещё
+ * config.initDataMaxAgeSec после выдачи. Поэтому сразу после первой
+ * успешной проверки подписи заводим обычную серверную сессию, и дальше
+ * запросы живут на ней, а не на повторной отправке initData.
+ *
+ * Если кука уже есть и принадлежит этому же пользователю — ничего не
+ * трогаем. Если она чужая или протухла, выдаём новый токен и гасим
+ * старый (ротация): идентификатор, который был у браузера до
+ * авторизации, не должен оставаться рабочим после неё.
+ */
+function issueSessionFor(req, res, userId) {
+    const existing = readCookie(req, exports.SESSION_COOKIE_NAME);
+    if (existing) {
+        const current = (0, webSessionService_1.getSessionUser)(existing);
+        if (current && current.telegram_id === userId)
+            return;
+        setSessionCookie(res, (0, webSessionService_1.rotateWebSession)(existing, userId));
+        return;
+    }
+    setSessionCookie(res, (0, webSessionService_1.createWebSession)(userId));
+}
 /** Простой разбор Cookie-заголовка — одна ожидаемая кука, тащить ради
  *  неё зависимость cookie-parser не нужно. */
 function readCookie(req, name) {
@@ -41,6 +82,9 @@ function requireTelegramAuth(req, res, next) {
     if (validatedTelegram) {
         const user = (0, userService_1.upsertUser)(validatedTelegram.user);
         req.user = (0, userService_1.getUser)(user.telegram_id);
+        // initData проверена — заводим серверную сессию, дальше запросы
+        // пойдут по ней (см. issueSessionFor).
+        issueSessionFor(req, res, user.telegram_id);
         next();
         return;
     }
@@ -49,6 +93,7 @@ function requireTelegramAuth(req, res, next) {
     if (validatedMax) {
         const user = (0, userService_1.upsertMaxUser)(validatedMax.user);
         req.user = (0, userService_1.getUser)(user.telegram_id);
+        issueSessionFor(req, res, user.telegram_id);
         next();
         return;
     }

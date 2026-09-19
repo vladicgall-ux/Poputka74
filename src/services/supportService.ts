@@ -30,12 +30,13 @@ export interface SupportMessageWithUser extends SupportMessageRecord {
   phone: string | null;
 }
 
-export function listAllSupportMessages(): SupportMessageWithUser[] {
+export function listAllSupportMessages(page?: { limit: number; offset: number }): SupportMessageWithUser[] {
   return db
     .prepare(
       `SELECT s.*, u.first_name, u.username, u.full_name, u.phone
        FROM support_messages s JOIN users u ON u.telegram_id = s.user_id
-       ORDER BY s.created_at DESC`
+       ORDER BY s.created_at DESC
+       LIMIT @limit OFFSET @offset`
     )
-    .all() as SupportMessageWithUser[];
+    .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 }) as SupportMessageWithUser[];
 }

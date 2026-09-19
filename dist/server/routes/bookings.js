@@ -66,7 +66,7 @@ exports.bookingsRouter.post('/', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), 
         throw err;
     }
 }));
-exports.bookingsRouter.post('/:id/cancel', (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+exports.bookingsRouter.post('/:id/cancel', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const { user } = req;
     const bookingId = (0, parseId_1.parseId)(req.params.id);
     if (!bookingId) {

@@ -1317,7 +1317,7 @@
     }
 
     try {
-      const { users } = await api('/admin/users');
+      const { users } = await api('/admin/users?limit=200');
       state.adminUsers = users;
       renderAdminUsersList();
     } catch (err) {
@@ -1325,7 +1325,7 @@
     }
 
     try {
-      const { rides } = await api('/admin/rides');
+      const { rides } = await api('/admin/rides?limit=200');
       document.getElementById('adminRidesList').innerHTML = rides.map((r) => rideCardHtml(r)).join('')
         || '<p class="empty">Поездок пока нет.</p>';
     } catch (err) {
@@ -1333,7 +1333,7 @@
     }
 
     try {
-      const { bookings } = await api('/admin/bookings');
+      const { bookings } = await api('/admin/bookings?limit=200');
       document.getElementById('adminBookingsList').innerHTML = bookings.map((b) => `
         <div class="card ride-card">
           <div class="row">
@@ -1353,7 +1353,7 @@
     }
 
     try {
-      const { messages } = await api('/admin/support');
+      const { messages } = await api('/admin/support?limit=200');
       document.getElementById('adminSupportList').innerHTML = messages.map((m) => `
         <div class="card ride-card ${m.from_admin ? 'support-from-admin' : ''}">
           <div class="row">

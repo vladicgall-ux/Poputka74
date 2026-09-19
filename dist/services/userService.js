@@ -117,7 +117,7 @@ function setFullName(telegramId, fullName) {
 function listActiveUserIds() {
     return db_1.db.prepare(`SELECT telegram_id FROM users WHERE banned = 0`).all().map((r) => r.telegram_id);
 }
-function listAllUsers() {
+function listAllUsers(page) {
     return db_1.db
         .prepare(`SELECT u.*, d.car_model, d.car_plate,
               ROUND(r.avg_rating, 1) AS avg_rating, COALESCE(r.rating_count, 0) AS rating_count
@@ -127,8 +127,9 @@ function listAllUsers() {
          SELECT driver_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
          FROM ratings GROUP BY driver_id
        ) r ON r.driver_id = u.telegram_id
-       ORDER BY u.created_at DESC`)
-        .all();
+       ORDER BY u.created_at DESC
+       LIMIT @limit OFFSET @offset`)
+        .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 });
 }
 function getDriverProfile(telegramId) {
     return db_1.db

@@ -72,7 +72,7 @@ exports.authRouter.post('/logout', (req, res) => {
  * Работает и из Mini App (initData), и из браузерной сессии (cookie) —
  * requireTelegramAuth принимает оба способа и уже определяет user.
  */
-exports.authRouter.post('/logout-all', auth_1.requireTelegramAuth, (req, res) => {
+exports.authRouter.post('/logout-all', (0, rateLimit_1.writeLimiter)(20, 10 * 60000), auth_1.requireTelegramAuth, (req, res) => {
     const { user } = req;
     (0, webSessionService_1.deleteAllWebSessionsForUser)(user.telegram_id);
     res.clearCookie(auth_1.SESSION_COOKIE_NAME, { path: '/' });

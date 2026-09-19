@@ -176,7 +176,7 @@ export function listActiveUserIds(): number[] {
   );
 }
 
-export function listAllUsers(): UserWithDriverInfo[] {
+export function listAllUsers(page?: { limit: number; offset: number }): UserWithDriverInfo[] {
   return db
     .prepare(
       `SELECT u.*, d.car_model, d.car_plate,
@@ -187,9 +187,10 @@ export function listAllUsers(): UserWithDriverInfo[] {
          SELECT driver_id, AVG(rating) AS avg_rating, COUNT(*) AS rating_count
          FROM ratings GROUP BY driver_id
        ) r ON r.driver_id = u.telegram_id
-       ORDER BY u.created_at DESC`
+       ORDER BY u.created_at DESC
+       LIMIT @limit OFFSET @offset`
     )
-    .all() as UserWithDriverInfo[];
+    .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 }) as UserWithDriverInfo[];
 }
 
 export function getDriverProfile(telegramId: number): DriverProfileRecord | undefined {

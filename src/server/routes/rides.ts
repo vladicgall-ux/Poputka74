@@ -183,7 +183,7 @@ ridesRouter.post('/templates', writeLimiter(10, 10 * 60_000), (req, res) => {
 });
 
 /** Остановка регулярной поездки — уже созданные rides не трогает, только будущую генерацию. */
-ridesRouter.post('/templates/:id/deactivate', (req, res) => {
+ridesRouter.post('/templates/:id/deactivate', writeLimiter(20, 10 * 60_000), (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const id = parseId(req.params.id);
   if (!id) {
@@ -199,7 +199,7 @@ ridesRouter.post('/templates/:id/deactivate', (req, res) => {
 });
 
 /** Отмена поездки водителем — с необязательной причиной, о которой уведомляются все пассажиры с брониями на неё. */
-ridesRouter.post('/:id/cancel', asyncHandler(async (req, res) => {
+ridesRouter.post('/:id/cancel', writeLimiter(20, 10 * 60_000), asyncHandler(async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const rideId = parseId(req.params.id);
   if (!rideId) {

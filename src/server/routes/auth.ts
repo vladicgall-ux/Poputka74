@@ -85,7 +85,7 @@ authRouter.post('/logout', (req, res) => {
  * Работает и из Mini App (initData), и из браузерной сессии (cookie) —
  * requireTelegramAuth принимает оба способа и уже определяет user.
  */
-authRouter.post('/logout-all', requireTelegramAuth, (req, res) => {
+authRouter.post('/logout-all', writeLimiter(20, 10 * 60_000), requireTelegramAuth, (req, res) => {
   const { user } = req as AuthedRequest;
   deleteAllWebSessionsForUser(user.telegram_id);
   res.clearCookie(SESSION_COOKIE_NAME, { path: '/' });

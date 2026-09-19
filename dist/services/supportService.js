@@ -17,10 +17,11 @@ function createAdminReply(userId, message) {
         .run(userId, message);
     return db_1.db.prepare('SELECT * FROM support_messages WHERE id = ?').get(info.lastInsertRowid);
 }
-function listAllSupportMessages() {
+function listAllSupportMessages(page) {
     return db_1.db
         .prepare(`SELECT s.*, u.first_name, u.username, u.full_name, u.phone
        FROM support_messages s JOIN users u ON u.telegram_id = s.user_id
-       ORDER BY s.created_at DESC`)
-        .all();
+       ORDER BY s.created_at DESC
+       LIMIT @limit OFFSET @offset`)
+        .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 });
 }

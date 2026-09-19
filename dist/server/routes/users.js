@@ -108,6 +108,10 @@ exports.usersRouter.post('/me/photo', auth_1.requireActiveUser, (0, rateLimit_1.
         }
         (0, userService_1.setDriverPhoto)(user.telegram_id, file.filename);
         keepFile = true;
+        // Подчищаем сиротские файлы этого пользователя: удаление старого
+        // фото выше — «лучшее усилие», и при сбое между записью и удалением
+        // файл остаётся на диске навсегда (см. pruneUserUploads).
+        (0, upload_1.pruneUserUploads)(user.telegram_id, file.filename);
         res.json({ photoUrl: `/uploads/${file.filename}` });
     }
     finally {

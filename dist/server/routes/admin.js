@@ -19,6 +19,7 @@ const ratingService_1 = require("../../services/ratingService");
 const notifier_1 = require("../../bot/notifier");
 const escapeHtml_1 = require("../../utils/escapeHtml");
 const parseId_1 = require("../utils/parseId");
+const pagination_1 = require("../utils/pagination");
 const asyncHandler_1 = require("../utils/asyncHandler");
 exports.adminRouter = (0, express_1.Router)();
 exports.adminRouter.use(auth_1.requireTelegramAuth);
@@ -33,8 +34,9 @@ exports.adminRouter.use((req, res, next) => {
 exports.adminRouter.get('/stats', (_req, res) => {
     res.json({ stats: (0, statsService_1.getAdminStats)() });
 });
-exports.adminRouter.get('/users', (_req, res) => {
-    res.json({ users: (0, userService_1.listAllUsers)() });
+exports.adminRouter.get('/users', (req, res) => {
+    const page = (0, pagination_1.parsePage)(req.query);
+    res.json({ users: (0, userService_1.listAllUsers)(page), page });
 });
 /** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
 exports.adminRouter.get('/users/:id', (req, res) => {
@@ -71,17 +73,20 @@ exports.adminRouter.get('/users/:id', (req, res) => {
         cancelledRidesCount,
     });
 });
-exports.adminRouter.get('/rides', (_req, res) => {
-    res.json({ rides: (0, rideService_1.listAllRides)() });
+exports.adminRouter.get('/rides', (req, res) => {
+    const page = (0, pagination_1.parsePage)(req.query);
+    res.json({ rides: (0, rideService_1.listAllRides)(page), page });
 });
-exports.adminRouter.get('/bookings', (_req, res) => {
-    res.json({ bookings: (0, bookingService_1.listAllBookings)() });
+exports.adminRouter.get('/bookings', (req, res) => {
+    const page = (0, pagination_1.parsePage)(req.query);
+    res.json({ bookings: (0, bookingService_1.listAllBookings)(page), page });
 });
-exports.adminRouter.get('/support', (_req, res) => {
-    res.json({ messages: (0, supportService_1.listAllSupportMessages)() });
+exports.adminRouter.get('/support', (req, res) => {
+    const page = (0, pagination_1.parsePage)(req.query);
+    res.json({ messages: (0, supportService_1.listAllSupportMessages)(page), page });
 });
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
-exports.adminRouter.post('/support/:userId/reply', (0, asyncHandler_1.asyncHandler)(async (req, res) => {
+exports.adminRouter.post('/support/:userId/reply', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), (0, asyncHandler_1.asyncHandler)(async (req, res) => {
     const userId = (0, parseId_1.parseSignedId)(req.params.userId);
     if (!userId) {
         res.status(400).json({ error: 'Некорректный ID' });
@@ -184,5 +189,5 @@ function setBan(banned) {
         res.json({ user: (0, userService_1.getUser)(telegramId) });
     };
 }
-exports.adminRouter.post('/users/:id/ban', setBan(true));
-exports.adminRouter.post('/users/:id/unban', setBan(false));
+exports.adminRouter.post('/users/:id/ban', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), setBan(true));
+exports.adminRouter.post('/users/:id/unban', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), setBan(false));

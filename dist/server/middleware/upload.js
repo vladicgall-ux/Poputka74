@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadBroadcastPhoto = exports.uploadDriverPhoto = exports.uploadsDir = void 0;
+exports.pruneUserUploads = pruneUserUploads;
 exports.isValidImageFile = isValidImageFile;
 exports.processUploadedImage = processUploadedImage;
 const multer_1 = __importDefault(require("multer"));
@@ -69,6 +70,52 @@ exports.uploadBroadcastPhoto = (0, multer_1.default)({
  * под видом картинки. Вызывать после multer, до того как файл где-либо
  * используется (например, отправляется в Telegram/MAX).
  */
+/**
+ * Сколько файлов водителя допустимо держать в /uploads.
+ *
+ * Анкета водителя хранит ровно одно фото, и при замене старое удаляется
+ * (routes/users.ts). Но удаление — «лучшее усилие»: если процесс упал
+ * между записью нового файла и удалением старого, файл остаётся сиротой
+ * и его больше ничто не подберёт. Много таких циклов — и диск кончается,
+ * а вместе с ним встаёт и SQLite, которому некуда писать.
+ *
+ * Поэтому перед сохранением нового файла считаем, сколько их уже лежит с
+ * префиксом этого пользователя, и подчищаем лишние. Порог с запасом:
+ * штатно файл всегда один.
+ */
+const MAX_FILES_PER_USER = 5;
+/**
+ * Удаляет сиротские файлы пользователя, оставляя самые свежие. Вызывать
+ * после успешного сохранения нового фото. Ошибки не пробрасывает —
+ * уборка не должна ронять запрос, который уже отработал.
+ */
+function pruneUserUploads(telegramId, keepFilename) {
+    try {
+        const prefix = `driver-${telegramId}-`;
+        const mine = fs_1.default
+            .readdirSync(exports.uploadsDir)
+            .filter((name) => name.startsWith(prefix) && name !== keepFilename)
+            .map((name) => {
+            const full = path_1.default.join(exports.uploadsDir, name);
+            let mtime = 0;
+            try {
+                mtime = fs_1.default.statSync(full).mtimeMs;
+            }
+            catch {
+                // Файл мог исчезнуть между readdir и stat — считаем самым старым.
+            }
+            return { full, mtime };
+        })
+            .sort((a, b) => b.mtime - a.mtime);
+        // Минус один: место занимает ещё и keepFilename, который мы сохраняем.
+        for (const stale of mine.slice(MAX_FILES_PER_USER - 1)) {
+            fs_1.default.unlink(stale.full, () => { });
+        }
+    }
+    catch (err) {
+        console.error('Не удалось подчистить старые загрузки пользователя:', err);
+    }
+}
 function isValidImageFile(filePath) {
     let fd;
     try {

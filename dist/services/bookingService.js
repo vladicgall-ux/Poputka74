@@ -13,6 +13,7 @@ exports.markRatingReminderSent = markRatingReminderSent;
 exports.getRidePassengers = getRidePassengers;
 const db_1 = require("../db/db");
 const rideService_1 = require("./rideService");
+const statusMachine_1 = require("./statusMachine");
 class BookingError extends Error {
 }
 exports.BookingError = BookingError;
@@ -70,7 +71,17 @@ exports.cancelBooking = db_1.db.transaction((bookingId, passengerId) => {
     if (ride && new Date(ride.departure_at).getTime() < Date.now()) {
         throw new BookingError('Поездка уже состоялась — отменить бронирование нельзя');
     }
-    db_1.db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
+    // Условный UPDATE вместо «проверили выше — пишем здесь»: при двух
+    // одновременных отменах одной брони строку изменит ровно одна, и места
+    // вернутся один раз, а не дважды.
+    const allowed = (0, statusMachine_1.bookingSourcesFor)('cancelled');
+    const info = db_1.db
+        .prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now')
+       WHERE id = ? AND passenger_id = ? AND status IN (${allowed.map(() => '?').join(',')})`)
+        .run(bookingId, passengerId, ...allowed);
+    if (info.changes === 0) {
+        throw new BookingError('Бронирование не найдено');
+    }
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
 });
@@ -89,27 +100,49 @@ function countCancelledBookingsByPassenger(passengerId) {
  */
 exports.confirmBooking = db_1.db.transaction((bookingId, driverId) => {
     const booking = db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
-    if (!booking || booking.status !== 'pending') {
+    if (!booking) {
         throw new BookingError('Бронирование уже обработано');
     }
+    // Право на действие проверяем отдельно от состояния: подтвердить бронь
+    // может только водитель этой поездки, и знание id брони этого права не
+    // даёт.
     const ride = (0, rideService_1.getRide)(booking.ride_id);
     if (!ride || ride.driver_id !== driverId) {
         throw new BookingError('Это не ваша поездка');
     }
-    db_1.db.prepare(`UPDATE bookings SET status = 'confirmed' WHERE id = ?`).run(bookingId);
+    // Сам переход — одним условным UPDATE (см. statusMachine.ts): если
+    // бронь уже обработана или её статус успели изменить параллельно,
+    // строка не изменится и changes будет 0.
+    const allowed = (0, statusMachine_1.bookingSourcesFor)('confirmed');
+    const info = db_1.db
+        .prepare(`UPDATE bookings SET status = 'confirmed'
+       WHERE id = ? AND status IN (${allowed.map(() => '?').join(',')})`)
+        .run(bookingId, ...allowed);
+    if (info.changes === 0) {
+        throw new BookingError('Бронирование уже обработано');
+    }
     return { ...booking, status: 'confirmed' };
 });
 /** Водитель отклоняет бронь — место возвращается в число свободных. */
 exports.declineBooking = db_1.db.transaction((bookingId, driverId) => {
     const booking = db_1.db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId);
-    if (!booking || booking.status !== 'pending') {
+    if (!booking) {
         throw new BookingError('Бронирование уже обработано');
     }
     const ride = (0, rideService_1.getRide)(booking.ride_id);
     if (!ride || ride.driver_id !== driverId) {
         throw new BookingError('Это не ваша поездка');
     }
-    db_1.db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
+    // Отклонить можно только ещё не обработанную заявку: у отклонения
+    // разрешён единственный исходный статус 'pending'. Условие в UPDATE —
+    // то же, что и в confirmBooking, и оно же страхует от двойного
+    // возврата мест при параллельных нажатиях кнопки.
+    const info = db_1.db
+        .prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ? AND status = 'pending'`)
+        .run(bookingId);
+    if (info.changes === 0) {
+        throw new BookingError('Бронирование уже обработано');
+    }
     (0, rideService_1.incrementSeats)(booking.ride_id, booking.seats_booked);
     return { ...booking, status: 'cancelled' };
 });
@@ -126,7 +159,7 @@ function getBookingWithPeople(bookingId) {
        WHERE b.id = ?`)
         .get(bookingId);
 }
-function listAllBookings() {
+function listAllBookings(page) {
     return db_1.db
         .prepare(`SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
               p.first_name AS passenger_first_name, p.username AS passenger_username, p.full_name AS passenger_full_name, p.phone AS passenger_phone,
@@ -135,8 +168,9 @@ function listAllBookings() {
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
        JOIN users drv ON drv.telegram_id = r.driver_id
-       ORDER BY b.created_at DESC`)
-        .all();
+       ORDER BY b.created_at DESC
+       LIMIT @limit OFFSET @offset`)
+        .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 });
 }
 function listBookingsByPassenger(passengerId, range) {
     const clauses = ['b.passenger_id = @passengerId'];

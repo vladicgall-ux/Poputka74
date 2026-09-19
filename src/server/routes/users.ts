@@ -6,7 +6,13 @@ import { writeLimiter } from '../middleware/rateLimit';
 import { getDriverProfile, upsertDriverProfile, setDriverPhoto, setFullName, getUser } from '../../services/userService';
 import { getDriverRatingSummary, getPassengerRatingSummary } from '../../services/ratingService';
 import { config } from '../../config';
-import { uploadDriverPhoto, uploadsDir, isValidImageFile, processUploadedImage } from '../middleware/upload';
+import {
+  uploadDriverPhoto,
+  uploadsDir,
+  isValidImageFile,
+  processUploadedImage,
+  pruneUserUploads,
+} from '../middleware/upload';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export const usersRouter = Router();
@@ -113,6 +119,10 @@ usersRouter.post(
       }
       setDriverPhoto(user.telegram_id, file.filename);
       keepFile = true;
+      // Подчищаем сиротские файлы этого пользователя: удаление старого
+      // фото выше — «лучшее усилие», и при сбое между записью и удалением
+      // файл остаётся на диске навсегда (см. pruneUserUploads).
+      pruneUserUploads(user.telegram_id, file.filename);
       res.json({ photoUrl: `/uploads/${file.filename}` });
     } finally {
       if (!keepFile) fs.unlink(file.path, () => {});

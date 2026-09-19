@@ -69,6 +69,53 @@ export const uploadBroadcastPhoto = multer({
  * под видом картинки. Вызывать после multer, до того как файл где-либо
  * используется (например, отправляется в Telegram/MAX).
  */
+/**
+ * Сколько файлов водителя допустимо держать в /uploads.
+ *
+ * Анкета водителя хранит ровно одно фото, и при замене старое удаляется
+ * (routes/users.ts). Но удаление — «лучшее усилие»: если процесс упал
+ * между записью нового файла и удалением старого, файл остаётся сиротой
+ * и его больше ничто не подберёт. Много таких циклов — и диск кончается,
+ * а вместе с ним встаёт и SQLite, которому некуда писать.
+ *
+ * Поэтому перед сохранением нового файла считаем, сколько их уже лежит с
+ * префиксом этого пользователя, и подчищаем лишние. Порог с запасом:
+ * штатно файл всегда один.
+ */
+const MAX_FILES_PER_USER = 5;
+
+/**
+ * Удаляет сиротские файлы пользователя, оставляя самые свежие. Вызывать
+ * после успешного сохранения нового фото. Ошибки не пробрасывает —
+ * уборка не должна ронять запрос, который уже отработал.
+ */
+export function pruneUserUploads(telegramId: number, keepFilename: string): void {
+  try {
+    const prefix = `driver-${telegramId}-`;
+    const mine = fs
+      .readdirSync(uploadsDir)
+      .filter((name) => name.startsWith(prefix) && name !== keepFilename)
+      .map((name) => {
+        const full = path.join(uploadsDir, name);
+        let mtime = 0;
+        try {
+          mtime = fs.statSync(full).mtimeMs;
+        } catch {
+          // Файл мог исчезнуть между readdir и stat — считаем самым старым.
+        }
+        return { full, mtime };
+      })
+      .sort((a, b) => b.mtime - a.mtime);
+
+    // Минус один: место занимает ещё и keepFilename, который мы сохраняем.
+    for (const stale of mine.slice(MAX_FILES_PER_USER - 1)) {
+      fs.unlink(stale.full, () => {});
+    }
+  } catch (err) {
+    console.error('Не удалось подчистить старые загрузки пользователя:', err);
+  }
+}
+
 export function isValidImageFile(filePath: string): boolean {
   let fd: number;
   try {

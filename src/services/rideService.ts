@@ -93,6 +93,7 @@ export function searchRides(filter: {
   minSeats?: number;
   minRating?: number;
   sort?: 'time' | 'price';
+  limit?: number;
 }): RideWithDriver[] {
   const clauses = [`r.status = 'active'`, `datetime(r.departure_at) >= datetime('now')`, `u.banned = 0`];
   const params: Record<string, unknown> = {};
@@ -120,7 +121,12 @@ export function searchRides(filter: {
     params.minRating = filter.minRating;
   }
   const orderBy = filter.sort === 'price' ? 'r.price_per_seat ASC, r.departure_at ASC' : 'r.departure_at ASC';
-  const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy}`;
+  // Потолок на выдачу поиска. Раньше запрос возвращал все активные
+  // будущие поездки разом: пока их мало — незаметно, но растёт такой
+  // ответ линейно, а достаётся он одним обычным GET. 200 с запасом
+  // перекрывает реальную выдачу по направлению и дате.
+  params.limit = Math.min(filter.limit && filter.limit > 0 ? filter.limit : 200, 200);
+  const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy} LIMIT @limit`;
   return db.prepare(sql).all(params) as RideWithDriver[];
 }
 
@@ -130,10 +136,10 @@ export function getRideWithDriver(id: number): RideWithDriver | undefined {
     | undefined;
 }
 
-export function listAllRides(): RideWithDriver[] {
+export function listAllRides(page?: { limit: number; offset: number }): RideWithDriver[] {
   return db
-    .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC`)
-    .all() as RideWithDriver[];
+    .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC LIMIT @limit OFFSET @offset`)
+    .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 }) as RideWithDriver[];
 }
 
 export function listRidesByDriver(

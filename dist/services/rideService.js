@@ -77,16 +77,21 @@ function searchRides(filter) {
         params.minRating = filter.minRating;
     }
     const orderBy = filter.sort === 'price' ? 'r.price_per_seat ASC, r.departure_at ASC' : 'r.departure_at ASC';
-    const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy}`;
+    // Потолок на выдачу поиска. Раньше запрос возвращал все активные
+    // будущие поездки разом: пока их мало — незаметно, но растёт такой
+    // ответ линейно, а достаётся он одним обычным GET. 200 с запасом
+    // перекрывает реальную выдачу по направлению и дате.
+    params.limit = Math.min(filter.limit && filter.limit > 0 ? filter.limit : 200, 200);
+    const sql = `${RIDE_WITH_DRIVER_SELECT} WHERE ${clauses.join(' AND ')} ORDER BY ${orderBy} LIMIT @limit`;
     return db_1.db.prepare(sql).all(params);
 }
 function getRideWithDriver(id) {
     return db_1.db.prepare(`${RIDE_WITH_DRIVER_SELECT} WHERE r.id = @id`).get({ id });
 }
-function listAllRides() {
+function listAllRides(page) {
     return db_1.db
-        .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC`)
-        .all();
+        .prepare(`${RIDE_WITH_DRIVER_SELECT} ORDER BY r.departure_at ASC LIMIT @limit OFFSET @offset`)
+        .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 });
 }
 function listRidesByDriver(driverId, range) {
     const clauses = ['driver_id = @driverId'];

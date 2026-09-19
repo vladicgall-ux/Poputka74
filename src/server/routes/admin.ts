@@ -13,6 +13,7 @@ import { getDriverRatingSummary, getPassengerRatingSummary } from '../../service
 import { notifyPhoto, notifyUser } from '../../bot/notifier';
 import { escapeTgHtml } from '../../utils/escapeHtml';
 import { parseSignedId } from '../utils/parseId';
+import { parsePage } from '../utils/pagination';
 import { asyncHandler } from '../utils/asyncHandler';
 
 export const adminRouter = Router();
@@ -32,8 +33,9 @@ adminRouter.get('/stats', (_req, res) => {
   res.json({ stats: getAdminStats() });
 });
 
-adminRouter.get('/users', (_req, res) => {
-  res.json({ users: listAllUsers() });
+adminRouter.get('/users', (req, res) => {
+  const page = parsePage(req.query as Record<string, unknown>);
+  res.json({ users: listAllUsers(page), page });
 });
 
 /** Подробная карточка пользователя для админки: поездки, брони, статистика за всё время. */
@@ -72,20 +74,23 @@ adminRouter.get('/users/:id', (req, res) => {
   });
 });
 
-adminRouter.get('/rides', (_req, res) => {
-  res.json({ rides: listAllRides() });
+adminRouter.get('/rides', (req, res) => {
+  const page = parsePage(req.query as Record<string, unknown>);
+  res.json({ rides: listAllRides(page), page });
 });
 
-adminRouter.get('/bookings', (_req, res) => {
-  res.json({ bookings: listAllBookings() });
+adminRouter.get('/bookings', (req, res) => {
+  const page = parsePage(req.query as Record<string, unknown>);
+  res.json({ bookings: listAllBookings(page), page });
 });
 
-adminRouter.get('/support', (_req, res) => {
-  res.json({ messages: listAllSupportMessages() });
+adminRouter.get('/support', (req, res) => {
+  const page = parsePage(req.query as Record<string, unknown>);
+  res.json({ messages: listAllSupportMessages(page), page });
 });
 
 /** Ответ администратора пользователю — уходит ему сообщением от бота. */
-adminRouter.post('/support/:userId/reply', asyncHandler(async (req, res) => {
+adminRouter.post('/support/:userId/reply', writeLimiter(60, 10 * 60_000), asyncHandler(async (req, res) => {
   const userId = parseSignedId(req.params.userId);
   if (!userId) {
     res.status(400).json({ error: 'Некорректный ID' });
@@ -201,5 +206,5 @@ function setBan(banned: boolean) {
   };
 }
 
-adminRouter.post('/users/:id/ban', setBan(true));
-adminRouter.post('/users/:id/unban', setBan(false));
+adminRouter.post('/users/:id/ban', writeLimiter(60, 10 * 60_000), setBan(true));
+adminRouter.post('/users/:id/unban', writeLimiter(60, 10 * 60_000), setBan(false));

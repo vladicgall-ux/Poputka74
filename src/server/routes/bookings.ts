@@ -82,7 +82,7 @@ bookingsRouter.post('/', writeLimiter(20, 10 * 60_000), asyncHandler(async (req,
   }
 }));
 
-bookingsRouter.post('/:id/cancel', asyncHandler(async (req, res) => {
+bookingsRouter.post('/:id/cancel', writeLimiter(20, 10 * 60_000), asyncHandler(async (req, res) => {
   const { user } = req as unknown as AuthedRequest;
   const bookingId = parseId(req.params.id);
   if (!bookingId) {

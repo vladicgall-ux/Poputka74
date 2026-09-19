@@ -1,6 +1,7 @@
 import { db } from '../db/db';
 import { decrementSeats, incrementSeats, getRide } from './rideService';
 import type { Platform } from './userService';
+import { bookingSourcesFor } from './statusMachine';
 
 export interface BookingRecord {
   id: number;
@@ -86,7 +87,19 @@ export const cancelBooking = db.transaction((bookingId: number, passengerId: num
   if (ride && new Date(ride.departure_at).getTime() < Date.now()) {
     throw new BookingError('Поездка уже состоялась — отменить бронирование нельзя');
   }
-  db.prepare(`UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now') WHERE id = ?`).run(bookingId);
+  // Условный UPDATE вместо «проверили выше — пишем здесь»: при двух
+  // одновременных отменах одной брони строку изменит ровно одна, и места
+  // вернутся один раз, а не дважды.
+  const allowed = bookingSourcesFor('cancelled');
+  const info = db
+    .prepare(
+      `UPDATE bookings SET status = 'cancelled', cancelled_at = datetime('now')
+       WHERE id = ? AND passenger_id = ? AND status IN (${allowed.map(() => '?').join(',')})`
+    )
+    .run(bookingId, passengerId, ...allowed);
+  if (info.changes === 0) {
+    throw new BookingError('Бронирование не найдено');
+  }
   incrementSeats(booking.ride_id, booking.seats_booked);
   return { ...booking, status: 'cancelled' };
 });
@@ -109,14 +122,29 @@ export const confirmBooking = db.transaction((bookingId: number, driverId: numbe
   const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId) as
     | BookingRecord
     | undefined;
-  if (!booking || booking.status !== 'pending') {
+  if (!booking) {
     throw new BookingError('Бронирование уже обработано');
   }
+  // Право на действие проверяем отдельно от состояния: подтвердить бронь
+  // может только водитель этой поездки, и знание id брони этого права не
+  // даёт.
   const ride = getRide(booking.ride_id);
   if (!ride || ride.driver_id !== driverId) {
     throw new BookingError('Это не ваша поездка');
   }
-  db.prepare(`UPDATE bookings SET status = 'confirmed' WHERE id = ?`).run(bookingId);
+  // Сам переход — одним условным UPDATE (см. statusMachine.ts): если
+  // бронь уже обработана или её статус успели изменить параллельно,
+  // строка не изменится и changes будет 0.
+  const allowed = bookingSourcesFor('confirmed');
+  const info = db
+    .prepare(
+      `UPDATE bookings SET status = 'confirmed'
+       WHERE id = ? AND status IN (${allowed.map(() => '?').join(',')})`
+    )
+    .run(bookingId, ...allowed);
+  if (info.changes === 0) {
+    throw new BookingError('Бронирование уже обработано');
+  }
   return { ...booking, status: 'confirmed' };
 });
 
@@ -125,14 +153,23 @@ export const declineBooking = db.transaction((bookingId: number, driverId: numbe
   const booking = db.prepare('SELECT * FROM bookings WHERE id = ?').get(bookingId) as
     | BookingRecord
     | undefined;
-  if (!booking || booking.status !== 'pending') {
+  if (!booking) {
     throw new BookingError('Бронирование уже обработано');
   }
   const ride = getRide(booking.ride_id);
   if (!ride || ride.driver_id !== driverId) {
     throw new BookingError('Это не ваша поездка');
   }
-  db.prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`).run(bookingId);
+  // Отклонить можно только ещё не обработанную заявку: у отклонения
+  // разрешён единственный исходный статус 'pending'. Условие в UPDATE —
+  // то же, что и в confirmBooking, и оно же страхует от двойного
+  // возврата мест при параллельных нажатиях кнопки.
+  const info = db
+    .prepare(`UPDATE bookings SET status = 'cancelled' WHERE id = ? AND status = 'pending'`)
+    .run(bookingId);
+  if (info.changes === 0) {
+    throw new BookingError('Бронирование уже обработано');
+  }
   incrementSeats(booking.ride_id, booking.seats_booked);
   return { ...booking, status: 'cancelled' };
 });
@@ -166,7 +203,7 @@ export function getBookingWithPeople(bookingId: number): BookingWithPeople | und
     .get(bookingId) as BookingWithPeople | undefined;
 }
 
-export function listAllBookings(): BookingWithPeople[] {
+export function listAllBookings(page?: { limit: number; offset: number }): BookingWithPeople[] {
   return db
     .prepare(
       `SELECT b.*, r.from_city, r.to_city, r.departure_at, r.price_per_seat, r.meeting_point, r.dropoff_point, r.driver_id,
@@ -176,9 +213,10 @@ export function listAllBookings(): BookingWithPeople[] {
        JOIN rides r ON r.id = b.ride_id
        JOIN users p ON p.telegram_id = b.passenger_id
        JOIN users drv ON drv.telegram_id = r.driver_id
-       ORDER BY b.created_at DESC`
+       ORDER BY b.created_at DESC
+       LIMIT @limit OFFSET @offset`
     )
-    .all() as BookingWithPeople[];
+    .all({ limit: page?.limit ?? 200, offset: page?.offset ?? 0 }) as BookingWithPeople[];
 }
 
 export function listBookingsByPassenger(

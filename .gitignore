@@ -5,3 +5,8 @@ data/
 .env
 .DS_Store
 npm-debug.log*
+
+# Скилы агента — инструменты разработки, не часть приложения.
+# Лежат локально и в ветке claude/integrate-latest-skill-nz34h8,
+# в main их быть не должно.
+.claude/

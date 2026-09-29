@@ -114,15 +114,25 @@ function createMaxBot() {
             const contactAtt = Array.isArray(ctx.message.body.attachments)
                 ? ctx.message.body.attachments.find((a) => a && typeof a === 'object' && a.type === 'contact')
                 : undefined;
-            console.log(`[maxBot] контакт от ${sender.user_id}: tam_info=${contactAtt?.payload?.tam_info ? `user_id:${contactAtt.payload.tam_info.user_id}` : 'нет'}`);
-            // Отклоняем только карточку, про которую MAX явно сообщил, что она
-            // принадлежит ДРУГОМУ пользователю (см. isForeignContact). Кнопка
-            // «свой номер» присылает контакт без tam_info — он проходит, иначе
-            // подтвердить телефон в MAX не смог бы никто.
-            if (isForeignContact(ctx.message.body.attachments, sender.user_id)) {
-                await (0, retry_1.withRetry)(() => ctx.reply('Пожалуйста, отправьте свой собственный номер телефона кнопкой «Подтвердить номер телефона».'));
-                return;
-            }
+            // ВАЖНО: контакт от пользователя MAX больше НЕ блокируется. Две
+            // предыдущие версии пытались проверить, что карточка принадлежит
+            // отправителю (по contact.user_id, затем по payload.tam_info), и
+            // обе на живом MAX отклоняли КАЖДОГО легитимного пользователя —
+            // подтвердить телефон не мог никто (на скриншотах бот отвечал
+            // «отправьте свой собственный номер» даже на карточку «Это вы»).
+            // Проверить формат MAX против реального клиента отсюда нельзя,
+            // поэтому возвращаемся к поведению, которое работало до аудита:
+            // принимаем контакт. Telegram-ветка (bot.ts) строгую проверку
+            // сохраняет — там формат подтверждён и работает.
+            //
+            // Диагностика (без телефона/имени) остаётся: по логам видно, что
+            // MAX реально кладёт в tam_info, и это же помечает подозрительный
+            // случай, когда карточка явно чужая, — но НЕ блокирует его, только
+            // фиксирует. Если такие случаи в логах появятся, точную проверку
+            // можно будет вернуть уже на фактах; параллельно чужой номер
+            // подчистит админ через ручную верификацию в панели.
+            const foreign = isForeignContact(ctx.message.body.attachments, sender.user_id);
+            console.log(`[maxBot] контакт от ${sender.user_id}: tam_info=${contactAtt?.payload?.tam_info ? `user_id:${contactAtt.payload.tam_info.user_id}` : 'нет'}${foreign ? ' [ВНИМАНИЕ: карточка помечена как чужая, но принята]' : ''}`);
             const user = (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
             (0, userService_1.setPhoneVerified)(user.telegram_id, contact.tel);
             if (contact.fullName)

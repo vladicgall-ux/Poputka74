@@ -130,6 +130,20 @@ export function setPhoneVerified(telegramId: number, phone: string): void {
   ).run(phone, telegramId);
 }
 
+/**
+ * Ручное подтверждение телефона администратором. Для тех, кто не смог
+ * подтвердить номер сам (например, кнопка «Поделиться контактом» не
+ * сработала в их клиенте), но прислал номер в поддержку — админ
+ * закрепляет этот номер за аккаунтом и открывает доступ к приложению.
+ *
+ * Отдельная функция, а не setPhoneVerified, только ради читаемости места
+ * вызова: механика та же. Возвращает обновлённую запись пользователя.
+ */
+export function adminVerifyPhone(telegramId: number, phone: string): UserRecord | undefined {
+  db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);
+  return getUser(telegramId);
+}
+
 export function setUserBanned(telegramId: number, banned: boolean): void {
   db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);
 }

@@ -1403,6 +1403,32 @@
       return;
     }
 
+    const verifyBtn = e.target.closest('.admin-verify-btn');
+    if (verifyBtn) {
+      const telegramId = verifyBtn.dataset.telegramId;
+      const wrap = verifyBtn.closest('.admin-verify');
+      const input = wrap.querySelector('.admin-verify-input');
+      const phone = input.value.trim();
+      if (!phone) {
+        toast('Впишите номер телефона');
+        return;
+      }
+      if (!(await askConfirm(`Подтвердить номер ${phone} за этим пользователем и открыть ему доступ?`))) return;
+      verifyBtn.disabled = true;
+      try {
+        await api(`/admin/users/${telegramId}/verify-phone`, {
+          method: 'POST',
+          body: JSON.stringify({ phone }),
+        });
+        toast('Телефон подтверждён, доступ открыт');
+        loadAdminTab();
+      } catch (err) {
+        toast(err.message);
+        verifyBtn.disabled = false;
+      }
+      return;
+    }
+
     const detailBtn = e.target.closest('.user-detail-toggle-btn');
     if (detailBtn) {
       const telegramId = detailBtn.dataset.telegramId;
@@ -1424,6 +1450,7 @@
 
   function userDetailHtml(data) {
     const {
+      user,
       driverProfile,
       driverStats,
       rating,
@@ -1434,6 +1461,23 @@
       cancelledBookingsCount,
       cancelledRidesCount,
     } = data;
+    // Блок ручного подтверждения телефона. Для тех, кто не смог
+    // подтвердить номер сам, но прислал его в поддержку — админ вписывает
+    // номер и открывает доступ. Если телефон уже подтверждён, просто
+    // показываем его, без формы.
+    const phoneBlock = user
+      ? (user.phone_verified
+          ? `<div class="profile-row"><span class="label">Телефон</span><span>✅ ${escapeHtml(user.phone || 'подтверждён')}</span></div>`
+          : `
+        <div class="admin-verify" data-telegram-id="${user.telegram_id}">
+          <div class="profile-row"><span class="label">Телефон</span><span>⚠️ не подтверждён</span></div>
+          <p class="empty">Пользователь не смог подтвердить номер сам. Впишите номер, который он прислал в поддержку, чтобы открыть доступ.</p>
+          <div class="support-reply">
+            <input type="tel" class="admin-verify-input" placeholder="+7 900 000-00-00" maxlength="20" value="${escapeHtml(user.phone || '')}" />
+            <button type="button" class="btn small admin-verify-btn" data-telegram-id="${user.telegram_id}">Подтвердить</button>
+          </div>
+        </div>`)
+      : '';
     const driverBlock = driverProfile
       ? `
         <h4>Как водитель</h4>
@@ -1467,7 +1511,7 @@
         </div>
       `).join('') : '<p class="empty">Бронирований пока нет.</p>'}
     `;
-    return driverBlock + passengerBlock;
+    return phoneBlock + driverBlock + passengerBlock;
   }
 
   document.getElementById('adminSupportList').addEventListener('click', async (e) => {

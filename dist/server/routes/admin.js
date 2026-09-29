@@ -191,3 +191,46 @@ function setBan(banned) {
 }
 exports.adminRouter.post('/users/:id/ban', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), setBan(true));
 exports.adminRouter.post('/users/:id/unban', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), setBan(false));
+/**
+ * Ручное подтверждение телефона администратором. Для тех, кто не смог
+ * подтвердить номер сам, но прислал его в поддержку — админ вписывает
+ * номер и закрепляет за аккаунтом, открывая доступ к приложению.
+ * Номер нормализуем к виду +7XXXXXXXXXX, как и клиент на фронте, чтобы
+ * ссылки «позвонить» работали одинаково.
+ */
+exports.adminRouter.post('/users/:id/verify-phone', (0, rateLimit_1.writeLimiter)(60, 10 * 60000), (req, res) => {
+    const telegramId = (0, parseId_1.parseSignedId)(req.params.id);
+    if (!telegramId) {
+        res.status(400).json({ error: 'Некорректный ID' });
+        return;
+    }
+    const target = (0, userService_1.getUser)(telegramId);
+    if (!target) {
+        res.status(404).json({ error: 'Пользователь не найден' });
+        return;
+    }
+    const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+    const phone = normalizePhone(rawPhone);
+    if (!phone) {
+        res.status(400).json({ error: 'Укажите корректный номер телефона' });
+        return;
+    }
+    const user = (0, userService_1.adminVerifyPhone)(telegramId, phone);
+    res.json({ user });
+});
+/**
+ * Приводит номер к +7XXXXXXXXXX. Возвращает null, если после чистки не
+ * получился правдоподобный российский номер (11 цифр, начинается с 7/8,
+ * либо 10 цифр без кода страны). Совпадает по смыслу с normalizePhone на
+ * фронте, но здесь ещё и валидирует — админ вводит номер руками.
+ */
+function normalizePhone(value) {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) {
+        return '+7' + digits.slice(1);
+    }
+    if (digits.length === 10) {
+        return '+7' + digits;
+    }
+    return null;
+}

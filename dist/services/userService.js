@@ -6,6 +6,7 @@ exports.maxStorageId = maxStorageId;
 exports.realMaxUserId = realMaxUserId;
 exports.upsertMaxUser = upsertMaxUser;
 exports.setPhoneVerified = setPhoneVerified;
+exports.adminVerifyPhone = adminVerifyPhone;
 exports.setUserBanned = setUserBanned;
 exports.listUsersDueForPhoneReminder = listUsersDueForPhoneReminder;
 exports.markPhoneReminderSent = markPhoneReminderSent;
@@ -86,6 +87,19 @@ function upsertMaxUser(profile) {
 }
 function setPhoneVerified(telegramId, phone) {
     db_1.db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);
+}
+/**
+ * Ручное подтверждение телефона администратором. Для тех, кто не смог
+ * подтвердить номер сам (например, кнопка «Поделиться контактом» не
+ * сработала в их клиенте), но прислал номер в поддержку — админ
+ * закрепляет этот номер за аккаунтом и открывает доступ к приложению.
+ *
+ * Отдельная функция, а не setPhoneVerified, только ради читаемости места
+ * вызова: механика та же. Возвращает обновлённую запись пользователя.
+ */
+function adminVerifyPhone(telegramId, phone) {
+    db_1.db.prepare('UPDATE users SET phone = ?, phone_verified = 1 WHERE telegram_id = ?').run(phone, telegramId);
+    return getUser(telegramId);
 }
 function setUserBanned(telegramId, banned) {
     db_1.db.prepare('UPDATE users SET banned = ? WHERE telegram_id = ?').run(banned ? 1 : 0, telegramId);

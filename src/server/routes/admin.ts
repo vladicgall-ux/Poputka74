@@ -4,7 +4,14 @@ import { requireTelegramAuth, type AuthedRequest } from '../middleware/auth';
 import { writeLimiter } from '../middleware/rateLimit';
 import { uploadBroadcastPhoto, isValidImageFile, processUploadedImage } from '../middleware/upload';
 import { config } from '../../config';
-import { listAllUsers, listActiveUserIds, setUserBanned, getUser, getDriverProfile } from '../../services/userService';
+import {
+  listAllUsers,
+  listActiveUserIds,
+  setUserBanned,
+  getUser,
+  getDriverProfile,
+  adminVerifyPhone,
+} from '../../services/userService';
 import { listAllRides, listRidesByDriver, countCancelledRidesByDriver } from '../../services/rideService';
 import { listAllBookings, listBookingsByPassenger, countCancelledBookingsByPassenger } from '../../services/bookingService';
 import { listAllSupportMessages, createAdminReply } from '../../services/supportService';
@@ -208,3 +215,48 @@ function setBan(banned: boolean) {
 
 adminRouter.post('/users/:id/ban', writeLimiter(60, 10 * 60_000), setBan(true));
 adminRouter.post('/users/:id/unban', writeLimiter(60, 10 * 60_000), setBan(false));
+
+/**
+ * Ручное подтверждение телефона администратором. Для тех, кто не смог
+ * подтвердить номер сам, но прислал его в поддержку — админ вписывает
+ * номер и закрепляет за аккаунтом, открывая доступ к приложению.
+ * Номер нормализуем к виду +7XXXXXXXXXX, как и клиент на фронте, чтобы
+ * ссылки «позвонить» работали одинаково.
+ */
+adminRouter.post('/users/:id/verify-phone', writeLimiter(60, 10 * 60_000), (req, res) => {
+  const telegramId = parseSignedId(req.params.id);
+  if (!telegramId) {
+    res.status(400).json({ error: 'Некорректный ID' });
+    return;
+  }
+  const target = getUser(telegramId);
+  if (!target) {
+    res.status(404).json({ error: 'Пользователь не найден' });
+    return;
+  }
+  const rawPhone = typeof req.body?.phone === 'string' ? req.body.phone.trim() : '';
+  const phone = normalizePhone(rawPhone);
+  if (!phone) {
+    res.status(400).json({ error: 'Укажите корректный номер телефона' });
+    return;
+  }
+  const user = adminVerifyPhone(telegramId, phone);
+  res.json({ user });
+});
+
+/**
+ * Приводит номер к +7XXXXXXXXXX. Возвращает null, если после чистки не
+ * получился правдоподобный российский номер (11 цифр, начинается с 7/8,
+ * либо 10 цифр без кода страны). Совпадает по смыслу с normalizePhone на
+ * фронте, но здесь ещё и валидирует — админ вводит номер руками.
+ */
+function normalizePhone(value: string): string | null {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length === 11 && (digits[0] === '7' || digits[0] === '8')) {
+    return '+7' + digits.slice(1);
+  }
+  if (digits.length === 10) {
+    return '+7' + digits;
+  }
+  return null;
+}

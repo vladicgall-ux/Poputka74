@@ -26,24 +26,41 @@ function isSupportRateLimited(userId: number): boolean {
 }
 
 /**
- * Принадлежит ли присланная контактная карточка самому отправителю.
+ * Явно ли присланный контакт принадлежит НЕ отправителю.
  *
- * Сырое вложение 'contact' несёт payload.tam_info — пользователя MAX, чей
- * это контакт (типы SDK: core/network/api/types/attachment.d.ts). Именно
- * его сверяем с отправителем — это аналог проверки contact.user_id ===
- * ctx.from.id в Telegram-ветке (bot.ts).
+ * Смысл — «отклонять только при доказательстве, что контакт чужой», а не
+ * «требовать доказательства, что свой». Это важно вот почему.
  *
- * Если tam_info нет вовсе, значит карточка не привязана к аккаунту MAX
- * (произвольная vCard из адресной книги) — такую не принимаем: телефон
- * в ней может быть чей угодно.
+ * Штатный путь подтверждения — кнопка requestContact «Поделиться своим
+ * номером». Когда пользователь MAX её жмёт, платформа присылает контакт
+ * с заполненным vcf_info (там телефон), но payload.tam_info при этом НЕ
+ * заполняет — поле необязательное (User | null в типах SDK). Прежняя
+ * версия требовала tam_info.user_id === отправитель и потому отклоняла
+ * КАЖДОГО легитимного пользователя: подтвердить телефон в MAX не мог
+ * никто. Это и была причина жалоб.
+ *
+ * tam_info появляется, когда пользователь делится РАЗРЕШЁННЫМ контактом
+ * конкретного пользователя MAX (например, переслал чужую карточку). Вот
+ * этот случай и ловим: если tam_info есть и его user_id — не отправитель,
+ * контакт чужой, отклоняем. Если tam_info нет — это кнопка «свой номер»,
+ * принимаем.
+ *
+ * Остаточный риск: карточку незарегистрированного человека (без tam_info)
+ * отличить от своего номера нельзя, поэтому такая пройдёт. Это ровно то
+ * поведение, что было до добавления проверки, и оно несравнимо лучше, чем
+ * блокировать всех. Диагностический лог в обработчике фиксирует форму
+ * вложения (без самого телефона) — по реальным логам MAX видно, приходит
+ * ли tam_info на кнопку, и проверку можно будет ужесточить точечно.
  */
-export function isOwnContact(attachments: unknown, senderUserId: number): boolean {
+export function isForeignContact(attachments: unknown, senderUserId: number): boolean {
   if (!Array.isArray(attachments)) return false;
   for (const attachment of attachments) {
     if (!attachment || typeof attachment !== 'object') continue;
     const typed = attachment as { type?: unknown; payload?: { tam_info?: { user_id?: unknown } | null } };
     if (typed.type !== 'contact') continue;
-    return typed.payload?.tam_info?.user_id === senderUserId;
+    const uid = typed.payload?.tam_info?.user_id;
+    // Отклоняем ТОЛЬКО при явном доказательстве чужого владельца.
+    return typeof uid === 'number' && uid !== senderUserId;
   }
   return false;
 }
@@ -99,19 +116,25 @@ export function createMaxBot(): Bot {
 
     const contact = ctx.contactInfo;
     if (contact?.tel) {
-      // ctx.contactInfo — это просто распарсенная vCard из вложения (см.
-      // context.js::getContactInfo в SDK): телефон берётся из карточки,
-      // которую пользователь приложил, а приложить он может ЛЮБОЙ контакт
-      // из своей адресной книги. Без проверки ниже любой пользователь MAX
-      // получал phone_verified на чужой номер — то есть обходил главный
-      // барьер от фейковых анкет, да ещё и подставлял чужой телефон,
-      // который потом показывается водителю/пассажиру как его контакт.
-      // Telegram-ветка в bot.ts такую проверку делает (contact.user_id !==
-      // ctx.from.id), и у MAX для неё тоже есть поле: сырое вложение несёт
-      // payload.tam_info — пользователя MAX, которому принадлежит карточка
-      // (типы: core/network/api/types/attachment.d.ts::ContactAttachment).
-      // Удобный геттер его просто не отдаёт, поэтому читаем вложение сами.
-      if (!isOwnContact(ctx.message.body.attachments, sender.user_id)) {
+      // Диагностика формы вложения (без телефона и без имени): по этим
+      // строкам из реальных логов MAX видно, приходит ли tam_info на
+      // кнопку «Поделиться своим номером». Пока данных с живого MAX нет,
+      // это единственный способ узнать поведение платформы наверняка.
+      const contactAtt = Array.isArray(ctx.message.body.attachments)
+        ? (ctx.message.body.attachments.find(
+            (a) => a && typeof a === 'object' && (a as { type?: unknown }).type === 'contact'
+          ) as { payload?: { tam_info?: { user_id?: unknown } | null } } | undefined)
+        : undefined;
+      console.log(
+        `[maxBot] контакт от ${sender.user_id}: tam_info=${
+          contactAtt?.payload?.tam_info ? `user_id:${contactAtt.payload.tam_info.user_id}` : 'нет'
+        }`
+      );
+      // Отклоняем только карточку, про которую MAX явно сообщил, что она
+      // принадлежит ДРУГОМУ пользователю (см. isForeignContact). Кнопка
+      // «свой номер» присылает контакт без tam_info — он проходит, иначе
+      // подтвердить телефон в MAX не смог бы никто.
+      if (isForeignContact(ctx.message.body.attachments, sender.user_id)) {
         await withRetry(() =>
           ctx.reply('Пожалуйста, отправьте свой собственный номер телефона кнопкой «Подтвердить номер телефона».')
         );

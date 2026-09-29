@@ -17,7 +17,7 @@ process.env.BOT_TOKEN = '123456:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 process.env.MAX_BOT_TOKEN = '654321:BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
 process.env.DB_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'poputka-max-test-')), 'test.db');
 
-const { isOwnContact } = require('../dist/bot/maxBot');
+const { isForeignContact } = require('../dist/bot/maxBot');
 
 const SENDER = 555;
 
@@ -25,49 +25,51 @@ function contactAttachment(payload) {
   return [{ type: 'contact', payload }];
 }
 
-test('свой контакт принимается', () => {
-  assert.strictEqual(
-    isOwnContact(contactAttachment({ tam_info: { user_id: SENDER }, vcf_info: 'BEGIN:VCARD' }), SENDER),
-    true
-  );
+// isForeignContact === true означает «отклонить»: контакт ЯВНО чужой.
+
+test('свой номер через кнопку (vcf без tam_info) — НЕ чужой, проходит', () => {
+  // Это и есть штатный путь подтверждения и причина прежней регрессии:
+  // кнопка «Поделиться своим номером» присылает vcf_info без tam_info.
+  assert.strictEqual(isForeignContact(contactAttachment({ vcf_info: 'BEGIN:VCARD' }), SENDER), false);
+  assert.strictEqual(isForeignContact(contactAttachment({ tam_info: null, vcf_info: 'x' }), SENDER), false);
+  assert.strictEqual(isForeignContact(contactAttachment({ tam_info: {} }), SENDER), false);
 });
 
-test('чужой контакт отклоняется', () => {
-  // Ровно тот случай, ради которого проверка и появилась: пользователь
-  // пересылает боту карточку другого человека, чтобы получить
-  // phone_verified на чужой номер.
+test('свой контакт с tam_info на себя — НЕ чужой, проходит', () => {
   assert.strictEqual(
-    isOwnContact(contactAttachment({ tam_info: { user_id: 999 }, vcf_info: 'BEGIN:VCARD' }), SENDER),
+    isForeignContact(contactAttachment({ tam_info: { user_id: SENDER }, vcf_info: 'BEGIN:VCARD' }), SENDER),
     false
   );
 });
 
-test('карточка без привязки к аккаунту MAX отклоняется', () => {
-  // Произвольная vCard из адресной книги: подтвердить по ней нечего —
-  // телефон в ней может быть чей угодно.
-  assert.strictEqual(isOwnContact(contactAttachment({ vcf_info: 'BEGIN:VCARD' }), SENDER), false);
-  assert.strictEqual(isOwnContact(contactAttachment({ tam_info: null, vcf_info: 'x' }), SENDER), false);
-  assert.strictEqual(isOwnContact(contactAttachment({ tam_info: {} }), SENDER), false);
+test('карточка другого пользователя MAX (tam_info на чужой user_id) — чужой, отклоняется', () => {
+  // Единственный случай, который надёжно ловится: MAX разрешил контакт в
+  // конкретного пользователя, и это не отправитель.
+  assert.strictEqual(
+    isForeignContact(contactAttachment({ tam_info: { user_id: 999 }, vcf_info: 'BEGIN:VCARD' }), SENDER),
+    true
+  );
 });
 
-test('сравнение по user_id строгое — строка не выдаёт себя за число', () => {
-  assert.strictEqual(isOwnContact(contactAttachment({ tam_info: { user_id: String(SENDER) } }), SENDER), false);
+test('строковый user_id не считается совпадением — но и чужим тоже (нет числа)', () => {
+  // Строка не проходит проверку typeof === number, поэтому «доказательства
+  // чужого» нет — контакт не отклоняется как чужой.
+  assert.strictEqual(isForeignContact(contactAttachment({ tam_info: { user_id: String(SENDER) } }), SENDER), false);
 });
 
-test('мусор на входе не роняет проверку и не проходит её', () => {
-  assert.strictEqual(isOwnContact(undefined, SENDER), false);
-  assert.strictEqual(isOwnContact(null, SENDER), false);
-  assert.strictEqual(isOwnContact([], SENDER), false);
-  assert.strictEqual(isOwnContact('не массив', SENDER), false);
-  assert.strictEqual(isOwnContact([null, undefined, 42], SENDER), false);
-  // Вложения других типов не должны приниматься за контакт.
-  assert.strictEqual(isOwnContact([{ type: 'image', payload: { url: 'x' } }], SENDER), false);
+test('мусор на входе не считается чужим контактом', () => {
+  assert.strictEqual(isForeignContact(undefined, SENDER), false);
+  assert.strictEqual(isForeignContact(null, SENDER), false);
+  assert.strictEqual(isForeignContact([], SENDER), false);
+  assert.strictEqual(isForeignContact('не массив', SENDER), false);
+  assert.strictEqual(isForeignContact([null, undefined, 42], SENDER), false);
+  assert.strictEqual(isForeignContact([{ type: 'image', payload: { url: 'x' } }], SENDER), false);
 });
 
-test('контакт находится среди вложений других типов', () => {
+test('чужой контакт находится среди вложений других типов', () => {
   const mixed = [
     { type: 'image', payload: { url: 'x' } },
-    { type: 'contact', payload: { tam_info: { user_id: SENDER } } },
+    { type: 'contact', payload: { tam_info: { user_id: 999 } } },
   ];
-  assert.strictEqual(isOwnContact(mixed, SENDER), true);
+  assert.strictEqual(isForeignContact(mixed, SENDER), true);
 });

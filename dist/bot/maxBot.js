@@ -83,8 +83,15 @@ function createMaxBot() {
     bot.catch((err) => {
         console.error('Ошибка в обработчике бота MAX:', err);
     });
-    bot.on('bot_started', async (ctx) => {
-        (0, userService_1.upsertMaxUser)({ id: ctx.user.user_id, name: ctx.user.name, username: ctx.user.username });
+    // Приветствие с баннером и кнопкой подтверждения телефона. Вынесено в
+    // общую функцию, потому что показывается в двух случаях: при первом
+    // запуске бота (событие bot_started) и когда пользователь пишет /start
+    // руками. Событие bot_started у MAX срабатывает ОДИН раз — при первом
+    // добавлении бота; напечатанный позже /start в него не попадает и
+    // раньше уходил в поддержку как обычный текст (видно на скриншотах:
+    // «/start» -> «Сообщение отправлено в поддержку»).
+    const sendWelcome = async (ctx) => {
+        const button = max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]]);
         try {
             const image = await ctx.api.uploadImage({ source: bot_1.bannerPath });
             await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак ⇄ Аргаяш\n\n' +
@@ -92,14 +99,20 @@ function createMaxBot() {
                 'Чтобы бронировать поездки или публиковать свои — подтвердите номер телефона кнопкой ниже.', {
                 attachments: [
                     new max_bot_api_1.ImageAttachment('photos' in image ? { photos: image.photos } : { url: image.url }).toJson(),
-                    max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]]),
+                    button,
                 ],
             }));
         }
         catch (err) {
             console.error('Не удалось отправить баннер в MAX:', err);
-            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак ⇄ Аргаяш\n\nПодтвердите номер телефона кнопкой ниже.', { attachments: [max_bot_api_1.Keyboard.inlineKeyboard([[max_bot_api_1.Keyboard.button.requestContact('📱 Подтвердить номер телефона')]])] }));
+            await (0, retry_1.withRetry)(() => ctx.reply('🚗 Поехали 74 — попутчики Челябинск ⇄ Кунашак ⇄ Аргаяш\n\nПодтвердите номер телефона кнопкой ниже.', {
+                attachments: [button],
+            }));
         }
+    };
+    bot.on('bot_started', async (ctx) => {
+        (0, userService_1.upsertMaxUser)({ id: ctx.user.user_id, name: ctx.user.name, username: ctx.user.username });
+        await sendWelcome(ctx);
     });
     bot.on('message_created', async (ctx) => {
         const sender = ctx.message.sender;
@@ -143,6 +156,16 @@ function createMaxBot() {
         const text = ctx.message.body.text?.trim();
         if (!text)
             return;
+        // /start, напечатанный руками, — это НЕ обращение в поддержку.
+        // Событие bot_started срабатывает только при первом запуске бота,
+        // поэтому текстовый /start надо обработать здесь: показываем то же
+        // приветствие с кнопкой телефона. Иначе (как было) он уходил в
+        // поддержку. Принимаем и «/start», и «start», и с упоминанием бота.
+        if (/^\/?start\b/i.test(text)) {
+            (0, userService_1.upsertMaxUser)({ id: sender.user_id, name: sender.name, username: sender.username });
+            await sendWelcome(ctx);
+            return;
+        }
         // Код для входа в браузерную (не Mini App) версию сайта — у MAX нет
         // публичного login-виджета для сторонних сайтов, поэтому пользователь
         // получает 6-значный код на сайте и присылает его сюда, боту.
